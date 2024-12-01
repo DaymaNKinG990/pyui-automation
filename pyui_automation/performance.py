@@ -1,13 +1,12 @@
 import time
-from typing import Dict, List, Optional, Tuple, Callable
+from typing import Dict, List, Optional, Tuple, Callable, Any
 import psutil
 import json
 from pathlib import Path
+from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 from dataclasses import dataclass
-from datetime import datetime
-
 
 @dataclass
 class PerformanceMetric:
@@ -24,128 +23,199 @@ class PerformanceMonitor:
         self.application = application
         self.metrics: List[PerformanceMetric] = []
         self.start_time = time.time()
+        self.is_monitoring = False
 
     def start_monitoring(self, interval: float = 1.0):
-        """Start collecting performance metrics"""
+        """Start collecting performance metrics
+        
+        Args:
+            interval: Time between metric collections in seconds
+        """
         self.start_time = time.time()
         self.metrics.clear()
+        self.is_monitoring = True
+        
+        # Start collecting metrics
+        self.record_metric()
+        
+        # Schedule next metric collection if interval is specified
+        if interval > 0:
+            def collect_metrics():
+                while self.is_monitoring:
+                    time.sleep(interval)
+                    self.record_metric()
+            
+            import threading
+            self.monitor_thread = threading.Thread(target=collect_metrics)
+            self.monitor_thread.daemon = True
+            self.monitor_thread.start()
 
     def record_metric(self, response_time: float = 0.0):
         """Record current performance metrics"""
-        if self.application.is_running():
+        if self.application.is_running() and self.is_monitoring:
             self.metrics.append(PerformanceMetric(
                 timestamp=time.time() - self.start_time,
-                cpu_usage=self.application.get_cpu_usage(),
-                memory_usage=self.application.get_memory_usage(),
+                cpu_usage=self.get_cpu_usage(),
+                memory_usage=self.get_memory_usage(),
                 response_time=response_time
             ))
 
     def get_average_metrics(self) -> Dict[str, float]:
         """Get average performance metrics"""
         if not self.metrics:
-            return {'cpu_usage': 0, 'memory_usage': 0, 'response_time': 0}
+            return {
+                'cpu_usage': 0,
+                'memory_usage': 0,
+                'response_time': 0,
+                'duration': time.time() - self.start_time
+            }
 
         return {
             'cpu_usage': sum(m.cpu_usage for m in self.metrics) / len(self.metrics),
             'memory_usage': sum(m.memory_usage for m in self.metrics) / len(self.metrics),
-            'response_time': sum(m.response_time for m in self.metrics) / len(self.metrics)
+            'response_time': sum(m.response_time for m in self.metrics) / len(self.metrics),
+            'duration': time.time() - self.start_time
         }
 
-    def generate_report(self, output_dir: str):
-        """Generate performance report with graphs"""
+    def get_metrics_history(self) -> Dict[str, List[float]]:
+        """Get history of all recorded metrics"""
+        if not self.metrics:
+            return {
+                'cpu_usage_history': [],
+                'memory_usage_history': [],
+                'response_time_history': [],
+                'timestamps': []
+            }
+            
+        return {
+            'cpu_usage_history': [m.cpu_usage for m in self.metrics],
+            'memory_usage_history': [m.memory_usage for m in self.metrics],
+            'response_time_history': [m.response_time for m in self.metrics],
+            'timestamps': [m.timestamp for m in self.metrics]
+        }
+
+    def stop_monitoring(self) -> Dict[str, Any]:
+        """Stop monitoring and return metrics
+        
+        Returns:
+            Dictionary containing:
+            - Average metrics (cpu_usage, memory_usage, response_time)
+            - Duration of monitoring session
+            - History metrics (cpu_usage_history, memory_usage_history, etc.)
+        """
+        self.is_monitoring = False
+        metrics = self.get_average_metrics()
+        history = self.get_metrics_history()
+        return {**metrics, **history}
+
+    def get_cpu_usage(self) -> float:
+        """Get current CPU usage percentage"""
+        try:
+            return self.application.cpu_percent()
+        except (psutil.NoSuchProcess, AttributeError):
+            return 0.0
+
+    def get_memory_usage(self) -> int:
+        """Get current memory usage in bytes"""
+        try:
+            return self.application.memory_info().rss
+        except (psutil.NoSuchProcess, AttributeError):
+            return 0
+
+    def collect_metrics(self) -> Dict[str, Any]:
+        """Collect all performance metrics"""
+        metrics = {
+            'cpu_usage': self.get_cpu_usage(),
+            'memory_usage': self.get_memory_usage(),
+            'timestamp': time.time()
+        }
+        return metrics
+
+    def measure_response_time(self, action: Callable) -> float:
+        """Measure response time of an action"""
+        start_time = time.time()
+        action()
+        return time.time() - start_time
+
+    def measure_operation_time(self, operation: Callable) -> Tuple[Any, float]:
+        """Measure execution time of an operation"""
+        start_time = time.time()
+        result = operation()
+        duration = time.time() - start_time
+        return result, duration
+
+    def check_thresholds(self, metrics: Dict[str, float], thresholds: Dict[str, float]) -> List[str]:
+        """Check if metrics exceed specified thresholds"""
+        violations = []
+        for key, value in metrics.items():
+            if value > thresholds.get(key, float('inf')):
+                violations.append(f"{key} exceeds threshold")
+        return violations
+
+    def generate_report(self, output_path: str):
+        """Generate HTML performance report"""
         if not self.metrics:
             return
-
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        # Create performance graphs
-        timestamps = [m.timestamp for m in self.metrics]
+            
+        # Extract metrics for plotting
+        timestamps = [m.timestamp - self.start_time for m in self.metrics]
+        cpu_usage = [m.cpu_usage for m in self.metrics]
+        memory_usage = [m.memory_usage / (1024 * 1024) for m in self.metrics]  # Convert to MB
         
-        # CPU Usage Graph
-        plt.figure(figsize=(10, 6))
-        plt.plot(timestamps, [m.cpu_usage for m in self.metrics])
-        plt.title('CPU Usage Over Time')
-        plt.xlabel('Time (seconds)')
-        plt.ylabel('CPU Usage (%)')
-        plt.grid(True)
-        plt.savefig(output_path / 'cpu_usage.png')
+        # Create plots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+        
+        # CPU Usage plot
+        ax1.plot(timestamps, cpu_usage, 'b-')
+        ax1.set_title('CPU Usage Over Time')
+        ax1.set_xlabel('Time (s)')
+        ax1.set_ylabel('CPU Usage (%)')
+        
+        # Memory Usage plot
+        ax2.plot(timestamps, memory_usage, 'r-')
+        ax2.set_title('Memory Usage Over Time')
+        ax2.set_xlabel('Time (s)')
+        ax2.set_ylabel('Memory Usage (MB)')
+        
+        plt.tight_layout()
+        
+        # Save plots
+        plot_path = str(Path(output_path).with_suffix('.png'))
+        plt.savefig(plot_path)
         plt.close()
-
-        # Memory Usage Graph
-        plt.figure(figsize=(10, 6))
-        plt.plot(timestamps, [m.memory_usage for m in self.metrics])
-        plt.title('Memory Usage Over Time')
-        plt.xlabel('Time (seconds)')
-        plt.ylabel('Memory Usage (MB)')
-        plt.grid(True)
-        plt.savefig(output_path / 'memory_usage.png')
-        plt.close()
-
-        # Response Time Graph
-        plt.figure(figsize=(10, 6))
-        plt.plot(timestamps, [m.response_time for m in self.metrics])
-        plt.title('Response Time Over Time')
-        plt.xlabel('Time (seconds)')
-        plt.ylabel('Response Time (seconds)')
-        plt.grid(True)
-        plt.savefig(output_path / 'response_time.png')
-        plt.close()
-
+        
         # Generate HTML report
-        avg_metrics = self.get_average_metrics()
-        html_report = f"""
+        html_content = f"""
         <html>
         <head>
             <title>Performance Report</title>
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                .metric {{ margin: 20px 0; }}
-                .graph {{ margin: 20px 0; }}
+                h1 {{ color: #333; }}
+                .metrics {{ margin: 20px 0; }}
+                img {{ max-width: 100%; }}
             </style>
         </head>
         <body>
             <h1>Performance Report</h1>
-            <p>Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-            
-            <div class="metric">
-                <h2>Average Metrics</h2>
-                <ul>
-                    <li>CPU Usage: {avg_metrics['cpu_usage']:.2f}%</li>
-                    <li>Memory Usage: {avg_metrics['memory_usage']:.2f} MB</li>
-                    <li>Response Time: {avg_metrics['response_time']:.3f} seconds</li>
-                </ul>
+            <div class="metrics">
+                <h2>Summary</h2>
+                <p>Duration: {timestamps[-1]:.2f} seconds</p>
+                <p>Average CPU Usage: {np.mean(cpu_usage):.1f}%</p>
+                <p>Average Memory Usage: {np.mean(memory_usage):.1f} MB</p>
+                <p>Peak CPU Usage: {max(cpu_usage):.1f}%</p>
+                <p>Peak Memory Usage: {max(memory_usage):.1f} MB</p>
             </div>
-
-            <div class="graph">
-                <h2>CPU Usage</h2>
-                <img src="cpu_usage.png" alt="CPU Usage Graph">
-            </div>
-
-            <div class="graph">
-                <h2>Memory Usage</h2>
-                <img src="memory_usage.png" alt="Memory Usage Graph">
-            </div>
-
-            <div class="graph">
-                <h2>Response Time</h2>
-                <img src="response_time.png" alt="Response Time Graph">
+            <div class="plots">
+                <h2>Performance Graphs</h2>
+                <img src="{plot_path}" alt="Performance Graphs">
             </div>
         </body>
         </html>
         """
         
-        with open(output_path / 'report.html', 'w') as f:
-            f.write(html_report)
-
-        # Save raw metrics
-        with open(output_path / 'metrics.json', 'w') as f:
-            json.dump([{
-                'timestamp': m.timestamp,
-                'cpu_usage': m.cpu_usage,
-                'memory_usage': m.memory_usage,
-                'response_time': m.response_time
-            } for m in self.metrics], f, indent=2)
+        with open(output_path, 'w') as f:
+            f.write(html_content)
 
 
 class PerformanceTest:

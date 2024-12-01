@@ -19,33 +19,79 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual Environment
 venv/
 env/
 ENV/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-workspace
+*.sublime-project
+.project
+.pydevproject
+.settings/
 
 # Test files
 .coverage
 htmlcov/
 .pytest_cache/
 .tox/
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+nosetests.xml
+coverage.xml
 
 # Visual Testing
 baseline_images/
 reports/
 performance_reports/
 accessibility_reports/
+test_images/
+temp_images/
+visual_test_results/
 
-# Logs
+# Logs and Data
 *.log
+*.csv
+*.dat
+*.out
+*.pid
+*.seed
+*.pid.lock
+logs/
+temp/
 
 # OS
 .DS_Store
 Thumbs.db
+.directory
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Documentation
+docs/_build/
+_build/
+.docz
+.sphinx-build
+
+# Misc
+*.bak
+*.tmp
+*.temp
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

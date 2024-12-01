@@ -1,18 +1,23 @@
+import sys
 from typing import Optional, List, Tuple, Any
-import Quartz
-from AppKit import NSWorkspace, NSScreen
-from Foundation import NSObject, NSPoint
-import objc
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 from .base import BaseBackend
 
+if sys.platform == 'darwin':
+    import Quartz
+    from AppKit import NSWorkspace, NSScreen
+    from Foundation import NSObject, NSPoint
+    import objc
+    from Cocoa import *
 
 class MacOSBackend(BaseBackend):
     """macOS-specific implementation using Apple Accessibility API"""
 
     def __init__(self):
+        if sys.platform != 'darwin':
+            raise RuntimeError("MacOSBackend can only be used on macOS systems")
         self.ax = objc.ObjCClass('AXUIElement')
         self.system = self.ax.systemWide()
 

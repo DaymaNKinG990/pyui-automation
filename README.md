@@ -13,10 +13,76 @@ A powerful, cross-platform Python library for desktop UI testing and automation 
 - 🔄 Application Management
 - 📊 Comprehensive Reporting
 
+## Code Coverage
+
+```
+---------- coverage: platform win32, python 3.12.0-final-0 -----------
+Name                                   Stmts   Miss  Cover
+----------------------------------------------------------
+pyui_automation/__init__.py                5      0   100%
+pyui_automation/accessibility.py         136     43    68%
+pyui_automation/application.py           138     62    55%
+pyui_automation/backends/__init__.py      15      8    47%
+pyui_automation/backends/base.py          38     15    61%
+pyui_automation/backends/linux.py         77     60    22%
+pyui_automation/backends/macos.py         95     77    19%
+pyui_automation/backends/windows.py      212    179    16%
+pyui_automation/core.py                  246     99    60%
+pyui_automation/elements.py               77     46    40%
+pyui_automation/input.py                 204    134    34%
+pyui_automation/ocr.py                   143     77    46%
+pyui_automation/optimization.py           77     35    55%
+pyui_automation/performance.py           142     45    68%
+pyui_automation/visual.py                168     26    85%
+pyui_automation/wait.py                   45     23    49%
+----------------------------------------------------------
+TOTAL                                   1818    929    49%
+```
+
+### Coverage Highlights
+- 🟢 High Coverage (>80%): Visual Testing, Core Initialization
+- 🟡 Medium Coverage (50-80%): Accessibility, Performance, Core Functions
+- 🔴 Low Coverage (<50%): Platform-specific Backends, Input Handling
+
 ## Installation
 
 ```bash
+# Install required dependencies
 pip install -r requirements.txt
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+```
+
+## Testing
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test module
+pytest tests/test_visual.py
+
+# Run with coverage
+pytest --cov=pyui_automation
+
+# Generate HTML coverage report
+pytest --cov=pyui_automation --cov-report=html
+```
+
+### Test Structure
+
+```
+tests/
+├── conftest.py           # Shared fixtures
+├── test_accessibility.py # Accessibility testing
+├── test_core.py         # Core functionality
+├── test_input.py        # Input simulation
+├── test_performance.py  # Performance monitoring
+├── test_visual.py       # Visual comparison
+└── test_wait.py         # Wait conditions
 ```
 
 ## Quick Start
@@ -34,8 +100,14 @@ app = ui.launch_application("path/to/app.exe")
 button = ui.find_element(by="name", value="Submit")
 button.click()
 
-# Take screenshot
-ui.take_screenshot("main_screen.png")
+# Visual testing
+ui.init_visual_testing()
+ui.capture_visual_baseline("login_screen")
+assert ui.compare_visual("login_screen")
+
+# Accessibility testing
+checker = ui.create_accessibility_checker()
+violations = checker.check_element(button)
 ```
 
 ## Core Features
@@ -51,161 +123,63 @@ element = ui.find_element(by="css", value="#submit-button")
 # Element actions
 element.click()
 element.type_text("Hello World")
-element.clear()
-element.is_visible()
-element.wait_until_visible(timeout=10)
+element.get_screenshot()
 ```
 
 ### Visual Testing
 
 ```python
 # Initialize visual testing
-ui.init_visual_testing("baseline_images")
+ui.init_visual_testing("baseline_dir")
 
 # Capture baseline
-ui.capture_visual_baseline("login_screen")
+ui.capture_visual_baseline("main_screen")
 
 # Compare with baseline
-differences = ui.compare_visual("login_screen")
-if differences:
-    print(f"Found {len(differences)} visual differences")
-    
-# Quick hash-based comparison
-result = ui.verify_visual_hash("login_screen")
-if result['match']:
-    print(f"Images match with {result['similarity']*100}% similarity")
+result = ui.compare_visual("main_screen")
+assert result["match"], f"Visual mismatch: {result['differences']}"
 
-# Generate visual report
-ui.generate_visual_report("login_screen", differences, "reports")
-```
-
-### Performance Testing
-
-```python
-# Start monitoring
-ui.start_performance_monitoring(interval=1.0)
-
-# Measure specific action
-def login_action():
-    ui.find_element(by="id", value="username").type_text("user")
-    ui.find_element(by="id", value="password").type_text("pass")
-    ui.find_element(by="id", value="submit").click()
-
-metrics = ui.measure_action_performance(
-    action=login_action,
-    name="login",
-    test_runs=5
-)
-
-# Run stress test
-stress_results = ui.run_stress_test(
-    action=login_action,
-    duration=60,
-    interval=0.1
-)
-
-# Check for memory leaks
-leak_results = ui.check_memory_leaks(
-    action=login_action,
-    iterations=100,
-    threshold_mb=10.0
-)
-
-# Generate performance report
-ui.generate_performance_report("performance_reports")
+# Hash-based comparison
+assert ui.verify_visual_hash("main_screen")
 ```
 
 ### Accessibility Testing
 
 ```python
-# Run accessibility checks
-violations = ui.check_accessibility()
-for violation in violations:
-    print(f"Rule: {violation['rule']}")
-    print(f"Severity: {violation['severity']}")
-    print(f"Description: {violation['description']}")
-    print(f"Recommendation: {violation['recommendation']}")
+# Create checker
+checker = ui.create_accessibility_checker()
 
-# Generate accessibility report
-ui.generate_accessibility_report("accessibility_reports")
+# Check single element
+violations = checker.check_element(button)
+
+# Check entire application
+app_violations = checker.check_application()
+
+# Generate report
+checker.generate_report("accessibility_report.html")
 ```
 
-### Application Management
+### Performance Monitoring
 
 ```python
-# Launch application
-app = ui.launch_application(
-    path="path/to/app.exe",
-    args=["--debug"],
-    env={"DEBUG": "1"}
-)
+# Start monitoring
+ui.start_performance_monitoring()
 
-# Attach to existing application
-app = ui.attach_to_application("notepad.exe")
+# Perform actions
+button.click()
+ui.wait_for_element("result")
 
-# Get current application
-current_app = ui.get_current_application()
-
-# Application properties
-print(f"Process ID: {current_app.pid}")
-print(f"Memory Usage: {current_app.memory_usage} MB")
-print(f"CPU Usage: {current_app.cpu_usage}%")
-```
-
-## Advanced Usage
-
-### Custom Wait Conditions
-
-```python
-# Wait for custom condition
-ui.wait_until(lambda: ui.find_element(by="id", value="status").text == "Ready")
-
-# Wait with timeout
-ui.wait_until(
-    condition=lambda: ui.find_element(by="id", value="progress").value == 100,
-    timeout=30
-)
-```
-
-### Element Collections
-
-```python
-# Find multiple elements
-buttons = ui.find_elements(by="class", value="btn")
-
-# Iterate and interact
-for button in buttons:
-    if button.is_visible() and button.is_enabled():
-        button.click()
-```
-
-### OCR and Text Recognition
-
-```python
-# Find element by text content
-element = ui.find_element(by="text", value="Click me")
-
-# Use OCR to find text
-text = ui.ocr.find_text("Submit")
-if text:
-    print(f"Found text at coordinates: {text.location}")
-```
-
-### Performance Optimization
-
-```python
-# Enable optimization features
-ui.optimization.enable_caching()
-ui.optimization.set_process_priority("high")
-ui.optimization.enable_multi_threading()
+# Get metrics
+metrics = ui.get_performance_metrics()
+print(f"Response time: {metrics['response_time']}ms")
 ```
 
 ## Best Practices
 
-1. **Element Finding**
-   - Use IDs when possible for fastest and most reliable element finding
-   - Avoid complex XPath expressions
-   - Use appropriate timeouts for dynamic elements
+1. **Element Location**
+   - Use unique identifiers when possible
+   - Prefer ID and name over XPath
+   - Create robust element locators
 
 2. **Visual Testing**
    - Keep baseline images in version control
@@ -213,19 +187,23 @@ ui.optimization.enable_multi_threading()
    - Use element-specific comparisons for dynamic content
 
 3. **Performance Testing**
-   - Run performance tests in a controlled environment
-   - Include warm-up runs before measuring
-   - Set appropriate thresholds for your application
+   - Set realistic thresholds
+   - Account for system variations
+   - Monitor trends over time
 
-4. **Accessibility Testing**
-   - Run accessibility checks early in development
-   - Address high-severity violations first
-   - Include accessibility testing in CI/CD pipeline
+4. **Cross-Platform Testing**
+   - Test on all target platforms
+   - Use platform-agnostic locators
+   - Handle platform-specific differences
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.

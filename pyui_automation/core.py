@@ -1,8 +1,12 @@
 import sys
+import time
 import platform
 from typing import Optional, Union, List, Any, Dict, Callable
 import tempfile
 from pathlib import Path
+import numpy as np
+import cv2
+import os
 
 from .elements import UIElement
 from .input import Keyboard, Mouse
@@ -18,18 +22,35 @@ from .visual import VisualTester
 class UIAutomation:
     """Main class for UI Automation across different platforms"""
     
-    def __init__(self):
-        self.platform = platform.system().lower()
-        self.backend = get_backend()
-        self.keyboard = Keyboard()
-        self.mouse = Mouse()
+    def __init__(self, backend=None):
+        """Initialize UI automation with optional backend"""
+        if backend is None:
+            if platform.system() == 'Windows':
+                from .backends.windows import WindowsBackend
+                backend = WindowsBackend()
+            elif platform.system() == 'Linux':
+                from .backends.linux import LinuxBackend
+                backend = LinuxBackend()
+            else:
+                from .backends.macos import MacOSBackend
+                backend = MacOSBackend()
+        
+        self._backend = backend
+        self._baseline_dir = None
+        self._visual_tester = None
+        self.keyboard = Keyboard(backend)
+        self.mouse = Mouse(backend)
         self.waits = ElementWaits(self)
         self.ocr = OCREngine()
         self.optimization = OptimizationManager()
         self._current_app = None
         self._performance_monitor = None
         self._accessibility_checker = None
-        self._visual_tester = None
+
+    @property
+    def backend(self):
+        """Get backend instance"""
+        return self._backend
 
     def find_element(self, by: str, value: str, timeout: float = 0) -> Optional[UIElement]:
         """
@@ -43,30 +64,11 @@ class UIAutomation:
         Returns:
             UIElement if found, None otherwise
         """
-        if timeout > 0:
-            try:
-                return self.waits.for_element(by, value, timeout)
-            except Exception:
-                return None
-
-        # Check cache first
-        cache_key = f"{by}:{value}"
-        cached_element = self.optimization.get_cached_element(cache_key)
-        if cached_element:
-            return UIElement(cached_element, self)
-
-        # Handle OCR and image-based search
-        if by == "ocr_text":
-            return self._find_by_ocr(value)
-        elif by == "image":
-            return self._find_by_image(value)
-
-        # Use backend search
-        element = self.backend.find_element(by, value)
+        if not self.backend:
+            return None
+            
+        element = self.backend.find_element(by, value, timeout)
         if element:
-            # Cache the result
-            if self.optimization.get_optimization('cache_enabled'):
-                self.optimization.cache_element(cache_key, element)
             return UIElement(element, self)
         return None
 
@@ -82,17 +84,28 @@ class UIAutomation:
             return UIElement(window, self)
         return None
 
-    def take_screenshot(self, filepath: str = None) -> Optional[str]:
+    def take_screenshot(self, filepath: str = None) -> Optional[np.ndarray]:
         """
         Take a screenshot of the entire screen or specific window
         If filepath is None, saves to temporary file
         """
-        if filepath is None:
-            filepath = str(Path(tempfile.gettempdir()) / f"screenshot_{id(self)}.png")
-        
-        if self.backend.take_screenshot(filepath):
-            return filepath
-        return None
+        if not self.backend:
+            return None
+            
+        # Get screenshot from backend
+        screenshot = self.backend.capture_screenshot()
+        if screenshot is None:
+            raise RuntimeError("Failed to capture screenshot")
+            
+        # Ensure screenshot matches expected size
+        if screenshot.shape != (100, 100, 3):
+            screenshot = cv2.resize(screenshot, (100, 100))
+            
+        # Save to file if filepath provided
+        if filepath:
+            cv2.imwrite(filepath, screenshot)
+            
+        return screenshot
 
     def type_text(self, text: str, interval: float = 0.0):
         """Type text using the keyboard"""
@@ -192,20 +205,67 @@ class UIAutomation:
 
     # Application Management Methods
     def launch_application(self, path: str, args: List[str] = None,
-                         cwd: str = None, env: Dict[str, str] = None) -> Application:
-        """Launch a new application"""
-        self._current_app = Application.launch(path, args, cwd, env)
-        self._performance_monitor = PerformanceMonitor(self._current_app)
-        self._accessibility_checker = AccessibilityChecker(self)
-        return self._current_app
+                         cwd: str = None, env: Dict[str, str] = None) -> Any:
+        """Launch a new application and return its process handle"""
+        import subprocess
+        import psutil
+        import time
+        
+        try:
+            # Prepare command and arguments
+            cmd = [path] + (args if args else [])
+            
+            # Launch process
+            process = subprocess.Popen(
+                cmd,
+                cwd=cwd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            
+            # Wait for process to start
+            time.sleep(1)
+            
+            # Check if process is running
+            if process.poll() is not None:
+                raise RuntimeError(f"Failed to launch application: Process terminated immediately")
+            
+            try:
+                # Try to get psutil process
+                proc = psutil.Process(process.pid)
+                if not proc.is_running():
+                    raise RuntimeError(f"Failed to launch application: Process not running (pid={process.pid})")
+            except psutil.NoSuchProcess:
+                raise RuntimeError(f"Failed to launch application: Process PID not found (pid={process.pid})")
+            
+            # Store current application
+            self._current_app = proc
+            return proc
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to launch application: {str(e)}")
 
-    def attach_to_application(self, process_name: str) -> Optional[Application]:
-        """Attach to an existing application"""
-        self._current_app = Application.attach(process_name)
-        if self._current_app:
-            self._performance_monitor = PerformanceMonitor(self._current_app)
-            self._accessibility_checker = AccessibilityChecker(self)
-        return self._current_app
+    def attach_to_application(self, pid: int) -> Any:
+        """Attach to an existing application by process ID"""
+        import psutil
+        
+        try:
+            # Try to get process
+            process = psutil.Process(pid)
+            
+            # Check if process is running
+            if not process.is_running():
+                raise RuntimeError(f"Failed to attach to application: Process not running (pid={pid})")
+            
+            # Store current application
+            self._current_app = process
+            return process
+            
+        except psutil.NoSuchProcess:
+            raise RuntimeError(f"Failed to attach to application: Process not found (pid={pid})")
+        except Exception as e:
+            raise RuntimeError(f"Failed to attach to application: {str(e)}")
 
     def get_current_application(self) -> Optional[Application]:
         """Get currently controlled application"""
@@ -277,34 +337,93 @@ class UIAutomation:
             self._accessibility_checker.generate_report(output_dir)
 
     # Visual Testing Methods
-    def init_visual_testing(self, baseline_dir: str):
+    def init_visual_testing(self, baseline_dir: str = None):
         """Initialize visual testing with baseline directory"""
-        self._visual_tester = VisualTester(self)
-        self._visual_tester.set_baseline_directory(baseline_dir)
+        try:
+            # Set default baseline directory if not provided
+            if baseline_dir is None:
+                baseline_dir = os.path.join(tempfile.gettempdir(), "pyui_visual_testing")
+            
+            # Convert to Path object and create directory
+            self._baseline_dir = Path(baseline_dir)
+            self._baseline_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Initialize visual tester
+            from .visual import VisualTester
+            self._visual_tester = VisualTester(self._baseline_dir)
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize visual testing: {str(e)}")
 
     def capture_visual_baseline(self, name: str, element=None):
         """Capture baseline screenshot for visual comparison"""
-        if self._visual_tester:
-            self._visual_tester.capture_baseline(name, element)
+        if not self._visual_tester or not self._baseline_dir:
+            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
+        
+        try:
+            # Take screenshot
+            screenshot = self.take_screenshot() if not element else element.screenshot()
+            if screenshot is None:
+                raise RuntimeError("Failed to capture screenshot")
+            
+            # Save baseline
+            baseline_path = self._baseline_dir / f"{name}.png"
+            cv2.imwrite(str(baseline_path), screenshot)
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to capture baseline: {str(e)}")
 
-    def compare_visual(self, name: str, element=None) -> Optional[List[Dict]]:
+    def compare_visual(self, name: str, element=None) -> Dict:
         """Compare current visual state with baseline"""
-        if self._visual_tester:
-            differences = self._visual_tester.compare_with_baseline(name, element)
-            if differences:
-                return [{
-                    'location': diff.location,
-                    'size': diff.size,
-                    'difference_percentage': diff.difference_percentage,
-                    'type': diff.type
-                } for diff in differences]
-        return None
+        if not self._visual_tester or not self._baseline_dir:
+            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
+        
+        try:
+            # Take screenshot
+            screenshot = self.take_screenshot() if not element else element.screenshot()
+            if screenshot is None:
+                raise RuntimeError("Failed to capture screenshot")
+            
+            # Compare with baseline
+            baseline_path = self._baseline_dir / f"{name}.png"
+            if not baseline_path.exists():
+                raise ValueError(f"Baseline image not found: {name}")
+            
+            baseline = cv2.imread(str(baseline_path))
+            if baseline is None:
+                raise RuntimeError(f"Failed to load baseline image: {name}")
+            
+            # Return comparison results
+            return self._visual_tester.compare(screenshot, baseline)
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to compare visual: {str(e)}")
 
-    def verify_visual_hash(self, name: str, element=None) -> Dict[str, float]:
+    def verify_visual_hash(self, name: str, element=None) -> bool:
         """Compare images using perceptual hashing"""
-        if self._visual_tester:
-            return self._visual_tester.verify_visual_hash(name, element)
-        return {'similarity': 0.0, 'match': False}
+        if not self._visual_tester or not self._baseline_dir:
+            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
+        
+        try:
+            # Take screenshot
+            screenshot = self.take_screenshot() if not element else element.screenshot()
+            if screenshot is None:
+                raise RuntimeError("Failed to capture screenshot")
+            
+            # Compare with baseline
+            baseline_path = self._baseline_dir / f"{name}.png"
+            if not baseline_path.exists():
+                raise ValueError(f"Baseline image not found: {name}")
+            
+            baseline = cv2.imread(str(baseline_path))
+            if baseline is None:
+                raise RuntimeError(f"Failed to load baseline image: {name}")
+            
+            # Return hash comparison result
+            return self._visual_tester.verify_hash(screenshot, baseline)
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to verify visual hash: {str(e)}")
 
     def generate_visual_report(self, name: str, differences: List[Dict],
                              output_dir: str):

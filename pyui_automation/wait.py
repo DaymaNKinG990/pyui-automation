@@ -42,37 +42,62 @@ class ElementWaits:
     def __init__(self, automation):
         self.automation = automation
 
+    def wait_until(self, condition: Callable[[], bool], timeout: float = 10) -> bool:
+        """
+        Wait until condition is true or timeout occurs
+        
+        Args:
+            condition: Function that returns bool
+            timeout: Maximum time to wait in seconds
+        
+        Returns:
+            True if condition was met, raises WaitTimeout otherwise
+        """
+        return wait_until(condition, timeout)
+
     def for_element(self, by: str, value: str, timeout: float = 10) -> Any:
         """Wait for element to be present"""
         def condition():
             element = self.automation.find_element(by, value)
             return element is not None
 
-        wait_until(condition, timeout,
-                  error_message=f"Element not found: {by}={value}")
+        self.wait_until(condition, timeout,
+                        error_message=f"Element not found with {by}={value}")
         return self.automation.find_element(by, value)
 
-    def for_element_visible(self, by: str, value: str, timeout: float = 10) -> Any:
+    def for_element_visible(self, element: Any, timeout: float = 10) -> bool:
         """Wait for element to be visible"""
-        element = self.for_element(by, value, timeout)
-        
-        def condition():
-            return element.visible
+        return self.wait_until(
+            lambda: not element.is_offscreen,
+            timeout,
+            error_message="Element did not become visible"
+        )
 
-        wait_until(condition, timeout,
-                  error_message=f"Element not visible: {by}={value}")
-        return element
-
-    def for_element_enabled(self, by: str, value: str, timeout: float = 10) -> Any:
+    def for_element_enabled(self, element: Any, timeout: float = 10) -> bool:
         """Wait for element to be enabled"""
-        element = self.for_element(by, value, timeout)
-        
-        def condition():
-            return element.enabled
+        return self.wait_until(
+            lambda: element.is_enabled,
+            timeout,
+            error_message="Element did not become enabled"
+        )
 
-        wait_until(condition, timeout,
-                  error_message=f"Element not enabled: {by}={value}")
-        return element
+    def for_element_property(self, element: Any, property_name: str,
+                           expected_value: Any, timeout: float = 10) -> bool:
+        """Wait for element property to have expected value"""
+        return self.wait_until(
+            lambda: element.get_property(property_name) == expected_value,
+            timeout,
+            error_message=f"Property {property_name} did not match expected value"
+        )
+
+    def for_element_pattern(self, element: Any, pattern_name: str,
+                          timeout: float = 10) -> bool:
+        """Wait for element to support pattern"""
+        return self.wait_until(
+            lambda: element.has_pattern(pattern_name),
+            timeout,
+            error_message=f"Element does not support pattern {pattern_name}"
+        )
 
     def for_element_text(self, by: str, value: str, text: str,
                         timeout: float = 10) -> Any:
@@ -82,7 +107,7 @@ class ElementWaits:
         def condition():
             return element.text == text
 
-        wait_until(condition, timeout,
+        self.wait_until(condition, timeout,
                   error_message=f"Element text mismatch: {by}={value}")
         return element
 
@@ -94,6 +119,6 @@ class ElementWaits:
         def condition():
             return text in element.text
 
-        wait_until(condition, timeout,
+        self.wait_until(condition, timeout,
                   error_message=f"Element does not contain text: {by}={value}")
         return element

@@ -1,35 +1,41 @@
+import sys
 from typing import Optional, List, Tuple, Any
-import pyatspi
-from Xlib import display, X
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 from .base import BaseBackend
+
+if sys.platform == 'linux':
+    import pyatspi
+    from Xlib import display, X
 
 
 class LinuxBackend(BaseBackend):
     """Linux-specific implementation using AT-SPI2"""
 
     def __init__(self):
+        if sys.platform != 'linux':
+            raise RuntimeError("LinuxBackend can only be used on Linux systems")
         self.display = display.Display()
         self.screen = self.display.screen()
-        pyatspi.Registry.start()
+        self.registry = pyatspi.Registry
+        self.registry.start()
 
     def find_element(self, by: str, value: str) -> Optional[Any]:
         """Find a UI element using AT-SPI2"""
-        desktop = pyatspi.Registry.getDesktop(0)
+        desktop = self.registry.getDesktop(0)
         return self._find_element_recursive(desktop, by, value)
 
     def find_elements(self, by: str, value: str) -> List[Any]:
         """Find all matching UI elements"""
-        desktop = pyatspi.Registry.getDesktop(0)
+        desktop = self.registry.getDesktop(0)
         elements = []
         self._find_elements_recursive(desktop, by, value, elements)
         return elements
 
     def get_active_window(self) -> Optional[Any]:
         """Get the currently active window"""
-        desktop = pyatspi.Registry.getDesktop(0)
+        desktop = self.registry.getDesktop(0)
         for app in desktop:
             if app.getState().contains(pyatspi.STATE_ACTIVE):
                 return app
@@ -92,6 +98,6 @@ class LinuxBackend(BaseBackend):
     def __del__(self):
         """Cleanup AT-SPI2 registry"""
         try:
-            pyatspi.Registry.stop()
+            self.registry.stop()
         except Exception:
             pass
