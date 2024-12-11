@@ -18,6 +18,8 @@ class UIElement:
     @property
     def text(self) -> str:
         """Get element text content"""
+        if hasattr(self._element, 'CurrentValue'):
+            return self._element.CurrentValue
         return self._element.get_text() if hasattr(self._element, 'get_text') else ''
 
     @property
@@ -90,7 +92,13 @@ class UIElement:
 
     def clear(self):
         """Clear element content"""
-        self._element.clear()
+        if hasattr(self._element, 'clear'):
+            self._element.clear()
+        else:
+            # Simulate clear using keyboard
+            self.click()
+            self._automation.keyboard.press('ctrl+a')
+            self._automation.keyboard.press('delete')
 
     def get_attribute(self, name: str) -> Optional[str]:
         """Get element attribute value"""

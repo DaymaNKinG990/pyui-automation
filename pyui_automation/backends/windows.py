@@ -29,6 +29,15 @@ class WindowsBackend(BaseBackend):
 
     def __init__(self):
         try:
+            # Register the COM server first
+            try:
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"UIAutomationClient.CUIAutomation")
+                winreg.CloseKey(key)
+            except WindowsError:
+                # If the key doesn't exist, register the COM server
+                os.system('regsvr32 /s %SystemRoot%\\System32\\UIAutomationCore.dll')
+            
             # Create UI Automation client using proper interface
             self.automation = comtypes.client.CreateObject(
                 "UIAutomationClient.CUIAutomation",

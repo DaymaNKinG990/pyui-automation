@@ -1,6 +1,8 @@
 import os
+import sys
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from pathlib import Path
 from PIL import Image
 import numpy as np
 
@@ -9,6 +11,26 @@ from pyui_automation.elements import UIElement
 from pyui_automation.accessibility import AccessibilityChecker
 from pyui_automation.application import Application
 from pyui_automation.performance import PerformanceMonitor
+
+
+# Create a mock module for os
+class MockOS:
+    def __init__(self):
+        # Copy all attributes from the real os module
+        for attr in dir(os):
+            if not attr.startswith('__'):
+                setattr(self, attr, getattr(os, attr))
+        # Add mock getuid
+        self.getuid = MagicMock(return_value=1000)
+
+# Replace os module with our mock for tests
+@pytest.fixture(autouse=True)
+def mock_os_module():
+    real_os = sys.modules['os']
+    mock_os = MockOS()
+    sys.modules['os'] = mock_os
+    yield
+    sys.modules['os'] = real_os
 
 
 @pytest.fixture

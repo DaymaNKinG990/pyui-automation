@@ -52,6 +52,10 @@ coverage.xml
 *.py,cover
 nosetests.xml
 coverage.xml
+.hypothesis/
+.pytest_cache/
+junit/
+test-output/
 
 # Visual Testing
 baseline_images/
@@ -61,6 +65,9 @@ accessibility_reports/
 test_images/
 temp_images/
 visual_test_results/
+screenshot_*.png
+diff_*.png
+mask_*.png
 
 # Logs and Data
 *.log
@@ -72,6 +79,7 @@ visual_test_results/
 *.pid.lock
 logs/
 temp/
+.cache/
 
 # OS
 .DS_Store
@@ -86,6 +94,8 @@ docs/_build/
 _build/
 .docz
 .sphinx-build
+.pdoc
+docs/api/
 
 # Misc
 *.bak
@@ -95,3 +105,9 @@ _build/
 .env.development.local
 .env.test.local
 .env.production.local
+*.pyc
+__pycache__
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/

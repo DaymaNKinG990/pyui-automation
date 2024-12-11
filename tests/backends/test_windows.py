@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 import win32gui
 import win32con
 import win32api
@@ -19,15 +19,16 @@ def mock_automation():
 
 @pytest.fixture
 def mock_element():
-    element = MagicMock()
-    element.CurrentName = "Test Element"
-    element.CurrentAutomationId = "test_id"
-    element.CurrentClassName = "TestClass"
-    element.CurrentControlType = 50000  # Button
-    element.CurrentIsEnabled = True
-    element.CurrentIsOffscreen = False
-    element.CurrentBoundingRectangle = (0, 0, 100, 100)
-    return element
+    """Create mock element with required properties"""
+    mock = MagicMock()
+    type(mock).CurrentName = PropertyMock(return_value="Test Element")
+    type(mock).CurrentAutomationId = PropertyMock(return_value="test_id")
+    type(mock).CurrentClassName = PropertyMock(return_value="TestClass")
+    type(mock).CurrentControlType = PropertyMock(return_value=50000)
+    type(mock).CurrentIsEnabled = PropertyMock(return_value=True)
+    type(mock).CurrentIsOffscreen = PropertyMock(return_value=False)
+    type(mock).CurrentBoundingRectangle = PropertyMock(return_value=(0, 0, 100, 100))
+    return mock
 
 
 @pytest.fixture
@@ -247,12 +248,14 @@ def test_find_window(backend, mock_element):
 def test_get_window_title(backend, mock_element):
     """Test getting window title"""
     # Test successful get
+    type(mock_element).CurrentName = PropertyMock(return_value="Test Element")
     title = backend.get_window_title(mock_element)
     assert title == "Test Element"
 
     # Test exception handling
-    mock_element.CurrentName = None
-    title = backend.get_window_title(mock_element)
+    mock = MagicMock()
+    type(mock).CurrentName = PropertyMock(side_effect=Exception("No title"))
+    title = backend.get_window_title(mock)
     assert title is None
 
 
@@ -289,7 +292,15 @@ def test_get_element_attributes(backend, mock_element):
         'bounding_rectangle': (0, 0, 100, 100)
     }
 
-    # Test exception handling
-    mock_element.CurrentName = None  # Trigger attribute error
-    attrs = backend.get_element_attributes(mock_element)
+    # Test exception handling by creating a mock that raises AttributeError
+    mock = MagicMock()
+    type(mock).CurrentName = PropertyMock(side_effect=Exception("No name"))
+    type(mock).CurrentAutomationId = PropertyMock(side_effect=Exception("No id"))
+    type(mock).CurrentClassName = PropertyMock(side_effect=Exception("No class"))
+    type(mock).CurrentControlType = PropertyMock(side_effect=Exception("No type"))
+    type(mock).CurrentIsEnabled = PropertyMock(side_effect=Exception("Not enabled"))
+    type(mock).CurrentIsOffscreen = PropertyMock(side_effect=Exception("Not offscreen"))
+    type(mock).CurrentBoundingRectangle = PropertyMock(side_effect=Exception("No bounds"))
+
+    attrs = backend.get_element_attributes(mock)
     assert attrs == {}
