@@ -1,9 +1,9 @@
-import pytest
 from pyui_automation.utils.validation import (
     validate_type, validate_not_none, validate_string_not_empty,
     validate_number_range, validate_regex, validate_callable,
     validate_iterable, validate_all, validate_any
 )
+
 
 def test_validate_type():
     """Test type validation"""

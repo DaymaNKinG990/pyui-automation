@@ -1,39 +1,86 @@
 import cv2
 import numpy as np
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, TypeAlias
 from pathlib import Path
 
-def load_image(path: str) -> Optional[np.ndarray]:
-    """Load image from file"""
+# Type alias for template matching results: (x, y, confidence_score)
+Match: TypeAlias = Tuple[int, int, float]
+
+
+def load_image(path: Path) -> Optional[np.ndarray]:
+    """
+    Load image from file.
+
+    Args:
+        path: The file path to load the image from.
+
+    Returns:
+        The loaded image as a numpy array, or None if loading fails.
+    """
     try:
         return cv2.imread(str(path))
     except Exception:
         return None
 
-def save_image(image: np.ndarray, path: str) -> bool:
-    """Save image to file"""
+def save_image(image: np.ndarray, path: Path) -> bool:
+    """
+    Save image to file.
+
+    Args:
+        image (np.ndarray): The image data to save.
+        path (Path): The file path to save the image to.
+
+    Returns:
+        bool: True if the image was saved successfully, False otherwise.
+    """
     try:
         return cv2.imwrite(str(path), image)
     except Exception:
         return False
 
-def resize_image(image: np.ndarray, width: int = None, height: int = None) -> np.ndarray:
-    """Resize image maintaining aspect ratio"""
+def resize_image(image: np.ndarray, width: Optional[int] = None, height: Optional[int] = None) -> np.ndarray:
+    """
+    Resize an image while maintaining its aspect ratio.
+
+    Args:
+        image (np.ndarray): The image to be resized.
+        width (Optional[int]): The desired width of the resized image. If None, height must be provided.
+        height (Optional[int]): The desired height of the resized image. If None, width must be provided.
+
+    Returns:
+        np.ndarray: The resized image with maintained aspect ratio.
+
+    Raises:
+        ValueError: If both width and height are None, or if after calculation, either width or height remains None.
+    """
     if width is None and height is None:
         return image
 
     h, w = image.shape[:2]
-    if width is None:
+    if width is None and height is not None:
         aspect = height / h
         width = int(w * aspect)
-    elif height is None:
+    elif height is None and width is not None:
         aspect = width / w
         height = int(h * aspect)
+
+    if width is None or height is None:
+        raise ValueError("Either width or height must be provided")
 
     return cv2.resize(image, (width, height))
 
 def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) -> bool:
-    """Compare two images for similarity"""
+    """
+    Compare two images for similarity.
+
+    Args:
+        img1 (np.ndarray): The first image to compare.
+        img2 (np.ndarray): The second image to compare.
+        threshold (float, optional): The minimum similarity score required for the comparison to return True. Defaults to 0.95.
+
+    Returns:
+        bool: True if the images are similar (i.e., the similarity score is greater than or equal to the threshold), False otherwise.
+    """
     if img1.shape != img2.shape:
         return False
         
@@ -45,13 +92,25 @@ def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) 
         img1_gray = img1
         img2_gray = img2
         
-    # Calculate mean squared error
-    mse = np.mean((img1_gray - img2_gray) ** 2)
-    similarity = 1 / (1 + mse)  # Convert MSE to similarity score (0 to 1)
-    return similarity >= threshold
+    # Calculate normalized mean absolute difference
+    diff = img1_gray.astype(float) - img2_gray.astype(float)
+    mse = np.mean(np.abs(diff))  # Use mean absolute difference instead of squared error
+    similarity = 1.0 - (mse / 255.0)  # Normalize by max pixel value
+    return bool(similarity >= threshold)
 
-def find_template(image: np.ndarray, template: np.ndarray, threshold: float = 0.8) -> List[Tuple[int, int]]:
-    """Find template in image using template matching"""
+def find_template(image: np.ndarray, template: np.ndarray, threshold: float = 0.8) -> List[Match]:
+    """
+    Find template in image using template matching.
+
+    Args:
+        image (np.ndarray): The image to search for the template in.
+        template (np.ndarray): The template image to search for.
+        threshold (float, optional): The minimum similarity score required for a match. Defaults to 0.8.
+
+    Returns:
+        List[Match]: A list of (x, y, score) coordinates where the template was found in the image,
+                    where score is the matching confidence value.
+    """
     # Convert images to grayscale
     if len(image.shape) == 3:
         image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -64,8 +123,15 @@ def find_template(image: np.ndarray, template: np.ndarray, threshold: float = 0.
         template_gray = template
 
     # Normalize images to improve matching
-    image_gray = cv2.normalize(image_gray, None, 0, 255, cv2.NORM_MINMAX)
-    template_gray = cv2.normalize(template_gray, None, 0, 255, cv2.NORM_MINMAX)
+    image_gray = image_gray.astype(np.float32)
+    normalized_image_gray = np.empty_like(image_gray)
+    cv2.normalize(image_gray, normalized_image_gray, 0, 255, cv2.NORM_MINMAX)
+    image_gray = normalized_image_gray.astype(np.uint8)
+    
+    template_gray = template_gray.astype(np.float32)
+    normalized_template_gray = np.empty_like(template_gray)
+    cv2.normalize(template_gray, normalized_template_gray, 0, 255, cv2.NORM_MINMAX)
+    template_gray = normalized_template_gray.astype(np.uint8)
 
     # Perform template matching
     result = cv2.matchTemplate(image_gray, template_gray, cv2.TM_CCOEFF_NORMED)
@@ -86,83 +152,98 @@ def find_template(image: np.ndarray, template: np.ndarray, threshold: float = 0.
     h, w = template.shape[:2]
     
     # Convert points to list of matches with scores
-    matches = [(x, y, result[y, x]) for x, y in points]
+    matches: List[Match] = [(x, y, float(result[y, x])) for x, y in points]
     
     # Sort matches by score in descending order
     matches.sort(key=lambda x: x[2], reverse=True)
     print(f"Top match score: {matches[0][2]}")
     
     # Apply non-maximum suppression
-    filtered_matches = []
-    
-    for x, y, score in matches:
-        # Check if this point overlaps with any existing match
-        overlap = False
-        for fx, fy, _ in filtered_matches:
-            # Calculate overlap using center points and template size
-            if abs(x - fx) < w//2 and abs(y - fy) < h//2:
-                overlap = True
-                break
-        
-        if not overlap:
-            filtered_matches.append((x, y, score))
-            print(f"Added match at ({x}, {y}) with score {score}")
+    filtered_matches = non_max_suppression([(x, y) for x, y, _ in matches], (w, h), 0.5)
     
     # Return center points of top matches
-    return [(x + w//2, y + h//2) for x, y, _ in filtered_matches]
+    return [(x + w//2, y + h//2, score) for x, y, score in matches if (x, y) in filtered_matches]
 
-def non_max_suppression(matches: List[Tuple[int, int]], template_shape: Tuple[int, int], overlap_thresh: float) -> List[Tuple[int, int]]:
-    """Remove overlapping matches"""
+def non_max_suppression(
+    matches: List[Tuple[int, int]],
+    template_shape: Tuple[int, int],
+    overlap_thresh: float
+) -> List[Tuple[int, int]]:
+    """
+    Remove overlapping matches using non-maximum suppression algorithm.
+
+    Args:
+        matches (List[Tuple[int, int]]): List of (x, y) coordinates where the template was found.
+        template_shape (Tuple[int, int]): Shape of the template image (w, h).
+        overlap_thresh (float): Minimum overlap threshold (0 to 1).
+
+    Returns:
+        List[Tuple[int, int]]: List of non-overlapping matches.
+    """
     if not matches:
         return []
-        
-    # Convert matches to list of rectangles (x, y, w, h)
-    boxes = [(x, y, template_shape[1], template_shape[0]) for x, y in matches]
-    
-    # Convert to numpy array
-    boxes = np.array(boxes)
-    
-    # Get coordinates
-    x1 = boxes[:, 0]
-    y1 = boxes[:, 1]
-    x2 = boxes[:, 0] + boxes[:, 2]
-    y2 = boxes[:, 1] + boxes[:, 3]
-    
-    # Compute area
-    area = (x2 - x1) * (y2 - y1)
-    
-    # Sort by bottom-right y-coordinate
-    idxs = np.argsort(y2)
-    
-    pick = []
-    while len(idxs) > 0:
-        last = len(idxs) - 1
-        i = idxs[last]
-        pick.append(i)
-        
-        # Find intersection
-        xx1 = np.maximum(x1[i], x1[idxs[:last]])
-        yy1 = np.maximum(y1[i], y1[idxs[:last]])
-        xx2 = np.minimum(x2[i], x2[idxs[:last]])
-        yy2 = np.minimum(y2[i], y2[idxs[:last]])
-        
-        # Compute intersection area
-        w = np.maximum(0, xx2 - xx1)
-        h = np.maximum(0, yy2 - yy1)
-        overlap = (w * h) / area[idxs[:last]]
-        
-        # Delete overlapping boxes
-        idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > overlap_thresh)[0])))
-    
-    return [(boxes[i][0], boxes[i][1]) for i in pick]
 
-def highlight_region(image: np.ndarray, x: int, y: int, width: int, height: int,
-                    color: Tuple[int, int, int] = (0, 255, 0), thickness: int = 2) -> np.ndarray:
-    """Draw rectangle around region of interest"""
+    # Sort matches by x coordinate
+    matches = sorted(matches)
+    result = []
+    
+    # Add first match
+    result.append(matches[0])
+    
+    # Process remaining matches
+    for i in range(1, len(matches)):
+        x, y = matches[i]
+        prev_x, prev_y = result[-1]
+        
+        # Calculate distance between points
+        dist = ((x - prev_x) ** 2 + (y - prev_y) ** 2) ** 0.5
+        
+        # If points are far apart or we're using high threshold
+        if dist > template_shape[0] * 0.5 or overlap_thresh > 0.5:
+            result.append(matches[i])
+            
+    return result
+
+def highlight_region(
+    image: np.ndarray,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    color: Tuple[int, int, int] = (0, 255, 0),
+    thickness: int = 2
+) -> np.ndarray:
+    """
+    Draw a rectangle around a specified region of interest in an image.
+
+    Args:
+        image (np.ndarray): The image on which to draw the rectangle.
+        x (int): The x-coordinate of the top-left corner of the rectangle.
+        y (int): The y-coordinate of the top-left corner of the rectangle.
+        width (int): The width of the rectangle.
+        height (int): The height of the rectangle.
+        color (Tuple[int, int, int], optional): The color of the rectangle in BGR format. Defaults to (0, 255, 0).
+        thickness (int, optional): The thickness of the rectangle's border. Defaults to 2.
+
+    Returns:
+        np.ndarray: The image with the rectangle drawn on it.
+    """
     img_copy = image.copy()
     cv2.rectangle(img_copy, (x, y), (x + width, y + height), color, thickness)
     return img_copy
 
 def crop_image(image: np.ndarray, x: int, y: int, width: int, height: int) -> np.ndarray:
-    """Crop image to specified region"""
+    """
+    Crop image to specified region.
+
+    Args:
+        image (np.ndarray): The image to be cropped.
+        x (int): The x-coordinate of the top-left corner of the cropped region.
+        y (int): The y-coordinate of the top-left corner of the cropped region.
+        width (int): The width of the cropped region.
+        height (int): The height of the cropped region.
+
+    Returns:
+        np.ndarray: The cropped image.
+    """
     return image[y:y+height, x:x+width]

@@ -1,9 +1,11 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import sys
 import numpy as np
-from PIL import Image
 import platform
+from types import ModuleType
+
+from pyui_automation.backends.linux import LinuxBackend
 
 # Skip all Linux tests if not on Linux
 pytestmark = pytest.mark.skipif(
@@ -13,22 +15,37 @@ pytestmark = pytest.mark.skipif(
 
 # Mock Linux-specific modules
 class MockXlib:
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Initialize mock Xlib module with mock Display and X objects
+        """
         self.Display = MagicMock()
         self.X = MagicMock()
 
+# Create proper module mocks
+mock_xlib_module = ModuleType('Xlib')
 mock_xlib = MockXlib()
 mock_display = MagicMock()
 mock_x = MagicMock()
 
-# Set up the mock modules
-sys.modules['Xlib'] = mock_xlib
-sys.modules['Xlib.display'] = MagicMock(Display=mock_display)
-sys.modules['Xlib.X'] = mock_x
-sys.modules['pyatspi'] = MagicMock()
+# Copy attributes from MockXlib instance to the module
+setattr(mock_xlib_module, 'Display', mock_xlib.Display)
+setattr(mock_xlib_module, 'X', mock_xlib.X)
 
-# Now import LinuxBackend after mocking the dependencies
-from pyui_automation.backends.linux import LinuxBackend
+# Set up the mock modules
+sys.modules['Xlib'] = mock_xlib_module
+display_module = ModuleType('Xlib.display')
+setattr(display_module, 'Display', mock_display)
+sys.modules['Xlib.display'] = display_module
+sys.modules['Xlib.X'] = ModuleType('Xlib.X')
+for attr_name, attr_value in vars(mock_x).items():
+    setattr(sys.modules['Xlib.X'], attr_name, attr_value)
+
+# Create mock pyatspi module
+mock_pyatspi = ModuleType('pyatspi')
+mock_pyatspi.__dict__['Backend'] = MagicMock()
+sys.modules['pyatspi'] = mock_pyatspi
+
 
 @pytest.fixture
 def mock_window():
@@ -81,21 +98,21 @@ def backend(mock_display_instance):
 def test_init_success(mock_display_instance):
     """Test successful initialization on Linux"""
     backend = LinuxBackend()
-    assert backend._display is mock_display_instance
+    assert backend.display is mock_display_instance
 
-def test_find_element(backend, mock_window):
+def test_find_element(backend):
     """Test finding a UI element"""
     element = backend.find_element("name", "Test Window")
     assert element is not None
     assert element.get_wm_name() == "Test Window"
 
-def test_find_elements(backend, mock_window):
+def test_find_elements(backend):
     """Test finding multiple UI elements"""
     elements = backend.find_elements("name", "Test Window")
     assert len(elements) > 0
     assert elements[0].get_wm_name() == "Test Window"
 
-def test_get_active_window(backend, mock_window):
+def test_get_active_window(backend):
     """Test getting active window"""
     window = backend.get_active_window()
     assert window is not None

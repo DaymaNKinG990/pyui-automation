@@ -112,3 +112,6 @@ __pycache__
 .dmypy.json
 dmypy.json
 .pyre/
+
+# PyPI configuration
+.pypirc

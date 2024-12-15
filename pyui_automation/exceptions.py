@@ -41,3 +41,7 @@ class InputError(AutomationError):
 class WindowError(AutomationError):
     """Raised when window operation fails"""
     pass
+
+class WaitTimeout(AutomationError):
+    """Exception raised when wait condition times out"""
+    pass

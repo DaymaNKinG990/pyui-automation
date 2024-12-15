@@ -1,6 +1,7 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.input import Mouse, Keyboard
+
 
 # Mock backend for testing
 @pytest.fixture
@@ -28,12 +29,22 @@ def test_click_valid_input(mock_backend):
 def test_click_invalid_button(mock_backend):
     mouse = Mouse(mock_backend)
     with pytest.raises(ValueError, match="Invalid button type"):
-        mouse.click(100, 200, "invalid")
+        mouse.click(100, 200, "invalid")  # type: ignore
 
 def test_click_invalid_coordinates(mock_backend):
     mouse = Mouse(mock_backend)
     with pytest.raises(ValueError, match="Coordinates must be numbers"):
-        mouse.click("invalid", 200)
+        mouse.click("invalid", 200)  # type: ignore
+
+def test_click_invalid_coordinates_x(mock_backend):
+    mouse = Mouse(mock_backend)
+    with pytest.raises(ValueError, match="x must be a number"):
+        mouse.click("invalid", 200)  # type: ignore
+
+def test_click_invalid_coordinates_y(mock_backend):
+    mouse = Mouse(mock_backend)
+    with pytest.raises(ValueError, match="y must be a number"):
+        mouse.click(100, "invalid")  # type: ignore
 
 def test_double_click_success(mock_backend):
     mouse = Mouse(mock_backend)
@@ -54,7 +65,7 @@ def test_move_valid_coordinates(mock_backend):
 def test_move_invalid_coordinates(mock_backend):
     mouse = Mouse(mock_backend)
     with pytest.raises(ValueError, match="Coordinates must be numbers"):
-        mouse.move("invalid", 200)
+        mouse.move("invalid", 200)  # type: ignore
 
 def test_drag_success(mock_backend):
     mouse = Mouse(mock_backend)
@@ -72,7 +83,7 @@ def test_drag_move_fails(mock_backend):
 def test_drag_invalid_coordinates(mock_backend):
     mouse = Mouse(mock_backend)
     with pytest.raises(ValueError, match="Coordinates must be numbers"):
-        mouse.drag("invalid", 200, 300, 400)
+        mouse.drag("invalid", 200, 300, 400)  # type: ignore
 
 # Keyboard Tests
 def test_type_text_success(mock_backend):
@@ -93,7 +104,7 @@ def test_type_text_empty_string(mock_backend):
 def test_type_text_invalid_input(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError, match="Text must be a string"):
-        keyboard.type_text(123)
+        keyboard.type_text(123)  # type: ignore
 
 def test_press_key_success(mock_backend):
     keyboard = Keyboard(mock_backend)
@@ -108,7 +119,7 @@ def test_press_key_empty_string(mock_backend):
 def test_press_key_invalid_input(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError, match="Key must be a string"):
-        keyboard.press_key(123)
+        keyboard.press_key(123)  # type: ignore
 
 def test_release_key_success(mock_backend):
     keyboard = Keyboard(mock_backend)
@@ -123,7 +134,7 @@ def test_release_key_empty_string(mock_backend):
 def test_release_key_invalid_input(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError, match="Key must be a string"):
-        keyboard.release_key(123)
+        keyboard.release_key(123)  # type: ignore
 
 def test_press_keys_success(mock_backend):
     keyboard = Keyboard(mock_backend)
@@ -139,7 +150,7 @@ def test_press_keys_empty(mock_backend):
 def test_press_keys_invalid_input(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError, match="All keys must be strings"):
-        keyboard.press_keys("ctrl", 123)
+        keyboard.press_keys("ctrl", 123)  # type: ignore
 
 def test_release_keys_success(mock_backend):
     keyboard = Keyboard(mock_backend)
@@ -155,7 +166,7 @@ def test_release_keys_empty(mock_backend):
 def test_release_keys_invalid_input(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError, match="All keys must be strings"):
-        keyboard.release_keys("ctrl", 123)
+        keyboard.release_keys("ctrl", 123)  # type: ignore
 
 def test_send_keys_success(mock_backend):
     keyboard = Keyboard(mock_backend)
@@ -171,4 +182,4 @@ def test_send_keys_empty(mock_backend):
 def test_send_keys_invalid_input(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError, match="Keys must be a string"):
-        keyboard.send_keys(123)
+        keyboard.send_keys(123)  # type: ignore

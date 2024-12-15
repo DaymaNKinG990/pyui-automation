@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock
-from pyui_automation.elements.base import UIElement
 from pyui_automation.elements.button import Button
 from pyui_automation.core.session import AutomationSession
+
 
 @pytest.fixture
 def mock_session():

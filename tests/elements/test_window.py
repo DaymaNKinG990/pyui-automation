@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 from pyui_automation.elements.window import Window
 from pyui_automation.core.session import AutomationSession
 
+
 @pytest.fixture
 def mock_session():
     return MagicMock(spec=AutomationSession)

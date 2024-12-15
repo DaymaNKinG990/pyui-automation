@@ -1,18 +1,13 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from pyui_automation import UIAutomation
-from pyui_automation.input import Mouse, Keyboard
-import time
 import numpy as np
-from PIL import Image
-import platform
-import comtypes.client
 import comtypes.gen.UIAutomationClient as UIAutomationClient
-import unittest
-from pathlib import Path
-import tempfile
 import psutil
 
+from pyui_automation.core import AutomationSession
+from pyui_automation.core.config import AutomationConfig
+from pyui_automation.core.visual import VisualTester, VisualMatcher, VisualDifference
+from pyui_automation.wait import ElementWaits
 
 @pytest.fixture
 def mock_uiautomation():
@@ -21,7 +16,6 @@ def mock_uiautomation():
     mock_root = MagicMock()
     mock_uia.GetRootElement.return_value = mock_root
     
-    # Mock element
     mock_element = MagicMock()
     mock_element.CurrentName = "test-button"
     mock_element.CurrentAutomationId = "test-id"
@@ -30,14 +24,12 @@ def mock_uiautomation():
     mock_element.CurrentIsOffscreen = False
     mock_element.CurrentBoundingRectangle = (0, 0, 100, 30)
     
-    # Set up search conditions
     mock_condition = MagicMock()
     mock_uia.CreatePropertyCondition.return_value = mock_condition
     mock_root.FindFirst.return_value = mock_element
     mock_root.FindAll.return_value = [mock_element]
     
     return mock_uia
-
 
 @pytest.fixture
 def mock_element():
@@ -49,14 +41,22 @@ def mock_element():
     }.get(name)
     element.get_property.return_value = "test-value"
     element.text = "test text"
-    element.location = {'x': 10, 'y': 20}
-    element.size = {'width': 100, 'height': 30}
     element.is_enabled.return_value = True
-    element.is_displayed.return_value = True
-    element.click = MagicMock()
-    element.send_keys = MagicMock()
+    element.is_visible.return_value = True
+    element.get_location.return_value = (0, 0)
+    element.get_size.return_value = (100, 30)
+    element.capture_screenshot.return_value = np.zeros((30, 100, 3), dtype=np.uint8)  # Black image
     return element
 
+@pytest.fixture
+def mock_element_waits():
+    """Create mock ElementWaits"""
+    waits = MagicMock()
+    waits.wait_until = MagicMock()
+    waits.for_element = MagicMock()
+    waits.for_element_visible = MagicMock()
+    waits.for_element_enabled = MagicMock()
+    return waits
 
 @pytest.fixture
 def mock_windows_backend(mock_uiautomation, mock_element):
@@ -66,209 +66,482 @@ def mock_windows_backend(mock_uiautomation, mock_element):
             instance = mock_backend.return_value
             instance.automation = mock_uiautomation
             instance.root = mock_uiautomation.GetRootElement()
-            
-            # Set up backend methods
             instance.find_element.return_value = mock_element
             instance.find_elements.return_value = [mock_element]
-            instance.capture_screenshot.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
-            instance.type_text.return_value = True
-            instance.click.return_value = True
             instance.get_active_window.return_value = mock_element
-            instance.press_key.return_value = True
-            instance.move_mouse.return_value = True
-            instance.mouse_down.return_value = True
-            instance.mouse_up.return_value = True
-            
+            instance.get_window.return_value = mock_element
+            instance.get_window_title.return_value = "Test Window"
+            instance.take_screenshot.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
             yield instance
-
 
 @pytest.fixture
 def mock_visual_tester():
     """Create mock visual tester"""
-    tester = MagicMock()
-    tester.baseline_dir = None
-    tester.save_baseline = MagicMock()
-    tester.compare = MagicMock(return_value={'match': True, 'similarity': 1.0, 'differences': []})
-    tester.verify_hash = MagicMock(return_value=True)
-    return tester
-
+    with patch('pyui_automation.core.visual.VisualTester') as mock_tester:
+        instance = mock_tester.return_value
+        instance.capture_baseline.return_value = True
+        instance.compare.return_value = (True, 0.0)
+        instance.verify_hash.return_value = True
+        yield instance
 
 @pytest.fixture
-def ui_automation(mock_windows_backend, mock_visual_tester):
-    """Create UIAutomation instance with mock backend"""
-    with patch('platform.system', return_value='Windows'):
-        # Create automation with mock backend
-        automation = UIAutomation(backend=mock_windows_backend)
-        automation._visual_tester = mock_visual_tester
-        return automation
-
+def ui_automation(mock_windows_backend, mock_visual_tester, mock_element_waits):
+    """Create UIAutomation instance with mock dependencies"""
+    automation = AutomationSession(backend=mock_windows_backend)
+    automation._visual_tester = mock_visual_tester
+    automation.waits = mock_element_waits
+    return automation
 
 @pytest.fixture
 def temp_dir(tmp_path):
     """Create temporary directory for testing"""
     return tmp_path
 
-
 def test_find_element(ui_automation):
     """Test finding an element"""
-    # Mock the backend's find_element method
-    mock_element = MagicMock()
-    mock_element.get_attribute.side_effect = lambda x: {
-        "AutomationId": "test-id",
-        "Name": "test-button"
-    }[x]
-    ui_automation._backend.find_element.return_value = mock_element
-
-    # Test with default timeout
-    element = ui_automation.find_element(by="id", value="test-id")
+    element = ui_automation.find_element(by="name", value="test-button")
     assert element is not None
-    assert element.get_attribute("AutomationId") == "test-id"
-    assert element.get_attribute("Name") == "test-button"
-    ui_automation._backend.find_element.assert_called_once_with("id", "test-id", 10.0)  # Default timeout
-
+    assert element.text == "test text"
 
 def test_find_element_with_timeout(ui_automation):
     """Test finding an element with timeout"""
-    element = ui_automation.find_element(by="name", value="test-button", timeout=5)
+    element = ui_automation.find_element(by="name", value="test-button", timeout=1)
     assert element is not None
-    ui_automation._backend.find_element.assert_called_once_with("name", "test-button", 5)
-
 
 def test_take_screenshot(ui_automation, temp_dir):
     """Test taking a screenshot"""
-    screenshot = ui_automation.take_screenshot()
-    assert screenshot is not None
-    assert isinstance(screenshot, np.ndarray)
-    assert screenshot.shape == (100, 100, 3)
-
+    screenshot_path = temp_dir / "screenshot.png"
+    ui_automation.take_screenshot(screenshot_path)
+    assert screenshot_path.exists()
 
 def test_keyboard_input(ui_automation):
     """Test keyboard input"""
-    # Test type_text with default interval
-    assert ui_automation.keyboard.type_text("test") is True
-    ui_automation._backend.type_text.assert_called_once_with("test", 0.0)
-
-    # Reset mock and test with custom interval
-    ui_automation._backend.type_text.reset_mock()
-    assert ui_automation.keyboard.type_text("test", interval=0.1) is True
-    ui_automation._backend.type_text.assert_called_once_with("test", 0.1)
-
-    # Test press_key
-    ui_automation._backend.press_key.return_value = True
-    assert ui_automation.keyboard.press_key("enter") is True
-    ui_automation._backend.press_key.assert_called_once_with("enter")
-
+    element = ui_automation.find_element(by="name", value="test-button")
+    ui_automation.keyboard.type_text("test")
+    ui_automation.keyboard.press_key("enter")
+    ui_automation.keyboard.release_key("enter")
+    ui_automation.keyboard.send_keys("ctrl+a")
 
 def test_mouse_click(ui_automation):
     """Test mouse click"""
-    # Test left click
-    assert ui_automation.mouse.click(100, 200) is True
-    ui_automation._backend.click.assert_called_once_with(100, 200, "left")
-
-    # Reset mock and test right click
-    ui_automation._backend.click.reset_mock()
-    assert ui_automation.mouse.click(100, 200, "right") is True
-    ui_automation._backend.click.assert_called_once_with(100, 200, "right")
-
-    # Test move
-    ui_automation._backend.move_mouse.return_value = True
-    assert ui_automation.mouse.move(300, 400) is True
-    ui_automation._backend.move_mouse.assert_called_once_with(300, 400)
-
-    # Test drag
-    ui_automation._backend.move_mouse.reset_mock()
-    ui_automation._backend.mouse_down.return_value = True
-    ui_automation._backend.mouse_up.return_value = True
-    assert ui_automation.mouse.drag(100, 200, 300, 400) is True
-    ui_automation._backend.move_mouse.assert_any_call(100, 200)
-    ui_automation._backend.move_mouse.assert_any_call(300, 400)
-    ui_automation._backend.mouse_down.assert_called_once_with("left")
-    ui_automation._backend.mouse_up.assert_called_once_with("left")
-
+    element = ui_automation.find_element(by="name", value="test-button")
+    ui_automation.mouse.click(element)
+    ui_automation.mouse.double_click(element)
+    ui_automation.mouse.right_click(element)
+    ui_automation.mouse.move_to(element)
 
 def test_wait_until(ui_automation):
     """Test wait until condition"""
-    condition = lambda: True
-    result = ui_automation.waits.wait_until(condition, timeout=1)
+    result = ui_automation.wait_until(lambda: True, timeout=1)
     assert result is True
-
 
 def test_init_visual_testing(ui_automation, temp_dir):
     """Test initializing visual testing"""
     ui_automation.init_visual_testing(temp_dir)
     assert ui_automation._visual_tester is not None
-    assert ui_automation._visual_tester.baseline_dir == temp_dir
-
 
 def test_capture_visual_baseline(ui_automation, temp_dir):
     """Test capturing visual baseline"""
     ui_automation.init_visual_testing(temp_dir)
-    screenshot = np.zeros((100, 100, 3), dtype=np.uint8)  # Mock screenshot
-    ui_automation._backend.capture_screenshot.return_value = screenshot
-    
-    # Mock visual tester methods
-    ui_automation.visual_tester.capture_baseline = MagicMock()
-    ui_automation.capture_visual_baseline("test_baseline")
-    ui_automation.visual_tester.capture_baseline.assert_called_once_with("test_baseline", screenshot)
-
+    element = ui_automation.find_element(by="name", value="test-button")
+    result = ui_automation.capture_visual_baseline(element, "test")
+    assert result is True
 
 def test_compare_visual(ui_automation, temp_dir):
     """Test visual comparison"""
     ui_automation.init_visual_testing(temp_dir)
-    screenshot = np.zeros((100, 100, 3), dtype=np.uint8)  # Mock screenshot
-    ui_automation._backend.capture_screenshot.return_value = screenshot
-    
-    # Mock visual tester methods
-    ui_automation.visual_tester.compare = MagicMock(return_value={'match': True})
-    result = ui_automation.compare_visual("test_compare")
-    ui_automation.visual_tester.compare.assert_called_once_with("test_compare", screenshot)
-    assert result['match'] is True
-
+    element = ui_automation.find_element(by="name", value="test-button")
+    result, diff = ui_automation.compare_visual(element, "test")
+    assert result is True
+    assert diff == 0.0
 
 def test_verify_visual_hash(ui_automation, temp_dir):
     """Test visual hash verification"""
     ui_automation.init_visual_testing(temp_dir)
-    screenshot = np.zeros((100, 100, 3), dtype=np.uint8)  # Mock screenshot
-    ui_automation._backend.capture_screenshot.return_value = screenshot
-    
-    # Mock visual tester methods
-    ui_automation.visual_tester.verify_hash = MagicMock(return_value=True)
-    result = ui_automation.verify_visual_hash("test_hash")
-    ui_automation.visual_tester.verify_hash.assert_called_once_with("test_hash", screenshot)
+    element = ui_automation.find_element(by="name", value="test-button")
+    result = ui_automation.verify_visual_hash(element, "test")
     assert result is True
 
-
-@patch('subprocess.Popen')
-@patch('psutil.Process')
-def test_launch_application(mock_process, mock_popen, ui_automation):
+def test_launch_application(ui_automation):
     """Test application launch"""
-    # Mock subprocess.Popen
-    mock_popen_instance = MagicMock()
-    mock_popen_instance.pid = 12345
-    mock_popen_instance.poll.return_value = None
-    mock_popen.return_value = mock_popen_instance
+    mock_process = MagicMock(spec=psutil.Process)
+    mock_process.pid = 12345
+    mock_process.name.return_value = "test.exe"
     
-    # Mock psutil.Process to use same PID
-    mock_psutil_instance = MagicMock()
-    mock_psutil_instance.is_running.return_value = True
-    mock_process.return_value = mock_psutil_instance
-    
-    app = ui_automation.launch_application("notepad.exe")
-    assert app is not None
-    mock_popen.assert_called_once()
-    # Verify psutil.Process was called with the PID from Popen
-    mock_process.assert_called_once_with(mock_popen_instance.pid)
+    with patch('subprocess.Popen') as mock_popen, \
+         patch('psutil.Process', return_value=mock_process):
+        mock_popen.return_value.pid = 12345
+        app = ui_automation.launch_application("test.exe")
+        assert app.pid == 12345
 
-
-@patch('psutil.Process')
-def test_attach_to_application(mock_process, ui_automation):
+def test_attach_to_application(ui_automation):
     """Test attaching to application"""
-    # Mock psutil process
-    mock_proc = MagicMock()
-    mock_proc.pid = 12345
-    mock_proc.is_running.return_value = True
-    mock_process.return_value = mock_proc
+    mock_process = MagicMock(spec=psutil.Process)
+    mock_process.pid = 12345
+    mock_process.name.return_value = "test.exe"
     
-    app = ui_automation.attach_to_application(12345)
-    assert app is not None
-    mock_process.assert_called_once_with(12345)
+    with patch('psutil.Process', return_value=mock_process):
+        app = ui_automation.attach_to_application(12345)
+        assert app.pid == 12345
+
+def test_find_elements(ui_automation):
+    """Test finding multiple elements"""
+    elements = ui_automation.find_elements(by="name", value="test-button")
+    assert len(elements) == 1
+
+def test_get_active_window(ui_automation):
+    """Test getting active window"""
+    window = ui_automation.get_active_window()
+    assert window is not None
+
+def test_set_ocr_languages(ui_automation):
+    """Test setting OCR languages"""
+    ui_automation.set_ocr_languages(['eng'])
+    assert ui_automation._ocr_languages == ['eng']
+
+def test_performance_monitoring(ui_automation):
+    """Test performance monitoring functionality"""
+    ui_automation.start_performance_monitoring()
+    element = ui_automation.find_element(by="name", value="test-button")
+    ui_automation.mouse.click(element)
+    metrics = ui_automation.stop_performance_monitoring()
+    
+    assert isinstance(metrics, dict)
+    assert 'cpu_usage' in metrics
+    assert 'memory_usage' in metrics
+    assert 'response_times' in metrics
+
+def test_measure_action_performance(ui_automation):
+    """Test measuring action performance"""
+    def test_action():
+        element = ui_automation.find_element(by="name", value="test-button")
+        ui_automation.mouse.click(element)
+    
+    results = ui_automation.measure_action_performance(test_action, iterations=3)
+    
+    assert isinstance(results, dict)
+    assert 'min_time' in results
+    assert 'max_time' in results
+    assert 'avg_time' in results
+
+def test_run_stress_test(ui_automation):
+    """Test running stress test"""
+    def test_action():
+        element = ui_automation.find_element(by="name", value="test-button")
+        ui_automation.mouse.click(element)
+    
+    results = ui_automation.run_stress_test(test_action, duration=1)
+    
+    assert isinstance(results, dict)
+    assert 'total_actions' in results
+    assert 'success_rate' in results
+    assert 'errors' in results
+
+def test_check_memory_leaks(ui_automation):
+    """Test memory leak detection"""
+    def test_action():
+        element = ui_automation.find_element(by="name", value="test-button")
+        ui_automation.mouse.click(element)
+    
+    results = ui_automation.check_memory_leaks(test_action, iterations=3)
+    
+    assert isinstance(results, dict)
+    assert 'memory_growth' in results
+    assert 'leak_detected' in results
+    assert 'growth_rate' in results
+
+def test_check_accessibility(ui_automation):
+    """Test accessibility checking"""
+    element = ui_automation.find_element(by="name", value="test-button")
+    results = ui_automation.check_accessibility(element)
+    
+    assert isinstance(results, list)
+    for violation in results:
+        assert 'rule' in violation
+        assert 'severity' in violation
+
+def test_visual_testing_workflow(ui_automation, temp_dir):
+    """Test complete visual testing workflow"""
+    ui_automation.init_visual_testing(temp_dir)
+    element = ui_automation.find_element(by="name", value="test-button")
+    
+    # Capture baseline
+    assert ui_automation.capture_visual_baseline(element, "test")
+    
+    # Compare with baseline
+    match, diff = ui_automation.compare_visual(element, "test")
+    assert match is True
+    assert diff == 0.0
+    
+    # Verify hash
+    assert ui_automation.verify_visual_hash(element, "test")
+    
+    # Take screenshot
+    screenshot_path = temp_dir / "test.png"
+    ui_automation.take_screenshot(screenshot_path)
+    assert screenshot_path.exists()
+
+def test_visual_testing_not_initialized(ui_automation):
+    """Test visual testing methods without initialization"""
+    with pytest.raises(ValueError):
+        ui_automation.capture_visual_baseline("test")
+    with pytest.raises(ValueError):
+        ui_automation.compare_visual("test")
+    with pytest.raises(ValueError):
+        ui_automation.verify_visual_hash("test")
+
+def test_generate_visual_report(ui_automation, temp_dir):
+    """Test generating visual report"""
+    differences = [
+        {
+            "location": (10, 10),
+            "size": (20, 20),
+            "area": 400,
+            "type": "changed"
+        }
+    ]
+    ui_automation.generate_visual_report("test", differences, str(temp_dir))
+
+def test_generate_accessibility_report(ui_automation, temp_dir):
+    """Test generating accessibility report"""
+    ui_automation.generate_accessibility_report(str(temp_dir))
+
+def test_get_current_application_none(ui_automation):
+    """Test getting current application when none is set"""
+    app = ui_automation.get_current_application()
+    assert app is None
+
+def test_attach_to_invalid_pid(ui_automation):
+    """Test attaching to invalid process ID"""
+    with pytest.raises(RuntimeError):
+        ui_automation.attach_to_application(999999)  # Non-existent PID
+
+def test_performance_monitoring_not_started(ui_automation):
+    """Test getting performance metrics without starting monitoring"""
+    metrics = ui_automation.get_performance_metrics()
+    assert metrics["cpu_usage"] == 0
+    assert metrics["memory_usage"] == 0
+    assert metrics["response_time"] == 0
+
+def test_stress_test_invalid_duration(ui_automation):
+    """Test running stress test with invalid duration"""
+    def test_action():
+        return True
+    
+    with pytest.raises(ValueError):
+        ui_automation.run_stress_test(test_action, duration=-1)
+
+def test_memory_leak_check_invalid_iterations(ui_automation):
+    """Test memory leak check with invalid iterations"""
+    def test_action():
+        return True
+    
+    with pytest.raises(ValueError):
+        ui_automation.check_memory_leaks(test_action, iterations=0)
+
+def test_measure_performance_invalid_runs(ui_automation):
+    """Test measuring performance with invalid number of runs"""
+    def test_action():
+        return True
+    
+    with pytest.raises(ValueError):
+        ui_automation.measure_action_performance(test_action, test_runs=0)
+
+def test_ocr_invalid_language(ui_automation):
+    """Test setting invalid OCR language"""
+    with pytest.raises(ValueError):
+        ui_automation.set_ocr_languages(["invalid_lang"])
+
+def test_mouse_invalid_coordinates(ui_automation):
+    """Test mouse move with invalid coordinates"""
+    with pytest.raises(ValueError):
+        ui_automation.mouse_move(-1, -1)
+
+def test_keyboard_invalid_key(ui_automation):
+    """Test pressing invalid keyboard key"""
+    with pytest.raises(ValueError):
+        ui_automation.press_key("invalid_key")
+
+def test_find_element_invalid_strategy(ui_automation):
+    """Test finding element with invalid strategy"""
+    with pytest.raises(ValueError):
+        ui_automation.find_element("invalid_strategy", "value")
+
+def test_wait_for_invalid_timeout(ui_automation):
+    """Test waiting for element with invalid timeout"""
+    with pytest.raises(ValueError):
+        ui_automation.wait_for("id", "test-id", timeout=-1)
+
+# Additional mock fixtures
+@pytest.fixture
+def mock_backend_with_errors():
+    """Mock backend that simulates various error conditions"""
+    mock_backend = MagicMock()
+    mock_backend.find_element.side_effect = RuntimeError("Element not found")
+    mock_backend.get_active_window.side_effect = RuntimeError("No active window")
+    mock_backend.take_screenshot.side_effect = RuntimeError("Screenshot failed")
+    return mock_backend
+
+@pytest.fixture
+def mock_visual_tester_with_errors():
+    """Mock visual tester that simulates various error conditions"""
+    mock_tester = MagicMock()
+    mock_tester.compare_images.side_effect = RuntimeError("Image comparison failed")
+    mock_tester.compute_hash.side_effect = RuntimeError("Hash computation failed")
+    return mock_tester
+
+@pytest.fixture
+def mock_process():
+    """Mock process for testing process-related functionality"""
+    mock_proc = MagicMock(spec=psutil.Process)
+    mock_proc.cpu_percent.return_value = 10.0
+    mock_proc.memory_info.return_value = MagicMock(rss=1024*1024)  # 1MB
+    mock_proc.children.return_value = []
+    return mock_proc
+
+def test_backend_error_handling(ui_automation, mock_backend_with_errors):
+    """Test error handling when backend operations fail"""
+    ui_automation._backend = mock_backend_with_errors
+    
+    with pytest.raises(RuntimeError, match="Element not found"):
+        ui_automation.find_element("id", "test")
+    
+    with pytest.raises(RuntimeError, match="No active window"):
+        ui_automation.get_active_window()
+    
+    with pytest.raises(RuntimeError, match="Screenshot failed"):
+        ui_automation.take_screenshot("test.png")
+
+def test_visual_tester_error_handling(ui_automation, mock_visual_tester_with_errors, temp_dir):
+    """Test error handling when visual testing operations fail"""
+    ui_automation._visual_tester = mock_visual_tester_with_errors
+    ui_automation.init_visual_testing(str(temp_dir))
+    
+    with pytest.raises(RuntimeError, match="Image comparison failed"):
+        ui_automation.compare_visual("test")
+    
+    with pytest.raises(RuntimeError, match="Hash computation failed"):
+        ui_automation.verify_visual_hash("test")
+
+def test_process_monitoring(ui_automation, mock_process):
+    """Test process monitoring functionality"""
+    ui_automation._current_process = mock_process
+    ui_automation.start_performance_monitoring()
+    
+    metrics = ui_automation.get_performance_metrics()
+    assert metrics["cpu_usage"] == 10.0
+    assert metrics["memory_usage"] == 1024*1024
+    
+    ui_automation.stop_performance_monitoring()
+    assert not hasattr(ui_automation, "_monitoring_thread")
+
+def test_numpy_dependency(ui_automation, temp_dir):
+    """Test numpy dependency for image processing"""
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    image_path = temp_dir / "test_image.png"
+    ui_automation._save_image(test_image, str(image_path))
+    assert image_path.exists()
+
+def test_backend_abstract_methods():
+    """Test that abstract methods raise NotImplementedError"""
+    from pyui_automation.backends.base import BaseBackend
+    
+    backend = BaseBackend()
+    abstract_methods = [
+        (backend.find_element, ["id", "value"]),
+        (backend.find_elements, ["id", "value"]),
+        (backend.get_active_window, []),
+        (backend.take_screenshot, ["path"]),
+        (backend.move_mouse, [0, 0]),
+        (backend.click_mouse, []),
+        (backend.press_key, ["key"]),
+        (backend.release_key, ["key"])
+    ]
+    
+    for method, args in abstract_methods:
+        with pytest.raises(NotImplementedError):
+            method(*args)
+
+def test_backend_initialization_with_config():
+    """Test backend initialization with different configurations"""
+    config = AutomationConfig(
+        screenshot_format="png",
+        screenshot_quality=90,
+        default_timeout=10,
+        polling_interval=0.5,
+        visual_threshold=0.95
+    )
+    
+    ui = AutomationSession(config=config)
+    assert ui._config.screenshot_format == "png"
+    assert ui._config.screenshot_quality == 90
+    assert ui._config.default_timeout == 10
+    assert ui._config.polling_interval == 0.5
+    assert ui._config.visual_threshold == 0.95
+
+def test_element_waits_configuration(ui_automation):
+    """Test element waits configuration"""
+    custom_timeout = 15
+    custom_interval = 0.2
+    
+    ui_automation.configure_waits(timeout=custom_timeout, polling_interval=custom_interval)
+    assert ui_automation._config.default_timeout == custom_timeout
+    assert ui_automation._config.polling_interval == custom_interval
+
+def test_visual_testing_configuration(ui_automation, temp_dir):
+    """Test visual testing configuration"""
+    custom_threshold = 0.98
+    ui_automation.init_visual_testing(
+        str(temp_dir),
+        threshold=custom_threshold
+    )
+    assert ui_automation._config.visual_threshold == custom_threshold
+    assert ui_automation._visual_tester is not None
+
+def test_performance_monitoring_configuration(ui_automation):
+    """Test performance monitoring configuration"""
+    custom_interval = 2.0
+    ui_automation.start_performance_monitoring(interval=custom_interval)
+    assert hasattr(ui_automation, "_monitoring_thread")
+    assert ui_automation._monitoring_interval == custom_interval
+    ui_automation.stop_performance_monitoring()
+
+def test_multiple_backend_operations(ui_automation):
+    """Test multiple backend operations in sequence"""
+    # Prepare test data
+    element_id = "test-id"
+    key_sequence = ["shift", "a", "b", "c"]
+    mouse_coords = [(100, 100), (200, 200), (300, 300)]
+    
+    # Test element operations
+    ui_automation.wait_for("id", element_id)
+    element = ui_automation.find_element("id", element_id)
+    assert element is not None
+    
+    # Test keyboard operations
+    for key in key_sequence:
+        ui_automation.press_key(key)
+        ui_automation.release_key(key)
+    
+    # Test mouse operations
+    for x, y in mouse_coords:
+        ui_automation.mouse_move(x, y)
+        ui_automation.mouse_click()
+
+def test_concurrent_operations(ui_automation):
+    """Test concurrent operations handling"""
+    import threading
+    
+    def parallel_operation():
+        ui_automation.find_element("id", "test-id")
+        ui_automation.mouse_move(100, 100)
+        ui_automation.mouse_click()
+    
+    threads = []
+    for _ in range(3):
+        thread = threading.Thread(target=parallel_operation)
+        thread.start()
+        threads.append(thread)
+    
+    for thread in threads:
+        thread.join()

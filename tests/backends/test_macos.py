@@ -1,9 +1,8 @@
 import pytest
 import platform
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import sys
 import numpy as np
-from PIL import Image
 from pyui_automation.backends.macos import MacOSBackend
 
 # Skip all macOS tests if not on macOS
@@ -48,6 +47,7 @@ sys.modules['Quartz'] = mock_quartz
 sys.modules['AppKit'] = mock_appkit
 sys.modules['Foundation'] = mock_foundation
 sys.modules['Cocoa'] = mock_cocoa
+
 
 @pytest.fixture
 def mock_ax():

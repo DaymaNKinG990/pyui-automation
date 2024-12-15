@@ -2,6 +2,7 @@ import pytest
 from pathlib import Path
 from pyui_automation.core.config import AutomationConfig
 
+
 @pytest.fixture
 def config():
     return AutomationConfig()

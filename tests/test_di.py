@@ -2,21 +2,26 @@ import pytest
 from typing import Protocol
 from pyui_automation.di import Container
 
+
 class IService(Protocol):
     def do_something(self) -> str:
         ...
+
 
 class ServiceA:
     def do_something(self) -> str:
         return "Service A"
 
+
 class ServiceB:
     def do_something(self) -> str:
         return "Service B"
 
+
 @pytest.fixture
 def container():
     return Container()
+
 
 def test_register_resolve(container):
     """Test registering and resolving service"""

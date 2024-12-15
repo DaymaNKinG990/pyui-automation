@@ -1,18 +1,19 @@
 import pytest
-from unittest.mock import MagicMock, patch
-import platform
+from unittest.mock import MagicMock
 import sys
 from pyui_automation.core.factory import BackendFactory, ComponentFactory
 from pyui_automation.backends.base import BaseBackend
 from pyui_automation.input import Keyboard, Mouse
-from pyui_automation.visual import VisualTester
+from pyui_automation.core.visual import VisualTester
 import comtypes.client
+
 
 try:
     from pyui_automation.ocr import OCREngine
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
+
 
 def is_uiautomation_available():
     """Check if Windows UI Automation is available"""
@@ -23,6 +24,7 @@ def is_uiautomation_available():
         return True
     except:
         return False
+
 
 @pytest.fixture
 def mock_backend():
@@ -61,7 +63,11 @@ def test_create_mouse(mock_backend):
 @pytest.mark.skipif(not HAS_OCR, reason="OCR dependencies not available")
 def test_create_ocr_engine():
     """Test creating OCR engine"""
+    if not HAS_OCR:  # Extra safety check
+        pytest.skip("OCR dependencies not available")
     ocr = ComponentFactory.create_ocr_engine()
+    # Only import and use OCREngine when we know it's available
+    from pyui_automation.ocr import OCREngine
     assert isinstance(ocr, OCREngine)
 
 def test_create_visual_tester():
