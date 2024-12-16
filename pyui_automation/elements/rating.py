@@ -7,16 +7,41 @@ class Rating(UIElement):
 
     def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
         super().__init__(native_element, session)
+        self._value = self._element.get_property("value")
+        self._readonly = self._element.get_property("readonly")
+        self.mouse = session.mouse
+
+    def click_at_offset(self, x: int, y: int):
+        """Click at specific offset"""
+        self.mouse.click_at_offset(self, x, y)
+
+    def hover_at_offset(self, x: int, y: int):
+        """Hover at specific offset"""
+        self.mouse.hover_at_offset(self, x, y)
 
     @property
-    def value(self) -> float:
-        """
-        Get the current rating value.
+    def value(self):
+        return self._value
 
-        Returns:
-            float: Current rating value
-        """
-        return self._element.get_property("value")
+    @value.setter
+    def value(self, val):
+        self._value = val
+
+    @value.deleter
+    def value(self):
+        self._value = 0
+
+    @property
+    def is_readonly(self):
+        return self._readonly
+
+    @is_readonly.setter
+    def is_readonly(self, val):
+        self._readonly = val
+
+    @is_readonly.deleter
+    def is_readonly(self):
+        self._readonly = True
 
     @property
     def maximum(self) -> int:
@@ -27,16 +52,6 @@ class Rating(UIElement):
             int: Maximum value (usually 5)
         """
         return self._element.get_property("maximum")
-
-    @property
-    def is_readonly(self) -> bool:
-        """
-        Check if the rating is read-only.
-
-        Returns:
-            bool: True if read-only, False otherwise
-        """
-        return self._element.get_property("readonly")
 
     @property
     def allows_half_stars(self) -> bool:

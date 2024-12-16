@@ -18,6 +18,17 @@ class DropDown(UIElement):
         """
         return self._element.get_property("expanded")
 
+    @is_expanded.setter
+    def is_expanded(self, value: bool) -> None:
+        """Set expanded state"""
+        if value != self.is_expanded:
+            self.click()
+
+    @is_expanded.deleter
+    def is_expanded(self) -> None:
+        """Delete is not supported for this property"""
+        raise AttributeError("Cannot delete is_expanded property")
+
     @property
     def selected_item(self) -> Optional[str]:
         """
@@ -27,6 +38,16 @@ class DropDown(UIElement):
             Optional[str]: The selected item text or None if nothing is selected
         """
         return self._element.get_property("selected")
+
+    @selected_item.setter
+    def selected_item(self, value: str) -> None:
+        """Select item by text"""
+        self.select_item(value)
+
+    @selected_item.deleter
+    def selected_item(self) -> None:
+        """Delete is not supported for this property"""
+        raise AttributeError("Cannot delete selected_item property")
 
     @property
     def items(self) -> List[str]:

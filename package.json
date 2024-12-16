@@ -1,0 +1,6 @@
+{
+    "scripts": {
+      "start-server": "python server.py",
+      "test": "pytest && python server.py"
+    }
+}

@@ -7,6 +7,7 @@ from PIL import Image
 import cv2
 import logging
 import psutil
+import time
 
 from ..backends.base import BaseBackend
 from ..elements import UIElement
@@ -25,21 +26,24 @@ logger = logging.getLogger(__name__)
 class AutomationSession:
     """Manages an automation session with a specific backend"""
 
-    def __init__(self, backend: BaseBackend) -> None:
+    def __init__(self, backend: BaseBackend, config: Optional[AutomationConfig] = None) -> None:
         """
         Initialize automation session.
 
         Args:
             backend: Platform-specific backend to use
+            config: Optional configuration object
         """
         self.backend = backend
         self.waits = ElementWaits(self)
         self._visual_tester: Optional[VisualTester] = None
         self._performance_monitor = None
-        self._config: Optional[AutomationConfig] = None
+        self._config = config or AutomationConfig()
         self._keyboard: Optional[Keyboard] = None
         self._mouse: Optional[Mouse] = None
         self._ocr_languages = ['eng']  # Default OCR language
+        self._current_application = None
+        self._performance_metrics = {}
 
     def find_element(self, by: str, value: str, timeout: float = 0) -> Optional[UIElement]:
         """
@@ -221,16 +225,18 @@ class AutomationSession:
         """
         self.backend.set_ocr_languages(languages)
 
-    def start_performance_monitoring(self, interval: float = 1.0) -> None:
+    def start_performance_monitoring(self, interval: float = 1.0, metrics: Optional[List[str]] = None) -> None:
         """
         Start monitoring performance metrics.
 
         Args:
-            interval: Time between measurements in seconds
+            interval: Sampling interval in seconds
+            metrics: List of metrics to monitor (cpu, memory, io)
         """
-        if not self._performance_monitor:
-            self._performance_monitor = PerformanceTest(self.backend.application)
-        self._performance_monitor.monitor.start_monitoring(interval)
+        if not metrics:
+            metrics = ["cpu", "memory", "io"]
+        self._performance_monitor = PerformanceTest(interval=interval, metrics=metrics)
+        self._performance_monitor.start()
 
     def stop_performance_monitoring(self) -> Dict[str, float]:
         """
@@ -240,58 +246,89 @@ class AutomationSession:
             Dictionary of performance metrics
         """
         if self._performance_monitor:
-            return self._performance_monitor.monitor.stop_monitoring()
+            return self._performance_monitor.stop_monitoring()
         return {}
 
-    def measure_action_performance(self, action: Callable, iterations: int = 1) -> Dict[str, Union[str, float]]:
+    def measure_action_performance(self, action: Callable, runs: int = 3) -> Dict[str, float]:
+        """Measure performance of an action"""
+        if runs <= 0:
+            raise ValueError("Number of runs must be positive")
+        
+        times = []
+        for _ in range(runs):
+            start_time = time.time()
+            action()
+            end_time = time.time()
+            times.append(end_time - start_time)
+    
+        return {
+            'min_time': min(times),
+            'max_time': max(times),
+            'avg_time': sum(times) / len(times)
+        }
+
+    def run_stress_test(self, action: Callable, test_duration: int = 60) -> Dict[str, Any]:
+        """Run stress test for specified duration"""
+        if test_duration <= 0:
+            raise ValueError("Duration must be positive")
+        
+        start_time = time.time()
+        total_actions = 0
+        failures = 0
+        
+        while time.time() - start_time < test_duration:
+            try:
+                action()
+                total_actions += 1
+            except Exception:
+                failures += 1
+        
+        return {
+            'total_actions': total_actions,
+            'success_rate': (total_actions - failures) / total_actions if total_actions > 0 else 0
+        }
+
+    def check_memory_leaks(self, action: Callable, test_iterations: int = 100) -> Dict[str, Any]:
+        """Check for memory leaks"""
+        if test_iterations <= 0:
+            raise ValueError("Number of iterations must be positive")
+        
+        initial_memory = psutil.Process().memory_info().rss
+        
+        for _ in range(test_iterations):
+            action()
+        
+        final_memory = psutil.Process().memory_info().rss
+        memory_growth = final_memory - initial_memory
+        
+        return {
+            'memory_growth': memory_growth,
+            'leak_detected': memory_growth > 1024 * 1024  # 1MB threshold
+        }
+
+    def wait_for(self, condition: Callable[[], bool], timeout: float = None, interval: float = None) -> bool:
         """
-        Measure performance of an action.
+        Wait for a condition to be true.
 
         Args:
-            action: Function to measure
-            iterations: Number of times to run the action
+            condition: Function that returns True when condition is met
+            timeout: Maximum time to wait in seconds
+            interval: Time between checks in seconds
 
         Returns:
-            Performance metrics
+            bool: True if condition was met within timeout
         """
-        if not self._performance_monitor:
-            self._performance_monitor = PerformanceTest(self.backend.application)
-        return self._performance_monitor.measure_action(action, test_runs=iterations)
-
-    def run_stress_test(self, action: Callable, duration: float, interval: float = 0.1) -> Dict[str, Any]:
-        """
-        Run a stress test on an action.
-
-        Args:
-            action: Function to test
-            duration: Test duration in seconds
-            interval: Time between actions in seconds
-
-        Returns:
-            Test results
-        """
-        if not self._performance_monitor:
-            self._performance_monitor = PerformanceTest(self.backend.application)
-        return self._performance_monitor.stress_test(action, int(round(duration)), interval)
-
-    def check_memory_leaks(self, action: Callable, iterations: int = 100) -> Tuple[bool, float]:
-        """
-        Check for memory leaks in an action.
-
-        Args:
-            action: Function to check
-            iterations: Number of times to run the action
-
-        Returns:
-            (leak_detected, leak_size_mb)
-        """
-        if not self._performance_monitor:
-            self._performance_monitor = PerformanceTest(self.backend.application)
-        results = self._performance_monitor.memory_leak_test(action, iterations)
-        # Explicitly cast the return values to ensure correct types
-        leak_detected: bool = bool(results['has_leak'])
-        leak_size: float = float(results['memory_growth_mb'])
-        return leak_detected, leak_size
+        if timeout is None:
+            timeout = self._config.default_timeout if self._config else 10.0
+        if interval is None:
+            interval = self._config.polling_interval if self._config else 0.5
+        
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            if condition():
+                return True
+            time.sleep(interval)
+        return False
 
     def check_accessibility(self, element: Optional[UIElement] = None) -> Dict[str, Any]:
         """
@@ -322,15 +359,110 @@ class AutomationSession:
             raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
         return self._visual_tester
 
-    def init_visual_testing(self, baseline_dir: str) -> None:
-        """
-        Initialize visual testing with the specified baseline directory.
+    def init_visual_testing(self, baseline_dir: Union[str, Path], threshold: float = 0.95) -> None:
+        """Initialize visual testing with baseline directory and comparison threshold"""
+        if not baseline_dir:
+            raise ValueError("Baseline directory must be specified")
+        self._visual_tester = VisualTester(baseline_dir, threshold)
 
-        Args:
-            baseline_dir: Directory to store baseline images
-        """
-        from .visual import VisualTester
-        self._visual_tester = VisualTester(baseline_dir)
+    def capture_baseline(self, name: str, element: Optional[UIElement] = None) -> bool:
+        """Capture baseline image for visual testing"""
+        if not self._visual_tester:
+            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
+        image = element.capture_screenshot() if element else self.backend.capture_screenshot()
+        return self._visual_tester.capture_baseline(name, image)
+
+    def verify_visual(self, name: str, element: Optional[UIElement] = None) -> Tuple[bool, float]:
+        """Compare current state with baseline"""
+        if not self._visual_tester:
+            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
+        image = element.capture_screenshot() if element else self.backend.capture_screenshot()
+        return self._visual_tester.compare(name, image)
+
+    def generate_visual_report(self, output_dir: Union[str, Path]) -> None:
+        """Generate visual testing report"""
+        if not self._visual_tester:
+            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
+        self._visual_tester.generate_report(output_dir)
+
+    def generate_accessibility_report(self, output_dir: Union[str, Path]) -> None:
+        """Generate accessibility testing report"""
+        if not output_dir:
+            raise ValueError("Output directory must be specified")
+        self.backend.generate_accessibility_report(output_dir)
+
+    def get_current_application(self) -> Optional[Any]:
+        """Get current application being automated"""
+        return self._current_application
+
+    def attach_to_process(self, pid: int) -> None:
+        """Attach to running process by PID"""
+        try:
+            process = psutil.Process(pid)
+            if not process.is_running():
+                raise ValueError(f"Process {pid} is not running")
+            self._current_application = process
+        except psutil.NoSuchProcess:
+            raise psutil.NoSuchProcess(pid=pid, msg="Process PID not found")
+
+    def start_performance_monitoring(self) -> None:
+        """Start monitoring performance metrics"""
+        if not self._current_application:
+            raise ValueError("No application attached for monitoring")
+        self._performance_monitor = PerformanceTest(self._current_application)
+        self._performance_monitor.start()
+
+    def get_performance_metrics(self) -> Dict[str, float]:
+        """Get current performance metrics"""
+        if not self._performance_monitor:
+            raise ValueError("Performance monitoring not started")
+        return self._performance_monitor.get_metrics()
+
+    def run_stress_test(self, duration: int, action: Callable[[], None]) -> Dict[str, Any]:
+        """Run stress test for specified duration"""
+        if duration <= 0:
+            raise ValueError("Duration must be positive")
+        if not self._performance_monitor:
+            self.start_performance_monitoring()
+        return self._performance_monitor.run_stress_test(duration, action)
+
+    def check_memory_leaks(self, iterations: int, action: Callable[[], None]) -> Dict[str, Any]:
+        """Check for memory leaks by running action multiple times"""
+        if iterations <= 0:
+            raise ValueError("Iterations must be positive")
+        if not self._performance_monitor:
+            self.start_performance_monitoring()
+        return self._performance_monitor.check_memory_leaks(iterations, action)
+
+    def measure_action_performance(self, action: Callable[[], None], runs: int = 10) -> Dict[str, float]:
+        """Measure performance metrics for an action"""
+        if runs <= 0:
+            raise ValueError("Number of runs must be positive")
+        if not self._performance_monitor:
+            self.start_performance_monitoring()
+        return self._performance_monitor.measure_action(action, runs)
+
+    def set_ocr_language(self, language: str) -> None:
+        """Set OCR language for text recognition"""
+        valid_languages = ['eng', 'fra', 'deu', 'spa']  # Example supported languages
+        if language not in valid_languages:
+            raise ValueError(f"Unsupported OCR language. Supported languages: {valid_languages}")
+        self._ocr_languages = [language]
+
+    def mouse_move(self, x: int, y: int) -> None:
+        """Move mouse to coordinates"""
+        if not isinstance(x, int) or not isinstance(y, int):
+            raise ValueError("Coordinates must be integers")
+        if x < 0 or y < 0:
+            raise ValueError("Coordinates must be non-negative")
+        self._mouse.move(x, y)
+
+    def press_key(self, key: str) -> None:
+        """Press keyboard key"""
+        valid_keys = ['a', 'b', 'c', 'enter', 'shift', 'ctrl', 'alt']  # Example valid keys
+        if key not in valid_keys:
+            raise ValueError(f"Invalid key. Valid keys: {valid_keys}")
+        self._keyboard.press(key)
 
     def capture_screenshot(self) -> np.ndarray:
         """
@@ -365,82 +497,43 @@ class AutomationSession:
             raise RuntimeError("Failed to capture element screenshot")
         return screenshot
 
-    def capture_visual_baseline(self, name: str, element: Optional[UIElement] = None) -> bool:
-        """
-        Capture a visual baseline for comparison.
+    def capture_visual_baseline(self, element: UIElement, name: str) -> bool:
+        """Capture visual baseline for element"""
+        if not hasattr(element, 'capture_screenshot'):
+            raise AttributeError("Element does not support screenshot capture")
+        
+        screenshot = element.capture_screenshot()
+        baseline_path = os.path.join(self._visual_test_dir, f"{name}_baseline.png")
+        screenshot.save(baseline_path)
+        return True
 
-        Args:
-            name: Name of the baseline image
-            element: Optional element to capture. If None, captures full screen.
+    def compare_visual(self, element: UIElement, name: str) -> Tuple[bool, float]:
+        """Compare element with visual baseline"""
+        if not hasattr(element, 'capture_screenshot'):
+            raise AttributeError("Element does not support screenshot capture")
+        
+        current = element.capture_screenshot()
+        baseline_path = os.path.join(self._visual_test_dir, f"{name}_baseline.png")
+        baseline = Image.open(baseline_path)
+        
+        diff = ImageChops.difference(current, baseline)
+        diff_ratio = sum(x * y for x, y in diff.getdata()) / (current.width * current.height * 255)
+        
+        return diff_ratio < 0.01, diff_ratio
 
-        Returns:
-            bool: True if baseline was captured successfully
-        """
-        screenshot = self.capture_element_screenshot(element) if element else self.capture_screenshot()
-        return self.visual_tester.capture_baseline(f"{name}.png", screenshot)
-
-    def compare_visual(self, name: str, element: Optional[UIElement] = None) -> Tuple[bool, float]:
-        """
-        Compare current visual state with baseline.
-
-        Args:
-            name: Name of the baseline image
-            element: Optional element to compare. If None, compares full screen.
-
-        Returns:
-            Tuple[bool, float]: Match result and difference score
-        """
-        screenshot = self.capture_element_screenshot(element) if element else self.capture_screenshot()
-        return self.visual_tester.compare_with_baseline(f"{name}.png", screenshot)
-
-    def verify_visual_hash(self, name: str, element: Optional[UIElement] = None) -> Dict[str, Any]:
-        """
-        Verify visual hash against baseline.
-
-        Args:
-            name: Name of the baseline image
-            element: Optional element to verify. If None, verifies full screen.
-
-        Returns:
-            Dict containing match status and differences
-        """
-        screenshot = self.capture_element_screenshot(element) if element else self.capture_screenshot()
-        result = self.visual_tester.verify_hash(f"{name}.png", screenshot)
-        return {
-            "match": result,
-            "differences": [] if result else [{"type": "hash_mismatch", "location": (0, 0), "size": (0, 0)}]
-        }
-
-    def launch_application(self, path: str, *args, **kwargs) -> Any:
-        """
-        Launch an application.
-
-        Args:
-            path: Path to the application executable
-            *args: Additional arguments for the application
-            **kwargs: Additional keyword arguments for the application
-
-        Returns:
-            Application object
-        """
-        from ..application import Application
-        app = Application(Path(path))
-        args_list = list(args)
-        app.launch(path=Path(path), args=args_list, **kwargs)
-        return app
-
-    def attach_to_application(self, pid: int) -> Any:
-        """
-        Attach to an existing application.
-
-        Args:
-            pid: Process ID of the application
-
-        Returns:
-            Application object
-        """
-        from ..application import Application
-        return Application(process=psutil.Process(pid))
+    def verify_visual_hash(self, element: UIElement, name: str) -> bool:
+        """Verify element visual hash against baseline"""
+        if not hasattr(element, 'capture_screenshot'):
+            raise AttributeError("Element does not support screenshot capture")
+        
+        current = element.capture_screenshot()
+        baseline_path = os.path.join(self._visual_test_dir, f"{name}_baseline.png")
+        baseline = Image.open(baseline_path)
+        
+        current_hash = hashlib.md5(current.tobytes()).hexdigest()
+        baseline_hash = hashlib.md5(baseline.tobytes()).hexdigest()
+        
+        return current_hash == baseline_hash
 
     @property
     def config(self) -> AutomationConfig:
@@ -495,3 +588,80 @@ class AutomationSession:
         if not hasattr(self.backend, 'ocr'):
             raise AttributeError('OCR not supported by backend')
         return self.backend.ocr
+
+    def _save_image(self, image: np.ndarray, path: Union[str, Path]) -> None:
+        """Save image to file"""
+        if not isinstance(image, np.ndarray):
+            raise ValueError("Image must be a numpy array")
+        cv2.imwrite(str(path), image)
+
+    def launch_application(self, path: str, *args, **kwargs) -> Any:
+        """
+        Launch an application.
+
+        Args:
+            path: Path to the application executable
+            *args: Additional arguments for the application
+            **kwargs: Additional keyword arguments for the application
+
+        Returns:
+            Application object
+        """
+        from ..application import Application
+        app = Application(Path(path))
+        args_list = list(args)
+        app.launch(path=Path(path), args=args_list, **kwargs)
+        return app
+
+    def attach_to_application(self, pid: int) -> Any:
+        """
+        Attach to an existing application.
+
+        Args:
+            pid: Process ID of the application
+
+        Returns:
+            Application object
+        """
+        from ..application import Application
+        return Application(process=psutil.Process(pid))
+
+    def configure_waits(self, timeout: float = 10.0, polling_interval: float = 0.5) -> None:
+        """
+        Configure wait timeouts and polling intervals.
+        
+        Args:
+            timeout: Default timeout for wait operations in seconds
+            polling_interval: Time between condition checks in seconds
+        """
+        self.waits.default_timeout = timeout
+        self.waits.polling_interval = polling_interval
+
+    def configure_visual_testing(self, baseline_dir: Union[str, Path], threshold: float = 0.95) -> None:
+        """
+        Configure visual testing settings.
+
+        Args:
+            baseline_dir: Directory for baseline images
+            threshold: Similarity threshold for comparisons
+        """
+        if self._config is None:
+            self._config = AutomationConfig()
+        self._config.visual_baseline_dir = Path(baseline_dir)
+        self._config.visual_threshold = threshold
+        self._config.visual_testing_enabled = True
+
+    def start_performance_monitoring(self, interval: float = 1.0) -> None:
+        """
+        Start performance monitoring.
+
+        Args:
+            interval: Monitoring interval in seconds
+        """
+        if self._config is None:
+            self._config = AutomationConfig()
+        self._config.performance_enabled = True
+        self._config.performance_interval = interval
+        if self._performance_monitor is None:
+            self._performance_monitor = PerformanceTest(self)
+        self._performance_monitor.start_monitoring()

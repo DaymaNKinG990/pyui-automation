@@ -52,6 +52,10 @@ class Image(UIElement):
         """
         return self._element.get_property("visible")
 
+    @is_visible.deleter
+    def is_visible(self):
+        self._is_visible = False
+
     def capture(self) -> PILImage.Image:
         """
         Capture the image content as a PIL Image.

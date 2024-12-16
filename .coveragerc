@@ -1,9 +1,6 @@
 [run]
 source = pyui_automation
-omit =
-    */site-packages/*
-    */tests/*
-    setup.py
+parallel = True
 
 [report]
 exclude_lines =
@@ -12,6 +9,3 @@ exclude_lines =
     raise NotImplementedError
     if __name__ == .__main__.:
     pass
-    raise ImportError
-
-ignore_errors = True

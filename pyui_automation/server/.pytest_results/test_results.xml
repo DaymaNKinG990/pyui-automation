@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+    <testsuite name="Example Tests">
+        <testcase name="test_example_1" result="passed" time="0.1">
+            <description>Тестовый пример 1</description>
+            <system-out>Лог выполнения теста 1</system-out>
+        </testcase>
+        <testcase name="test_example_2" result="failed" time="0.2">
+            <failure message="Ошибка в тесте 2"/>
+            <description>Тестовый пример 2</description>
+            <system-out>Лог выполнения теста 2</system-out>
+        </testcase>
+    </testsuite>
+</testsuites>

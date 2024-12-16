@@ -371,3 +371,61 @@ class BuffPanel(UIElement):
             timeout=timeout,
             error_message="Debuffs did not clear"
         )
+
+    def wait_for_buff_expire(self, name: str, timeout: float = 10) -> bool:
+        """
+        Wait for buff to expire
+
+        Args:
+            name (str): Buff name
+            timeout (float): Maximum wait time in seconds
+
+        Returns:
+            bool: True if buff expired within timeout
+        """
+        buff = self.get_buff(name)
+        if not buff:
+            return True
+        return buff.wait_until_expired(timeout)
+
+    def get_active_buffs(self) -> List[Buff]:
+        """
+        Get all active buffs
+
+        Returns:
+            List[Buff]: List of active buffs
+        """
+        return self.get_buffs()
+
+    def get_active_debuffs(self) -> List[Debuff]:
+        """
+        Get all active debuffs
+
+        Returns:
+            List[Debuff]: List of active debuffs
+        """
+        return self.get_debuffs()
+
+    def has_buff(self, name: str) -> bool:
+        """
+        Check if specific buff is active
+
+        Args:
+            name (str): Buff name
+
+        Returns:
+            bool: True if buff is active
+        """
+        return self.get_buff(name) is not None
+
+    def has_debuff(self, name: str) -> bool:
+        """
+        Check if specific debuff is active
+
+        Args:
+            name (str): Debuff name
+
+        Returns:
+            bool: True if debuff is active
+        """
+        return self.get_debuff(name) is not None

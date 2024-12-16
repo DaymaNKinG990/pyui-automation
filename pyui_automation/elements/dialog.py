@@ -38,6 +38,10 @@ class Dialog(UIElement):
         """
         return self._element.get_property("visible")
 
+    @is_visible.deleter
+    def is_visible(self):
+        self._is_visible = False
+
     @property
     def buttons(self) -> List[str]:
         """

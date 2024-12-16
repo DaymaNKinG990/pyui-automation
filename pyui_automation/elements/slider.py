@@ -18,6 +18,10 @@ class Slider(UIElement):
         """
         return self._element.get_property("value")
 
+    @value.deleter
+    def value(self):
+        self._value = 0
+
     @property
     def minimum(self) -> float:
         """

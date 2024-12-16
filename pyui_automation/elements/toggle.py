@@ -7,26 +7,32 @@ class Toggle(UIElement):
 
     def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
         super().__init__(native_element, session)
+        self._is_on = self._element.get_property("toggled")
+        self._is_enabled = self._element.get_property("enabled")
 
     @property
-    def is_on(self) -> bool:
-        """
-        Check if the toggle is in the ON state.
+    def is_on(self):
+        return self._is_on
 
-        Returns:
-            bool: True if ON, False if OFF
-        """
-        return self._element.get_property("toggled")
+    @is_on.setter
+    def is_on(self, value):
+        self._is_on = value
+
+    @is_on.deleter
+    def is_on(self):
+        self._is_on = False
 
     @property
-    def is_enabled(self) -> bool:
-        """
-        Check if the toggle is enabled.
+    def is_enabled(self):
+        return self._is_enabled
 
-        Returns:
-            bool: True if enabled, False otherwise
-        """
-        return self._element.get_property("enabled")
+    @is_enabled.setter
+    def is_enabled(self, value):
+        self._is_enabled = value
+
+    @is_enabled.deleter
+    def is_enabled(self):
+        self._is_enabled = False
 
     @property
     def label(self) -> str:

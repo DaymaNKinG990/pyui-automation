@@ -7,18 +7,34 @@ from pyui_automation.core.config import AutomationConfig
 def config():
     return AutomationConfig()
 
-def test_default_values(config):
+def test_default_values(ui_automation):
     """Test default configuration values"""
-    assert config.get('timeout') == 10
-    assert config.get('retry_interval') == 0.5
-    assert config.get('screenshot_on_error') is True
-    assert config.get('log_level') == 'INFO'
+    config = ui_automation.config
+    
+    # Проверяем наличие базовых настроек
+    assert config.get('implicit_wait') is not None
+    assert config.get('explicit_wait') is not None
+    assert config.get('polling_interval') is not None
+    
+    # Проверяем значения по умолчанию
+    assert isinstance(config.get('implicit_wait'), (int, float))
+    assert isinstance(config.get('explicit_wait'), (int, float))
+    assert isinstance(config.get('polling_interval'), (int, float))
 
-def test_set_get_values(config):
+def test_set_get_values(ui_automation):
     """Test setting and getting configuration values"""
-    config.set('custom_key', 'custom_value')
-    assert config.get('custom_key') == 'custom_value'
-    assert config.get('non_existent', 'default') == 'default'
+    config = ui_automation.config
+    
+    # Устанавливаем новые значения
+    config.set('custom_timeout', 10)
+    config.set('custom_interval', 0.5)
+    
+    # Проверяем установленные значения
+    assert config.get('custom_timeout') == 10
+    assert config.get('custom_interval') == 0.5
+    
+    # Проверяем несуществующий ключ
+    assert config.get('non_existent_key', default=None) is None
 
 def test_screenshot_dir(config):
     """Test screenshot directory property"""

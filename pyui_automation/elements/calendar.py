@@ -20,6 +20,10 @@ class Calendar(UIElement):
         value = self._element.get_property("selected_date")
         return datetime.strptime(value, "%Y-%m-%d").date() if value else None
 
+    @selected_date.deleter
+    def selected_date(self):
+        self._selected_date = None
+
     @property
     def minimum_date(self) -> Optional[date]:
         """
@@ -52,6 +56,10 @@ class Calendar(UIElement):
         """
         value = self._element.get_property("displayed_month")
         return datetime.strptime(value, "%Y-%m").date()
+
+    @displayed_month.deleter
+    def displayed_month(self):
+        self._displayed_month = None
 
     def select_date(self, date_value: date) -> None:
         """

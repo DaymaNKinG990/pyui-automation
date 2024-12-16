@@ -18,6 +18,17 @@ class CheckBox(UIElement):
         """
         return self._element.get_property("checked")
 
+    @is_checked.setter
+    def is_checked(self, value: bool) -> None:
+        """Set the checked state of the checkbox"""
+        if value != self.is_checked:
+            self.click()
+
+    @is_checked.deleter
+    def is_checked(self) -> None:
+        """Delete is not supported for this property"""
+        raise AttributeError("Cannot delete is_checked property")
+
     def check(self) -> None:
         """Check the checkbox if it's not already checked"""
         if not self.is_checked:

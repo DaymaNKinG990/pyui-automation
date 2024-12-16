@@ -7,16 +7,19 @@ class Text(UIElement):
 
     def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
         super().__init__(native_element, session)
+        self._text = self._element.get_property("text")
 
     @property
-    def text(self) -> str:
-        """
-        Get the text content.
+    def text(self):
+        return self._text
 
-        Returns:
-            str: Text content
-        """
-        return self._element.get_property("text")
+    @text.setter
+    def text(self, value):
+        self._text = value
+
+    @text.deleter
+    def text(self):
+        self._text = ""
 
     @property
     def is_editable(self) -> bool:

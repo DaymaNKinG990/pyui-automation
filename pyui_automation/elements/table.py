@@ -110,6 +110,11 @@ class Table(UIElement):
         )
         return TableCell(cell, self._session) if cell else None
 
+    def get_cell_by_text(self, text: str) -> Optional[TableCell]:
+        """Get first cell containing text"""
+        cells = self.get_cells_by_text(text)
+        return cells[0] if cells else None
+
     def get_cells_by_text(self, text: str) -> List[TableCell]:
         """
         Get all cells containing the specified text.

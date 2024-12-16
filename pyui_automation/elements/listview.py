@@ -28,6 +28,10 @@ class ListViewItem(UIElement):
         """
         return self._element.get_property("selected")
 
+    @is_selected.deleter
+    def is_selected(self):
+        self._is_selected = False
+
     @property
     def index(self) -> int:
         """

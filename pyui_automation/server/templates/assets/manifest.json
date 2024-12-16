@@ -1,0 +1,46 @@
+{
+    "name": "Test Results Dashboard",
+    "short_name": "Tests",
+    "description": "Интерактивная панель результатов тестирования",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#2196F3",
+    "icons": [
+        {
+            "src": "/assets/icons/favicon-32x32.png",
+            "sizes": "32x32",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/assets/screenshots/dashboard.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Панель результатов тестирования"
+        }
+    ],
+    "categories": ["developer tools", "utilities"],
+    "orientation": "any",
+    "prefer_related_applications": false,
+    "shortcuts": [
+        {
+            "name": "Последние тесты",
+            "url": "/latest",
+            "description": "Показать последние результаты тестов"
+        },
+        {
+            "name": "Ошибки",
+            "url": "/failed",
+            "description": "Показать только проваленные тесты"
+        }
+    ],
+    "related_applications": [],
+    "iarc_rating_id": "",
+    "scope": "/",
+    "lang": "ru",
+    "dir": "ltr"
+}

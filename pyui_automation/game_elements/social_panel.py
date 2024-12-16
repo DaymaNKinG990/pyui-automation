@@ -335,3 +335,87 @@ class SocialPanel(UIElement):
             timeout=timeout,
             error_message=f"Friend '{name}' did not go offline"
         )
+
+    def send_whisper(self, player_name: str, message: str) -> bool:
+        """
+        Send whisper message to player
+        
+        Args:
+            player_name (str): Player to whisper to
+            message (str): Message to send
+        
+        Returns:
+            bool: True if successful
+        """
+        friend = self.get_friend(player_name)
+        if friend:
+            return friend.whisper(message)
+        return False
+
+    def invite_to_group(self, player_name: str) -> bool:
+        """
+        Invite player to group
+        
+        Args:
+            player_name (str): Player to invite
+        
+        Returns:
+            bool: True if successful
+        """
+        friend = self.get_friend(player_name)
+        if friend:
+            return friend.invite_group()
+        return False
+
+    def is_friend_online(self, friend_name: str) -> bool:
+        """
+        Check if friend is online
+        
+        Args:
+            friend_name (str): Friend to check
+        
+        Returns:
+            bool: True if friend is online
+        """
+        friend = self.get_friend(friend_name)
+        return friend.is_online if friend else False
+
+    def get_blocked_players(self) -> List[Block]:
+        """
+        Get list of blocked players
+        
+        Returns:
+            List[Block]: List of blocked players
+        """
+        return self.get_blocks()
+
+    def remove_friend(self, friend_name: str) -> bool:
+        """
+        Remove friend from friends list
+        
+        Args:
+            friend_name (str): Friend to remove
+        
+        Returns:
+            bool: True if successful
+        """
+        friend = self.get_friend(friend_name)
+        if friend:
+            return friend.remove()
+        return False
+
+    def unblock_player(self, player_name: str) -> bool:
+        """
+        Unblock a player
+        
+        Args:
+            player_name (str): Player to unblock
+        
+        Returns:
+            bool: True if successful
+        """
+        blocks = self.get_blocks()
+        for block in blocks:
+            if block.name == player_name:
+                return block.unblock()
+        return False

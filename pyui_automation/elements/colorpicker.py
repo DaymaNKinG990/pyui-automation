@@ -18,6 +18,10 @@ class ColorPicker(UIElement):
         """
         return self._element.get_property("color")
 
+    @color.deleter
+    def color(self):
+        self._color = "#000000"
+
     @property
     def rgb(self) -> Tuple[int, int, int]:
         """
@@ -27,6 +31,10 @@ class ColorPicker(UIElement):
             Tuple[int, int, int]: RGB values (0-255)
         """
         return self._element.get_property("rgb")
+
+    @rgb.deleter
+    def rgb(self):
+        self._rgb = (0, 0, 0)
 
     @property
     def alpha(self) -> float:
@@ -47,6 +55,10 @@ class ColorPicker(UIElement):
             bool: True if expanded, False otherwise
         """
         return self._element.get_property("expanded")
+
+    @is_expanded.deleter
+    def is_expanded(self):
+        self._is_expanded = False
 
     def set_color(self, color: Union[str, Tuple[int, int, int]]) -> None:
         """

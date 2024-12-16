@@ -9,10 +9,14 @@ from pyui_automation.core.visual import VisualMatcher, VisualDifference, VisualT
 def mock_element():
     """Create a mock UI element for testing"""
     element = MagicMock()
-    # Create a test screen with a white circle that matches our template
+    # Create a test screen with multiple white circles that match our template
     screen = np.zeros((100, 100, 3), dtype=np.uint8)
+    # Add three circles at different locations
+    cv2.circle(screen, (30, 30), 5, (255, 255, 255), -1)
     cv2.circle(screen, (50, 50), 5, (255, 255, 255), -1)
-    element.capture_screen = MagicMock(return_value=screen)
+    cv2.circle(screen, (70, 70), 5, (255, 255, 255), -1)
+    # Return the actual numpy array instead of wrapping in MagicMock
+    element.capture_screenshot = lambda: screen
     return element
 
 @pytest.fixture
@@ -81,7 +85,12 @@ def test_capture_baseline(visual_matcher, tmp_path):
     """Test capturing baseline image"""
     baseline_path = tmp_path / "baseline.png"
     visual_matcher.capture_baseline(baseline_path)
+    
+    # Verify the image was saved correctly
     assert baseline_path.exists()
+    saved_image = cv2.imread(str(baseline_path))
+    assert saved_image is not None
+    assert saved_image.shape == (100, 100, 3)
 
 def test_highlight_differences(visual_matcher):
     """Test highlighting differences between images"""
@@ -132,8 +141,13 @@ def test_multiple_template_matching(visual_matcher):
     cv2.circle(template, (10, 10), 5, (255, 255, 255), -1)
     
     locations = visual_matcher.find_all_elements(template)
-    assert isinstance(locations, list)
-    assert len(locations) >= 0
+    assert len(locations) == 3  # Should find all three circles
+    
+    # Verify the locations match our expected circle positions
+    expected_centers = [(30, 30), (50, 50), (70, 70)]
+    found_centers = [(loc['location'][0] + 10, loc['location'][1] + 10) for loc in locations]  # Add template center offset
+    assert all(any(abs(found[0] - exp[0]) <= 2 and abs(found[1] - exp[1]) <= 2 
+              for exp in expected_centers) for found in found_centers)
 
 def test_visual_tester_init(tmp_path):
     """Test VisualTester initialization"""
@@ -170,7 +184,10 @@ def test_verify_hash_identical_images(visual_tester):
     img = np.zeros((100, 100, 3), dtype=np.uint8)
     cv2.circle(img, (50, 50), 20, (255, 255, 255), -1)
     
-    assert visual_tester.verify_hash(img, img) == True
+    # First capture the baseline
+    visual_tester.capture_baseline("test_identical.png", img)
+    # Then verify against it
+    assert visual_tester.verify_hash("test_identical.png", img) == True
 
 def test_verify_hash_similar_images(visual_tester):
     """Test hash verification with similar images"""
@@ -180,12 +197,18 @@ def test_verify_hash_similar_images(visual_tester):
     cv2.circle(img1, (50, 50), 20, (255, 255, 255), -1)
     cv2.circle(img2, (51, 51), 20, (255, 255, 255), -1)
     
-    assert visual_tester.verify_hash(img1, img2) == True
+    # First capture the baseline
+    visual_tester.capture_baseline("test_similar.png", img1)
+    # Then verify against it
+    assert visual_tester.verify_hash("test_similar.png", img2) == True
 
 def test_verify_hash_different_images(visual_tester, sample_images):
     """Test hash verification with different images"""
     img1, img2 = sample_images
-    assert visual_tester.verify_hash(img1, img2) == False
+    # First capture the baseline
+    visual_tester.capture_baseline("test_different.png", img1)
+    # Then verify against it
+    assert visual_tester.verify_hash("test_different.png", img2) == False
 
 def test_calculate_phash(visual_tester):
     """Test perceptual hash calculation"""
@@ -260,18 +283,24 @@ def test_generate_visual_report_with_differences(visual_tester, tmp_path):
 
 def test_capture_baseline_with_invalid_image(visual_tester):
     """Test capturing baseline with invalid image data"""
-    with pytest.raises(ValueError):
-        visual_tester.capture_baseline(None, "test")
+    with pytest.raises(ValueError, match="Invalid image data"):
+        visual_tester.capture_baseline("test.png", None)
+    with pytest.raises(ValueError, match="Invalid image data"):
+        visual_tester.capture_baseline("test.png", np.array([]))
 
 def test_capture_baseline_with_empty_name(visual_tester, sample_images):
     """Test capturing baseline with empty name"""
-    with pytest.raises(ValueError):
-        visual_tester.capture_baseline(sample_images[0], "")
+    with pytest.raises(ValueError, match="Name cannot be empty"):
+        visual_tester.capture_baseline("", sample_images[0])
+    with pytest.raises(ValueError, match="Name cannot be empty"):
+        visual_tester.capture_baseline(None, sample_images[0])
 
 def test_verify_hash_with_invalid_images(visual_tester):
     """Test hash verification with invalid image data"""
-    with pytest.raises(ValueError):
-        visual_tester.verify_hash(None, None)
+    with pytest.raises(ValueError, match="Invalid image data"):
+        visual_tester.verify_hash("test.png", None)
+    with pytest.raises(ValueError, match="Invalid image data"):
+        visual_tester.verify_hash("test.png", np.array([]))
 
 def test_compare_with_invalid_images(visual_tester):
     """Test comparing invalid image data"""

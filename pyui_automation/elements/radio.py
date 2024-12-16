@@ -18,6 +18,16 @@ class RadioButton(UIElement):
         """
         return self._element.get_property("selected")
 
+    @is_selected.setter
+    def is_selected(self, value: bool) -> None:
+        """Set selected state"""
+        if value and not self.is_selected:
+            self.click()
+
+    @is_selected.deleter
+    def is_selected(self):
+        self._is_selected = False
+
     @property
     def group_name(self) -> str:
         """

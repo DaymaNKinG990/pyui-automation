@@ -1,116 +1,144 @@
-from typing import Dict, Any, Optional
+"""Configuration for UI automation"""
+
+from dataclasses import dataclass
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 
 
+@dataclass
 class AutomationConfig:
-    """
-    Configuration class for UI Automation
+    """Configuration settings for UI automation"""
 
-    This class provides a way to customize the behavior of UI Automation.
-    The following configuration options are available:
+    # Screenshot settings
+    screenshot_format: str = "png"
+    screenshot_quality: int = 90
+    screenshot_dir: Optional[Path] = None
 
-    - `screenshot_dir`: Directory to save screenshots (default: None)
-    - `timeout`: Default timeout for waiting (default: 10)
-    - `retry_interval`: Interval between retries (default: 0.5)
-    - `screenshot_on_error`: Capture screenshot on error (default: True)
-    - `log_level`: Log level (default: 'INFO')
-    - `poll_frequency`: Frequency of polling for element state changes (default: 0.1)
+    # Visual testing settings
+    visual_testing_enabled: bool = False
+    visual_baseline_dir: Optional[Path] = None
+    visual_threshold: float = 0.95
+    visual_algorithm: str = "ssim"
 
-    Example:
-        config = AutomationConfig()
-        config.timeout = 20  # Set default timeout to 20 seconds
-        config.screenshot_dir = '/path/to/screenshots'  # Set screenshot directory
-    """
+    # Performance settings
+    performance_enabled: bool = False
+    performance_metrics: List[str] = None
+    performance_interval: float = 1.0
+    performance_output_dir: Optional[Path] = None
 
-    def __init__(self) -> None:
-        """
-        Initialize configuration with default values
-        
-        - `screenshot_dir`: Directory to save screenshots (default: None)
-        - `timeout`: Default timeout for waiting (default: 10)
-        - `retry_interval`: Interval between retries (default: 0.5)
-        - `screenshot_on_error`: Capture screenshot on error (default: True)
-        - `log_level`: Log level (default: 'INFO')
-        - `poll_frequency`: Frequency of polling for element state changes (default: 0.1)
-        """
-        self._config: Dict[str, Any] = {
-            'screenshot_dir': None,
-            'timeout': 10,
-            'retry_interval': 0.5,
-            'screenshot_on_error': True,
-            'log_level': 'INFO',
-            'poll_frequency': 0.1,
-        }
+    # Wait settings
+    default_timeout: float = 10.0
+    default_interval: float = 0.5
+    implicit_wait: float = 0.0
+    polling_interval: float = 0.5
 
-    def set(self, key: str, value: Any) -> None:
-        """
-        Set configuration value
+    # OCR settings
+    ocr_enabled: bool = False
+    ocr_languages: List[str] = None
+    ocr_confidence: float = 0.7
 
-        Args:
-            key (str): Configuration key
-            value (Any): Configuration value
-        """
-        self._config[key] = value
+    # Accessibility settings
+    accessibility_enabled: bool = False
+    accessibility_standards: List[str] = None
+    accessibility_output_dir: Optional[Path] = None
+
+    # Backend settings
+    backend_type: str = "windows"
+    backend_options: Dict[str, Any] = None
+
+    def __post_init__(self):
+        """Initialize default values for collections"""
+        if self.performance_metrics is None:
+            self.performance_metrics = ["cpu", "memory", "response_time"]
+        if self.ocr_languages is None:
+            self.ocr_languages = ["eng"]
+        if self.accessibility_standards is None:
+            self.accessibility_standards = ["wcag2a", "wcag2aa"]
+        if self.backend_options is None:
+            self.backend_options = {}
+
+    def validate(self) -> None:
+        """Validate configuration settings"""
+        if self.screenshot_quality < 0 or self.screenshot_quality > 100:
+            raise ValueError("Screenshot quality must be between 0 and 100")
+
+        if self.visual_threshold < 0 or self.visual_threshold > 1:
+            raise ValueError("Visual threshold must be between 0 and 1")
+
+        if self.performance_interval <= 0:
+            raise ValueError("Performance interval must be positive")
+
+        if self.default_timeout <= 0:
+            raise ValueError("Default timeout must be positive")
+
+        if self.default_interval <= 0:
+            raise ValueError("Default interval must be positive")
+
+        if self.implicit_wait < 0:
+            raise ValueError("Implicit wait must be non-negative")
+
+        if self.ocr_confidence < 0 or self.ocr_confidence > 1:
+            raise ValueError("OCR confidence must be between 0 and 1")
+
+        valid_screenshot_formats = ["png", "jpg", "bmp"]
+        if self.screenshot_format not in valid_screenshot_formats:
+            raise ValueError(f"Invalid screenshot format. Must be one of: {valid_screenshot_formats}")
+
+        valid_visual_algorithms = ["ssim", "mse", "hash"]
+        if self.visual_algorithm not in valid_visual_algorithms:
+            raise ValueError(f"Invalid visual algorithm. Must be one of: {valid_visual_algorithms}")
+
+        valid_performance_metrics = ["cpu", "memory", "io", "gpu", "network", "response_time"]
+        for metric in self.performance_metrics:
+            if metric not in valid_performance_metrics:
+                raise ValueError(f"Invalid performance metric. Must be one of: {valid_performance_metrics}")
+
+        valid_ocr_languages = ["eng", "fra", "deu", "spa", "ita"]
+        for lang in self.ocr_languages:
+            if lang not in valid_ocr_languages:
+                raise ValueError(f"Invalid OCR language. Must be one of: {valid_ocr_languages}")
+
+        valid_accessibility_standards = ["wcag2.1", "wcag2.2", "section508", "wcag2a", "wcag2aa"]
+        for standard in self.accessibility_standards:
+            if standard not in valid_accessibility_standards:
+                raise ValueError(f"Invalid accessibility standard. Must be one of: {valid_accessibility_standards}")
+
+        valid_backend_types = ["windows", "linux", "macos", "web"]
+        if self.backend_type not in valid_backend_types:
+            raise ValueError(f"Invalid backend type. Must be one of: {valid_backend_types}")
 
     def get(self, key: str, default: Any = None) -> Any:
         """
-        Get configuration value
-
+        Get configuration value by key.
+        
         Args:
-            key (str): Configuration key
-            default (Any): Default value if key not found
-
+            key: Configuration key
+            default: Default value if key doesn't exist
+            
         Returns:
-            Any: Configuration value
+            Configuration value
+            
+        Raises:
+            AttributeError: If key doesn't exist and no default provided
         """
-        return self._config.get(key, default)
-
-    @property
-    def screenshot_dir(self) -> Optional[Path]:
-        """Get screenshot directory"""
-        dir_path = self._config.get('screenshot_dir')
-        return Path(dir_path) if dir_path else None
-
-    @screenshot_dir.setter
-    def screenshot_dir(self, path: str) -> None:
+        if hasattr(self, key):
+            return getattr(self, key)
+        if default is not None:
+            return default
+        raise AttributeError(f"Configuration key '{key}' does not exist")
+        
+    def set(self, key: str, value: Any) -> None:
         """
-        Set the screenshot directory path
-
+        Set configuration value.
+        
         Args:
-            path (str): The path to the directory where screenshots will be saved
+            key: Configuration key
+            value: Value to set
+            
+        Raises:
+            AttributeError: If key doesn't exist
         """
-        self._config['screenshot_dir'] = path
-
-    @property
-    def timeout(self) -> float:
-        """Get default timeout"""
-        return float(self._config.get('timeout', 10))
-
-    @timeout.setter
-    def timeout(self, value: float) -> None:
-        """
-        Set default timeout
-
-        Set the default timeout in seconds for all wait operations.
-        """
-        self._config['timeout'] = float(value)
-
-    @property
-    def retry_interval(self) -> float:
-        """Get retry interval"""
-        return float(self._config.get('retry_interval', 0.5))
-
-    @retry_interval.setter
-    def retry_interval(self, value: float) -> None:
-        """Set retry interval"""
-        self._config['retry_interval'] = float(value)
-
-    @property
-    def poll_frequency(self) -> float:
-        """Get polling frequency"""
-        return self._config['poll_frequency']
-
-    @poll_frequency.setter
-    def poll_frequency(self, value: float) -> None:
-        """Set polling frequency"""
-        self._config['poll_frequency'] = value
+        if hasattr(self, key):
+            setattr(self, key, value)
+        else:
+            raise AttributeError(f"Configuration key '{key}' does not exist")

@@ -27,6 +27,10 @@ class Input(UIElement):
         self.clear()
         self.send_keys(text)
 
+    @value.deleter
+    def value(self):
+        self._value = ""
+
     def clear(self) -> None:
         """
         Clear input value

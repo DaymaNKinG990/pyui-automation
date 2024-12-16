@@ -18,6 +18,10 @@ class ProgressBar(UIElement):
         """
         return self._element.get_property("value")
 
+    @value.deleter
+    def value(self):
+        self._value = 0
+
     @property
     def minimum(self) -> float:
         """
@@ -50,6 +54,10 @@ class ProgressBar(UIElement):
             return 0.0
         return ((self.value - self.minimum) / (self.maximum - self.minimum)) * 100
 
+    @percentage.deleter
+    def percentage(self):
+        self._percentage = 0
+
     @property
     def is_indeterminate(self) -> bool:
         """
@@ -69,6 +77,10 @@ class ProgressBar(UIElement):
             Optional[str]: Status text or None if not available
         """
         return self._element.get_property("status")
+
+    @status_text.deleter
+    def status_text(self):
+        self._status_text = ""
 
     def wait_until_complete(self, timeout: float = 10) -> bool:
         """

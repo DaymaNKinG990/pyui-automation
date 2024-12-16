@@ -18,6 +18,11 @@ class Tooltip(UIElement):
         """
         return self._element.get_property("text")
 
+    @text.setter
+    def text(self, value: str) -> None:
+        """Set tooltip text"""
+        self._element.set_property("text", value)
+
     @property
     def is_visible(self) -> bool:
         """
@@ -27,6 +32,15 @@ class Tooltip(UIElement):
             bool: True if visible, False otherwise
         """
         return self._element.get_property("visible")
+
+    @is_visible.setter
+    def is_visible(self, value: bool) -> None:
+        """Set tooltip visibility"""
+        if value != self.is_visible:
+            if value:
+                self.show()
+            else:
+                self.hide()
 
     @property
     def position(self) -> Tuple[int, int]:
@@ -41,6 +55,12 @@ class Tooltip(UIElement):
             self._element.get_property("y")
         )
 
+    @position.setter
+    def position(self, value: Tuple[int, int]) -> None:
+        """Set tooltip position"""
+        self._element.set_property("x", value[0])
+        self._element.set_property("y", value[1])
+
     @property
     def size(self) -> Tuple[int, int]:
         """
@@ -53,6 +73,22 @@ class Tooltip(UIElement):
             self._element.get_property("width"),
             self._element.get_property("height")
         )
+
+    @size.setter
+    def size(self, value: Tuple[int, int]) -> None:
+        """Set tooltip size"""
+        self._element.set_property("width", value[0])
+        self._element.set_property("height", value[1])
+
+    def show(self) -> None:
+        """Show the tooltip"""
+        if not self.is_visible:
+            self._element.set_property("visible", True)
+
+    def hide(self) -> None:
+        """Hide the tooltip"""
+        if self.is_visible:
+            self._element.set_property("visible", False)
 
     def wait_until_visible(self, timeout: float = 10) -> bool:
         """

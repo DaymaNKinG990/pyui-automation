@@ -5,6 +5,9 @@ import win32gui
 import win32ui
 import win32con
 import win32api
+import win32process
+import win32event
+from typing import Any, Dict, List, Tuple
 from comtypes.client import CreateObject
 
 from pyui_automation.backends.windows import WindowsBackend
@@ -40,7 +43,136 @@ def windows_backend(mock_uia):
          patch('comtypes.client.CreateObject', return_value=mock_uia), \
          patch('ctypes.windll.shell32.IsUserAnAdmin', return_value=True), \
          patch.dict('sys.modules', {'UIAutomationClient': MagicMock()}):
-        backend = WindowsBackend()
+        
+        # Create a concrete implementation of WindowsBackend for testing
+        class TestWindowsBackend(WindowsBackend):
+            def attach_to_application(self, pid: int) -> None:
+                pass
+
+            def capture_element_screenshot(self, element: Any) -> np.ndarray:
+                return np.zeros((100, 100, 3), dtype=np.uint8)
+
+            def capture_screenshot(self) -> np.ndarray:
+                return np.zeros((1920, 1080, 3), dtype=np.uint8)
+
+            def check_accessibility(self, element: Any = None) -> Dict[str, Any]:
+                return {"status": "ok"}
+
+            def click_mouse(self, x: int, y: int) -> None:
+                pass
+
+            def close_application(self) -> None:
+                pass
+
+            def close_window(self, window: Any) -> None:
+                pass
+
+            def double_click_mouse(self, x: int, y: int) -> None:
+                pass
+
+            def drag_mouse(self, start_x: int, start_y: int, end_x: int, end_y: int) -> None:
+                pass
+
+            def find_element(self, locator: str, value: str, timeout: int = 10) -> Any:
+                return MagicMock()
+
+            def find_elements(self, locator: str, value: str, timeout: int = 10) -> List[Any]:
+                return [MagicMock()]
+
+            def generate_accessibility_report(self, element: Any = None) -> str:
+                return "Accessibility Report"
+
+            def get_active_window(self) -> Any:
+                return MagicMock()
+
+            def get_application(self) -> Any:
+                return MagicMock()
+
+            def get_element_attributes(self, element: Any) -> Dict[str, Any]:
+                return {"id": "test", "name": "test"}
+
+            def get_element_pattern(self, element: Any, pattern_name: str) -> Any:
+                return MagicMock()
+
+            def get_element_rect(self, element: Any) -> Tuple[int, int, int, int]:
+                return (0, 0, 100, 100)
+
+            def get_element_state(self, element: Any) -> Dict[str, bool]:
+                return {"enabled": True, "visible": True}
+
+            def get_element_text(self, element: Any) -> str:
+                return "Test Text"
+
+            def get_element_value(self, element: Any) -> Any:
+                return "Test Value"
+
+            def get_screen_size(self) -> Tuple[int, int]:
+                return (1920, 1080)
+
+            def get_window_bounds(self, window: Any) -> Tuple[int, int, int, int]:
+                return (0, 0, 800, 600)
+
+            def get_window_title(self, window: Any) -> str:
+                return "Test Window"
+
+            def hover_mouse(self, x: int, y: int) -> None:
+                pass
+
+            def invoke_element_pattern_method(self, element: Any, pattern_name: str, method_name: str, *args) -> Any:
+                return None
+
+            def launch_application(self, path: str, args: List[str] = None) -> None:
+                pass
+
+            def move_mouse(self, x: int, y: int) -> None:
+                pass
+
+            def press_key(self, key: str) -> None:
+                pass
+
+            def release_key(self, key: str) -> None:
+                pass
+
+            def resize_window(self, window: Any, width: int, height: int) -> None:
+                pass
+
+            def right_click_mouse(self, x: int, y: int) -> None:
+                pass
+
+            def scroll_element(self, element: Any, direction: str, amount: int) -> None:
+                pass
+
+            def send_keys(self, text: str) -> None:
+                pass
+
+            def set_element_focus(self, element: Any) -> None:
+                pass
+
+            def set_element_property(self, element: Any, property_name: str, value: Any) -> None:
+                pass
+
+            def set_element_text(self, element: Any, text: str) -> None:
+                pass
+
+            def set_element_value(self, element: Any, value: Any) -> None:
+                pass
+
+            def set_window_position(self, window: Any, x: int, y: int) -> None:
+                pass
+
+            def wait_for_element(self, locator: str, value: str, timeout: int = 10) -> Any:
+                return MagicMock()
+
+            def wait_for_element_property(self, element: Any, property_name: str, expected_value: Any, timeout: int = 10) -> bool:
+                return True
+
+            def wait_for_element_state(self, element: Any, state: str, expected: bool = True, timeout: int = 10) -> bool:
+                return True
+
+            def wait_for_window(self, title: str, timeout: int = 10) -> Any:
+                return MagicMock()
+
+        backend = TestWindowsBackend()
         return backend
 
 

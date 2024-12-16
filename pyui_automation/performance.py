@@ -569,6 +569,24 @@ class PerformanceTest:
         """
         self.application = application
         self.monitor = PerformanceMonitor(application)
+        
+    def start_monitoring(self, interval: float = 1.0) -> None:
+        """
+        Start monitoring performance metrics
+        
+        Args:
+            interval: Time between metric collections in seconds
+        """
+        self.monitor.start_monitoring(interval)
+        
+    def stop_monitoring(self) -> List[PerformanceMetric]:
+        """
+        Stop monitoring and return collected metrics
+        
+        Returns:
+            List of collected performance metrics
+        """
+        return self.monitor.stop_monitoring()
 
     def measure_action(
         self,

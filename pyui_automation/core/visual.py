@@ -205,17 +205,18 @@ class VisualMatcher:
 class VisualTester:
     """Handles visual testing and comparison of UI elements"""
 
-    def __init__(self, baseline_dir: Union[str, Path]):
+    def __init__(self, baseline_dir: Union[str, Path], threshold: float = 0.95):
         """
         Initialize visual tester with baseline directory.
 
         Args:
             baseline_dir: Directory to store baseline images
+            threshold: Similarity threshold (0-1)
         """
         self.baseline_dir = Path(baseline_dir)
         self.baseline_dir.mkdir(parents=True, exist_ok=True)
         self._baseline_cache: Dict[str, np.ndarray] = {}
-        self.similarity_threshold = 0.95
+        self.similarity_threshold = threshold
 
     def capture_baseline(self, name: str, image: np.ndarray) -> bool:
         """
@@ -227,16 +228,19 @@ class VisualTester:
 
         Returns:
             bool: True if baseline was captured successfully
+
+        Raises:
+            ValueError: If name is empty or image data is invalid
         """
-        try:
-            if not name.endswith('.png'):
-                name = f"{name}.png"
-            baseline_path = self.baseline_dir / name
-            cv2.imwrite(str(baseline_path), image)
-            self._baseline_cache[name] = image
-            return True
-        except Exception:
-            return False
+        if not name:
+            raise ValueError("Name cannot be empty")
+        if image is None or not isinstance(image, np.ndarray) or image.size == 0:
+            raise ValueError("Invalid image data")
+
+        filepath = self.baseline_dir / name
+        cv2.imwrite(str(filepath), image)
+        self._baseline_cache[name] = image
+        return True
 
     def read_baseline(self, name: str) -> np.ndarray:
         """
@@ -430,14 +434,17 @@ class VisualTester:
 
         Returns:
             bool: True if hash matches baseline
+
+        Raises:
+            ValueError: If image data is invalid
         """
-        try:
-            baseline = self.read_baseline(name)
-            current_hash = self._calculate_phash(current)
-            baseline_hash = self._calculate_phash(baseline)
-            return np.array_equal(current_hash, baseline_hash)
-        except Exception:
-            return False
+        if current is None or not isinstance(current, np.ndarray) or current.size == 0:
+            raise ValueError("Invalid image data")
+
+        baseline = self.read_baseline(name)
+        current_hash = self._calculate_phash(current)
+        baseline_hash = self._calculate_phash(baseline)
+        return np.array_equal(current_hash, baseline_hash)
 
     def _calculate_phash(self, image: np.ndarray, hash_size: int = 8) -> np.ndarray:
         """

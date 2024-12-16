@@ -1,130 +1,29 @@
 from typing import Optional, Any, Dict, List, Tuple
 from ..elements.base import UIElement
+from dataclasses import dataclass
 
 
-class MapMarker(UIElement):
+@dataclass
+class MapMarker:
     """Represents a marker on the map"""
+    x: float
+    y: float
+    type: str
+    name: Optional[str] = None
+    native_element: Optional[Any] = None
+    session: Optional['AutomationSession'] = None
 
-    def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
-        super().__init__(native_element, session)
-
-    @property
-    def name(self) -> str:
-        """Get marker name"""
-        return self._element.get_property("name")
-
-    @property
-    def type(self) -> str:
-        """Get marker type (quest/vendor/etc)"""
-        return self._element.get_property("type")
-
-    @property
-    def position(self) -> Tuple[float, float]:
-        """Get marker position (x, y)"""
-        return (
-            self._element.get_property("position_x"),
-            self._element.get_property("position_y")
-        )
-
-    @property
-    def is_tracked(self) -> bool:
-        """Check if marker is being tracked"""
-        return self._element.get_property("tracked")
-
-    def click(self) -> bool:
-        """
-        Click the marker
-
-        Returns:
-            bool: True if successful
-        """
-        self._element.click()
-        return True
-
-    def track(self) -> bool:
-        """
-        Toggle tracking for this marker
-
-        Returns:
-            bool: True if successful
-        """
-        track_button = self._element.find_element(by="type", value="track_button")
-        if track_button:
-            track_button.click()
-            return True
-        return False
-
-    def set_note(self, note: str) -> bool:
-        """
-        Set marker note
-
-        Args:
-            note (str): Note text
-
-        Returns:
-            bool: True if successful
-        """
-        note_button = self._element.find_element(by="type", value="note_button")
-        if note_button:
-            note_button.click()
-            note_input = self._element.find_element(by="type", value="note_input")
-            if note_input:
-                note_input.send_keys(note)
-                note_input.send_keys("\n")
-                return True
-        return False
+    def __eq__(self, other):
+        if not isinstance(other, MapMarker):
+            return False
+        return self.x == other.x and self.y == other.y and self.type == other.type
 
 
-class MapArea(UIElement):
+@dataclass
+class MapArea:
     """Represents a map area/zone"""
-
-    def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
-        super().__init__(native_element, session)
-
-    @property
-    def name(self) -> str:
-        """Get area name"""
-        return self._element.get_property("name")
-
-    @property
-    def level_range(self) -> Tuple[int, int]:
-        """Get area level range"""
-        return (
-            self._element.get_property("min_level"),
-            self._element.get_property("max_level")
-        )
-
-    @property
-    def is_discovered(self) -> bool:
-        """Check if area has been discovered"""
-        return self._element.get_property("discovered")
-
-    @property
-    def is_contested(self) -> bool:
-        """Check if area is contested territory"""
-        return self._element.get_property("contested")
-
-    @property
-    def faction(self) -> Optional[str]:
-        """Get controlling faction if any"""
-        return self._element.get_property("faction")
-
-    def get_markers(self, marker_type: Optional[str] = None) -> List[MapMarker]:
-        """
-        Get markers in this area
-
-        Args:
-            marker_type (Optional[str]): Filter by marker type
-
-        Returns:
-            List[MapMarker]: List of markers
-        """
-        markers = self._element.find_elements(
-            by="type",
-            value="map_marker",
-            marker_type=marker_type
-        )
-        return [MapMarker(m, self._session) for m in markers]
+    name: str
+    level: str
 
 
 class WorldMap(UIElement):
@@ -132,38 +31,54 @@ class WorldMap(UIElement):
 
     def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
         super().__init__(native_element, session)
+        self._markers: List[MapMarker] = []
 
-    @property
-    def current_area(self) -> Optional[MapArea]:
-        """Get currently viewed area"""
-        area = self._element.find_element(
-            by="type",
-            value="current_area"
-        )
-        return MapArea(area, self._session) if area else None
+    def open(self) -> bool:
+        """Open the world map"""
+        self._element.click()
+        return True
 
-    @property
-    def player_position(self) -> Tuple[float, float]:
-        """Get player position on map"""
-        return (
-            self._element.get_property("player_x"),
-            self._element.get_property("player_y")
-        )
+    def close(self) -> bool:
+        """Close the world map"""
+        self._element.click()
+        return True
 
-    @property
-    def zoom_level(self) -> float:
-        """Get current zoom level"""
-        return self._element.get_property("zoom")
+    def pan_to_coordinates(self, x: float, y: float) -> bool:
+        """Pan the map to specific coordinates"""
+        self._element.set_property('pan_x', x)
+        self._element.set_property('pan_y', y)
+        return True
+
+    def get_current_position(self) -> Tuple[float, float]:
+        """Get current player position on map"""
+        x = self._element.get_property('player_x')
+        y = self._element.get_property('player_y')
+        return x, y
+
+    def set_zoom(self, level: float) -> bool:
+        """Set map zoom level"""
+        self._element.set_property('zoom', level)
+        return True
+
+    def add_marker(self, x: float, y: float, marker_type: str) -> MapMarker:
+        """Add a new marker to the map"""
+        marker = MapMarker(x, y, marker_type)
+        self._markers.append(marker)
+        return marker
+
+    def remove_marker(self, marker: MapMarker) -> bool:
+        """Remove a marker from the map"""
+        if marker in self._markers:
+            self._markers.remove(marker)
+            return True
+        return False
 
     def get_areas(self) -> List[MapArea]:
-        """
-        Get all map areas
-
-        Returns:
-            List[MapArea]: List of areas
-        """
-        areas = self._element.find_elements(by="type", value="map_area")
-        return [MapArea(a, self._session) for a in areas]
+        """Get all map areas"""
+        areas = []
+        for child in self._element.find_elements(by="type", value="area"):
+            areas.append(MapArea(child, self._session))
+        return areas
 
     def get_area(self, name: str) -> Optional[MapArea]:
         """
@@ -180,7 +95,7 @@ class WorldMap(UIElement):
             value="map_area",
             name=name
         )
-        return MapArea(area, self._session) if area else None
+        return MapArea(area.get_property('name'), area.get_property('level')) if area else None
 
     def get_markers(self, 
                    marker_type: Optional[str] = None,
@@ -201,7 +116,7 @@ class WorldMap(UIElement):
             marker_type=marker_type,
             area=area
         )
-        return [MapMarker(m, self._session) for m in markers]
+        return [MapMarker(m.get_property('x'), m.get_property('y'), m.get_property('type')) for m in markers]
 
     def get_marker(self, name: str) -> Optional[MapMarker]:
         """
@@ -218,23 +133,7 @@ class WorldMap(UIElement):
             value="map_marker",
             name=name
         )
-        return MapMarker(marker, self._session) if marker else None
-
-    def set_zoom(self, level: float) -> bool:
-        """
-        Set map zoom level
-
-        Args:
-            level (float): New zoom level
-
-        Returns:
-            bool: True if successful
-        """
-        zoom_slider = self._element.find_element(by="type", value="zoom_slider")
-        if zoom_slider:
-            zoom_slider.set_value(level)
-            return True
-        return False
+        return MapMarker(marker.get_property('x'), marker.get_property('y'), marker.get_property('type')) if marker else None
 
     def pan_to(self, x: float, y: float) -> bool:
         """
@@ -377,3 +276,128 @@ class WorldMap(UIElement):
             timeout=timeout,
             error_message=f"Player did not reach position ({target_x}, {target_y})"
         )
+
+
+class MapMarker(UIElement):
+    """Represents a marker on the map"""
+
+    def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
+        super().__init__(native_element, session)
+
+    @property
+    def name(self) -> str:
+        """Get marker name"""
+        return self._element.get_property("name")
+
+    @property
+    def type(self) -> str:
+        """Get marker type (quest/vendor/etc)"""
+        return self._element.get_property("type")
+
+    @property
+    def position(self) -> Tuple[float, float]:
+        """Get marker position (x, y)"""
+        return (
+            self._element.get_property("position_x"),
+            self._element.get_property("position_y")
+        )
+
+    @property
+    def is_tracked(self) -> bool:
+        """Check if marker is being tracked"""
+        return self._element.get_property("tracked")
+
+    def click(self) -> bool:
+        """
+        Click the marker
+
+        Returns:
+            bool: True if successful
+        """
+        self._element.click()
+        return True
+
+    def track(self) -> bool:
+        """
+        Toggle tracking for this marker
+
+        Returns:
+            bool: True if successful
+        """
+        track_button = self._element.find_element(by="type", value="track_button")
+        if track_button:
+            track_button.click()
+            return True
+        return False
+
+    def set_note(self, note: str) -> bool:
+        """
+        Set marker note
+
+        Args:
+            note (str): Note text
+
+        Returns:
+            bool: True if successful
+        """
+        note_button = self._element.find_element(by="type", value="note_button")
+        if note_button:
+            note_button.click()
+            note_input = self._element.find_element(by="type", value="note_input")
+            if note_input:
+                note_input.send_keys(note)
+                note_input.send_keys("\n")
+                return True
+        return False
+
+
+class MapArea(UIElement):
+    """Represents a map area/zone"""
+
+    def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
+        super().__init__(native_element, session)
+
+    @property
+    def name(self) -> str:
+        """Get area name"""
+        return self._element.get_property("name")
+
+    @property
+    def level_range(self) -> Tuple[int, int]:
+        """Get area level range"""
+        return (
+            self._element.get_property("min_level"),
+            self._element.get_property("max_level")
+        )
+
+    @property
+    def is_discovered(self) -> bool:
+        """Check if area has been discovered"""
+        return self._element.get_property("discovered")
+
+    @property
+    def is_contested(self) -> bool:
+        """Check if area is contested territory"""
+        return self._element.get_property("contested")
+
+    @property
+    def faction(self) -> Optional[str]:
+        """Get controlling faction if any"""
+        return self._element.get_property("faction")
+
+    def get_markers(self, marker_type: Optional[str] = None) -> List[MapMarker]:
+        """
+        Get markers in this area
+
+        Args:
+            marker_type (Optional[str]): Filter by marker type
+
+        Returns:
+            List[MapMarker]: List of markers
+        """
+        markers = self._element.find_elements(
+            by="type",
+            value="map_marker",
+            marker_type=marker_type
+        )
+        return [MapMarker(m, self._session) for m in markers]

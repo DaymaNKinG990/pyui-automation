@@ -477,3 +477,13 @@ class UIElement:
         else:
             self.clear()
             self.send_keys(new_value)
+
+    @property
+    def is_selected(self) -> bool:
+        """
+        Check if the element is selected.
+
+        Returns:
+            bool: True if the element is selected, False otherwise.
+        """
+        return bool(self.get_property('selected'))

@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Optional, Any, List
 from .base import UIElement
 
 
@@ -17,6 +17,10 @@ class Notification(UIElement):
             str: Notification text
         """
         return self._element.get_property("text")
+
+    @text.deleter
+    def text(self):
+        self._text = ""
 
     @property
     def type(self) -> str:
@@ -37,6 +41,10 @@ class Notification(UIElement):
             bool: True if visible, False otherwise
         """
         return self._element.get_property("visible")
+    
+    @is_visible.deleter
+    def is_visible(self):
+        self._is_visible = False
 
     @property
     def auto_close(self) -> bool:

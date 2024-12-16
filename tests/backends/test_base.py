@@ -1,24 +1,16 @@
 import pytest
 from unittest.mock import MagicMock
 from pyui_automation.backends.base import BaseBackend
-from typing import Optional, List, Tuple, Any, Dict
+from typing import Optional, List, Tuple, Any, Dict, Union
 import numpy as np
+from pathlib import Path
 
 
 class ConcreteBackend(BaseBackend):
     """Concrete implementation of BaseBackend for testing"""
 
     def __init__(self) -> None:
-        """
-        Initialize ConcreteBackend with mock functions for testing
-
-        Mock functions:
-            - _mock_find_element: Mocked implementation of find_element
-            - _mock_find_elements: Mocked implementation of find_elements
-            - _mock_get_active_window: Mocked implementation of get_active_window
-            - _mock_take_screenshot: Mocked implementation of take_screenshot
-            - _mock_get_screen_size: Mocked implementation of get_screen_size
-        """
+        """Initialize ConcreteBackend with mock functions for testing"""
         self._mock_find_element = MagicMock()
         self._mock_find_elements = MagicMock()
         self._mock_get_active_window = MagicMock()
@@ -27,87 +19,142 @@ class ConcreteBackend(BaseBackend):
         self._mock_ocr = MagicMock()
 
     def find_element(self, by: str, value: str, timeout: float = 0) -> Optional[Any]:
-        """
-        Find a single UI element using the specified strategy and value
-
-        Args:
-            by: Strategy to find element (e.g., 'id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for using the specified strategy
-            timeout: Time to wait for element (0 for no wait)
-
-        Returns:
-            Found element or None if not found
-        """
         return self._mock_find_element(by, value)
 
     def find_elements(self, by: str, value: str) -> List[Any]:
-        """
-        Find multiple UI elements using the specified strategy and value
-
-        Args:
-            by: Strategy to find elements (e.g., 'id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for using the specified strategy
-
-        Returns:
-            List of found elements or empty list if none found
-        """
         return self._mock_find_elements(by, value)
 
     def get_active_window(self) -> Optional[Any]:
-        """
-        Get the currently active window
-
-        Returns:
-            The currently active window or None if no window is active
-        """
         return self._mock_get_active_window()
 
-    def take_screenshot(self, filepath: str) -> bool:
-        """
-        Take a screenshot and save it to file
-
-        Args:
-            filepath: Path to save the screenshot to
-
-        Returns:
-            True if the screenshot was saved successfully, False if not
-        """
-        return self._mock_take_screenshot(filepath)
+    def take_screenshot(self, filepath: str) -> None:
+        self._mock_take_screenshot(filepath)
 
     def get_screen_size(self) -> Tuple[int, int]:
-        """
-        Get the screen dimensions
-
-        Returns:
-            A tuple of two integers representing the width and height of the screen
-        """
         return self._mock_get_screen_size()
 
-    def capture_screenshot(self) -> Optional[np.ndarray]:
-        """Capture screenshot as numpy array
-
-        Returns:
-            A numpy array representing the screenshot or None if capture failed
-        """
-        # Mock implementation for testing
+    def capture_screenshot(self) -> np.ndarray:
         return np.zeros((100, 100, 3), dtype=np.uint8)
 
-    def capture_element_screenshot(self, element: Any) -> Optional[np.ndarray]:
-        """Mock implementation of capture_element_screenshot"""
-        mock_image = np.zeros((50, 50, 3), dtype=np.uint8)
-        return mock_image
+    def capture_element_screenshot(self, element: Any) -> np.ndarray:
+        return np.zeros((50, 50, 3), dtype=np.uint8)
+
+    def click_mouse(self, x: int, y: int) -> None:
+        pass
+
+    def double_click_mouse(self, x: int, y: int) -> None:
+        pass
+
+    def right_click_mouse(self, x: int, y: int) -> None:
+        pass
+
+    def move_mouse(self, x: int, y: int) -> None:
+        pass
+
+    def press_key(self, key: str) -> None:
+        pass
+
+    def type_text(self, text: str) -> None:
+        pass
+
+    def get_window_title(self, window: Any) -> str:
+        return "Test Window"
+
+    def get_window_rect(self, window: Any) -> tuple[int, int, int, int]:
+        return (0, 0, 800, 600)
+
+    def maximize_window(self, window: Any) -> None:
+        pass
+
+    def minimize_window(self, window: Any) -> None:
+        pass
+
+    def restore_window(self, window: Any) -> None:
+        pass
+
+    def close_window(self, window: Any) -> None:
+        pass
+
+    def get_window_bounds(self, window: Any) -> Tuple[int, int, int, int]:
+        return (0, 0, 800, 600)
+
+    def check_accessibility(self, element: Any) -> Dict[str, Any]:
+        return {}
+
+    def get_element_attributes(self, element: Any) -> Dict[str, Any]:
+        return {}
+
+    def get_element_property(self, element: Any, property_name: str) -> Any:
+        return None
+
+    def set_element_property(self, element: Any, property_name: str, value: Any) -> None:
+        pass
+
+    def get_element_pattern(self, element: Any, pattern_name: str) -> Any:
+        return None
+
+    def invoke_element_pattern_method(self, pattern: Any, method_name: str, *args) -> Any:
+        return None
+
+    def get_element_rect(self, element: Any) -> tuple[int, int, int, int]:
+        return (0, 0, 100, 100)
+
+    def scroll_element(self, element: Any, direction: str, amount: float) -> None:
+        pass
+
+    def get_element_text(self, element: Any) -> str:
+        return ""
+
+    def set_element_text(self, element: Any, text: str) -> None:
+        pass
+
+    def get_element_value(self, element: Any) -> Any:
+        return None
+
+    def set_element_value(self, element: Any, value: Any) -> None:
+        pass
+
+    def get_element_state(self, element: Any) -> Dict[str, bool]:
+        return {}
+
+    def wait_for_element(self, by: str, value: str, timeout: float = 10) -> Optional[Any]:
+        return None
+
+    def wait_for_element_state(self, element: Any, state: str, timeout: float = 10) -> bool:
+        return False
+
+    def wait_for_element_property(self, element: Any, property_name: str, value: Any, timeout: float = 10) -> bool:
+        return False
+
+    def generate_accessibility_report(self, output_dir: Union[str, Path]) -> None:
+        pass
+
+    def get_application(self) -> Optional[Any]:
+        return None
+
+    def launch_application(self, path: str, *args, **kwargs) -> Any:
+        return None
+
+    def attach_to_application(self, process_id: int) -> Any:
+        return None
+
+    def close_application(self, application: Any) -> None:
+        pass
 
     def get_window_handle(self, pid: Optional[int] = None) -> Optional[int]:
-        """
-        Get the window handle for a specific process ID
-
-        Args:
-            pid (Optional[int]): The process ID to search for. If None, returns the first visible window handle found.
-
-        Returns:
-            Optional[int]: The window handle if found, otherwise None.
-        """
         return 0
+
+    def release_key(self, key: str) -> None:
+        pass
+
+    def resize_window(self, window: Any, width: int, height: int) -> None:
+        pass
+
+    def send_keys(self, text: str) -> None:
+        pass
+
+    def set_window_position(self, window: Any, x: int, y: int) -> None:
+        pass
 
     @property
     def application(self) -> Any:
@@ -118,10 +165,6 @@ class ConcreteBackend(BaseBackend):
     def ocr(self) -> Any:
         """Get the OCR engine instance."""
         return self._mock_ocr
-
-    def check_accessibility(self, element: Optional[Any] = None) -> Dict[str, Any]:
-        """Check accessibility of an element or the entire UI"""
-        return {}
 
     def set_ocr_languages(self, languages: List[str]) -> None:
         """Set OCR languages for text recognition"""
@@ -159,51 +202,162 @@ class ConcreteBackend(BaseBackend):
 class IncompleteBackend(BaseBackend):
     """Incomplete backend that doesn't implement all abstract methods"""
 
+    def __init__(self):
+        self._implemented_method = None
+        self._mock_app = MagicMock()
+        self._mock_window = MagicMock()
+        self._mock_element = MagicMock()
+
     def find_element(self, by: str, value: str, timeout: float = 0) -> Optional[Any]:
-        """Find a single UI element"""
-        pass
+        return None
 
     def find_elements(self, by: str, value: str) -> List[Any]:
-        """Find multiple UI elements"""
         return []
 
     def get_active_window(self) -> Optional[Any]:
-        """Get the currently active window"""
-        pass
+        return None
 
-    def take_screenshot(self, filepath: str) -> bool:
-        """Take a screenshot and save to file"""
-        return False  # Return False to indicate screenshot was not taken
+    def take_screenshot(self, filepath: str) -> None:
+        pass
 
     def get_screen_size(self) -> Tuple[int, int]:
-        """Get screen dimensions"""
-        return (0, 0)  # Return a default tuple of integers
+        return (800, 600)
 
-    def capture_screenshot(self) -> Optional[np.ndarray]:
-        """Capture screenshot as numpy array"""
+    def capture_screenshot(self) -> np.ndarray:
+        return np.zeros((100, 100, 3), dtype=np.uint8)
+
+    def capture_element_screenshot(self, element: Any) -> np.ndarray:
+        return np.zeros((50, 50, 3), dtype=np.uint8)
+
+    def get_window_handle(self, pid: Optional[int] = None) -> Optional[Any]:
+        return None
+
+    def check_accessibility(self, element: Optional[Any] = None) -> Dict[str, Any]:
+        return {}
+
+    def click_mouse(self, x: int, y: int) -> None:
         pass
 
-    def capture_element_screenshot(self, element: Any) -> Optional[np.ndarray]:
-        """Capture a screenshot of a specific element"""
+    def double_click_mouse(self, x: int, y: int) -> None:
+        pass
+
+    def right_click_mouse(self, x: int, y: int) -> None:
+        pass
+
+    def move_mouse(self, x: int, y: int) -> None:
+        pass
+
+    def press_key(self, key: str) -> None:
+        pass
+
+    def release_key(self, key: str) -> None:
+        pass
+
+    def send_keys(self, keys: str) -> None:
+        pass
+
+    def type_text(self, text: str) -> None:
+        pass
+
+    def get_window_title(self, window: Any) -> str:
+        return ""
+
+    def get_window_rect(self, window: Any) -> Tuple[int, int, int, int]:
+        return (0, 0, 800, 600)
+
+    def get_window_bounds(self, window: Any) -> Tuple[int, int, int, int]:
+        return (0, 0, 800, 600)
+
+    def set_window_position(self, window: Any, x: int, y: int) -> None:
+        pass
+
+    def resize_window(self, window: Any, width: int, height: int) -> None:
+        pass
+
+    def maximize_window(self, window: Any) -> None:
+        pass
+
+    def minimize_window(self, window: Any) -> None:
+        pass
+
+    def restore_window(self, window: Any) -> None:
+        pass
+
+    def close_window(self, window: Any) -> None:
+        pass
+
+    def get_element_attributes(self, element: Any) -> Dict[str, Any]:
+        return {}
+
+    def get_element_property(self, element: Any, property_name: str) -> Any:
+        return None
+
+    def set_element_property(self, element: Any, property_name: str, value: Any) -> None:
+        pass
+
+    def get_element_pattern(self, element: Any, pattern_name: str) -> Any:
+        return None
+
+    def invoke_element_pattern_method(self, pattern: Any, method_name: str, *args) -> Any:
+        return None
+
+    def get_element_rect(self, element: Any) -> tuple[int, int, int, int]:
+        return (0, 0, 100, 100)
+
+    def scroll_element(self, element: Any, direction: str, amount: float) -> None:
+        pass
+
+    def get_element_text(self, element: Any) -> str:
+        return ""
+
+    def set_element_text(self, element: Any, text: str) -> None:
+        pass
+
+    def get_element_value(self, element: Any) -> Any:
+        return None
+
+    def set_element_value(self, element: Any, value: Any) -> None:
+        pass
+
+    def get_element_state(self, element: Any) -> Dict[str, bool]:
+        return {}
+
+    def wait_for_element(self, by: str, value: str, timeout: float = 10) -> Optional[Any]:
+        return None
+
+    def wait_for_element_state(self, element: Any, state: str, timeout: float = 10) -> bool:
+        return False
+
+    def wait_for_element_property(self, element: Any, property_name: str, value: Any, timeout: float = 10) -> bool:
+        return False
+
+    def generate_accessibility_report(self, output_dir: Union[str, Path]) -> None:
+        pass
+
+    def get_application(self) -> Optional[Any]:
+        return self._mock_app
+
+    def launch_application(self, path: str, *args, **kwargs) -> Any:
+        return self._mock_app
+
+    def attach_to_application(self, process_id: int) -> Any:
+        return self._mock_app
+
+    def close_application(self, application: Any) -> None:
         pass
 
     def get_window_handle(self, pid: Optional[int] = None) -> Optional[int]:
-        """Get window handle for process ID"""
-        pass
-
-    def check_accessibility(self, element: Optional[Any] = None) -> Dict[str, Any]:
-        """Check accessibility of element or UI"""
-        return {}
+        return 0
 
     @property
     def application(self) -> Any:
-        """Get current application instance"""
-        pass
+        """Get the current application instance"""
+        return self._mock_app
 
     @property
     def ocr(self) -> Any:
-        """Get OCR engine instance"""
-        pass
+        """Get the OCR engine instance."""
+        return MagicMock()
 
     def set_ocr_languages(self, languages: List[str]) -> None:
         """Set OCR languages for text recognition"""
@@ -240,130 +394,149 @@ class IncompleteBackend(BaseBackend):
 
 @pytest.fixture
 def backend():
+    """Create a concrete backend instance for testing"""
     return ConcreteBackend()
 
 
 @pytest.fixture
 def incomplete_backend():
+    """Create an incomplete backend instance for testing"""
     return IncompleteBackend()
+
 
 def test_find_element_by_id(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_id("test_id")
-    assert element == "test_element"
+    result = backend.find_element("id", "test_id")
+    assert result == "test_element"
     backend._mock_find_element.assert_called_once_with("id", "test_id")
+
 
 def test_find_element_by_name(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_name("test_name")
-    assert element == "test_element"
+    result = backend.find_element("name", "test_name")
+    assert result == "test_element"
     backend._mock_find_element.assert_called_once_with("name", "test_name")
+
 
 def test_find_element_by_class(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_class("test_class")
-    assert element == "test_element"
+    result = backend.find_element("class", "test_class")
+    assert result == "test_element"
     backend._mock_find_element.assert_called_once_with("class", "test_class")
+
 
 def test_find_element_by_role(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_role("button")
-    assert element == "test_element"
+    result = backend.find_element("role", "button")
+    assert result == "test_element"
     backend._mock_find_element.assert_called_once_with("role", "button")
+
 
 def test_find_element_by_xpath(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_xpath("//button[@name='test']")
-    assert element == "test_element"
-    backend._mock_find_element.assert_called_once_with("xpath", "//button[@name='test']")
+    result = backend.find_element("xpath", "//button[@id='test']")
+    assert result == "test_element"
+    backend._mock_find_element.assert_called_once_with("xpath", "//button[@id='test']")
+
 
 def test_find_element_by_css(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_css("#test-button")
-    assert element == "test_element"
-    backend._mock_find_element.assert_called_once_with("css", "#test-button")
+    result = backend.find_element("css", "#test")
+    assert result == "test_element"
+    backend._mock_find_element.assert_called_once_with("css", "#test")
+
 
 def test_find_element_by_text(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_text("Click me")
-    assert element == "test_element"
+    result = backend.find_element("text", "Click me")
+    assert result == "test_element"
     backend._mock_find_element.assert_called_once_with("text", "Click me")
+
 
 def test_find_element_by_partial_text(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_partial_text("Click")
-    assert element == "test_element"
-    backend._mock_find_element.assert_called_once_with("partial_text", "Click")
+    result = backend.find_element("partial text", "Click")
+    assert result == "test_element"
+    backend._mock_find_element.assert_called_once_with("partial text", "Click")
+
 
 def test_find_element_by_ocr(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_ocr("Click me")
-    assert element == "test_element"
-    backend._mock_find_element.assert_called_once_with("ocr_text", "Click me")
+    result = backend.find_element("ocr", "Click me")
+    assert result == "test_element"
+    backend._mock_find_element.assert_called_once_with("ocr", "Click me")
+
 
 def test_find_element_by_image(backend):
     backend._mock_find_element.return_value = "test_element"
-    element = backend.find_element_by_image("button.png")
-    assert element == "test_element"
+    result = backend.find_element("image", "button.png")
+    assert result == "test_element"
     backend._mock_find_element.assert_called_once_with("image", "button.png")
+
 
 def test_find_element_returns_none(backend):
     backend._mock_find_element.return_value = None
-    element = backend.find_element_by_id("non_existent")
-    assert element is None
-    backend._mock_find_element.assert_called_once_with("id", "non_existent")
+    result = backend.find_element("id", "nonexistent")
+    assert result is None
+    backend._mock_find_element.assert_called_once_with("id", "nonexistent")
+
 
 def test_get_active_window(backend):
-    backend._mock_get_active_window.return_value = "active_window"
-    window = backend.get_active_window()
-    assert window == "active_window"
+    backend._mock_get_active_window.return_value = "test_window"
+    result = backend.get_active_window()
+    assert result == "test_window"
     backend._mock_get_active_window.assert_called_once()
+
 
 def test_take_screenshot(backend):
     backend._mock_take_screenshot.return_value = True
     result = backend.take_screenshot("test.png")
-    assert result is True
+    assert result is None
     backend._mock_take_screenshot.assert_called_once_with("test.png")
+
 
 def test_get_screen_size(backend):
     backend._mock_get_screen_size.return_value = (1920, 1080)
-    size = backend.get_screen_size()
-    assert size == (1920, 1080)
+    result = backend.get_screen_size()
+    assert result == (1920, 1080)
     backend._mock_get_screen_size.assert_called_once()
 
+
 def test_find_elements(backend):
-    backend._mock_find_elements.return_value = ["element1", "element2"]
-    elements = backend.find_elements("class", "test-class")
-    assert elements == ["element1", "element2"]
-    backend._mock_find_elements.assert_called_once_with("class", "test-class")
+    expected = ["element1", "element2"]
+    backend._mock_find_elements.return_value = expected
+    result = backend.find_elements("class", "test")
+    assert result == expected
+    backend._mock_find_elements.assert_called_once_with("class", "test")
+
 
 def test_find_elements_empty(backend):
     backend._mock_find_elements.return_value = []
-    elements = backend.find_elements("id", "non-existent")
-    assert elements == []
-    backend._mock_find_elements.assert_called_once_with("id", "non-existent")
+    result = backend.find_elements("class", "nonexistent")
+    assert result == []
+    backend._mock_find_elements.assert_called_once_with("class", "nonexistent")
+
 
 def test_abstract_find_element(incomplete_backend):
-    """Test that find_element is properly defined as abstract"""
     with pytest.raises(NotImplementedError):
         incomplete_backend.find_element("id", "test")
 
+
 def test_abstract_find_elements(incomplete_backend):
-    """Test that find_elements is properly defined as abstract"""
     with pytest.raises(NotImplementedError):
-        incomplete_backend.find_elements("id", "test")
+        incomplete_backend.find_elements("class", "test")
+
 
 def test_abstract_get_active_window(incomplete_backend):
-    """Test that get_active_window is properly defined as abstract"""
     with pytest.raises(NotImplementedError):
         incomplete_backend.get_active_window()
 
+
 def test_abstract_take_screenshot(incomplete_backend):
-    """Test that take_screenshot is properly defined as abstract"""
     with pytest.raises(NotImplementedError):
         incomplete_backend.take_screenshot("test.png")
 
+
 def test_abstract_get_screen_size(incomplete_backend):
-    """Test that get_screen_size is properly defined as abstract"""
     with pytest.raises(NotImplementedError):
         incomplete_backend.get_screen_size()

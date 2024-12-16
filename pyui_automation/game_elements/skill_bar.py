@@ -250,3 +250,79 @@ class SkillBar(UIElement):
             timeout=timeout,
             error_message="No skills became ready"
         )
+
+    def use_skill_by_name(self, skill_name: str) -> None:
+        """
+        Alias for use_skill method.
+
+        Args:
+            skill_name (str): Name of skill to use
+
+        Raises:
+            ValueError: If skill not found or not ready
+        """
+        return self.use_skill(skill_name)
+
+    def is_skill_ready(self, skill_name: str) -> bool:
+        """
+        Check if a skill is ready to use.
+
+        Args:
+            skill_name (str): Name of skill to check
+
+        Returns:
+            bool: True if skill is ready, False otherwise
+        """
+        slot = self.get_slot_by_skill(skill_name)
+        if not slot:
+            raise ValueError(f"Skill '{skill_name}' not found")
+        return slot.is_ready
+
+    def wait_for_skill_ready(self, skill_name: str, timeout: float = 10) -> bool:
+        """
+        Alias for wait_until_skill_ready method.
+
+        Args:
+            skill_name (str): Skill name
+            timeout (float): Maximum time to wait in seconds
+
+        Returns:
+            bool: True if skill became ready within timeout, False otherwise
+        """
+        return self.wait_until_skill_ready(skill_name, timeout)
+
+    def get_skill_cooldown(self, skill_name: str) -> float:
+        """
+        Get remaining cooldown for a skill.
+
+        Args:
+            skill_name (str): Name of skill to check
+
+        Returns:
+            float: Remaining cooldown in seconds (0 if ready)
+
+        Raises:
+            ValueError: If skill not found
+        """
+        slot = self.get_slot_by_skill(skill_name)
+        if not slot:
+            raise ValueError(f"Skill '{skill_name}' not found")
+        return slot.cooldown
+
+    def get_skill_charges(self, skill_name: str) -> Tuple[int, int]:
+        """
+        Get remaining charges for a skill.
+
+        Args:
+            skill_name (str): Name of skill to check
+
+        Returns:
+            Tuple[int, int]: Number of charges remaining
+
+        Raises:
+            ValueError: If skill not found
+        """
+        slot = self.get_slot_by_skill(skill_name)
+        if not slot:
+            raise ValueError(f"Skill '{skill_name}' not found")
+        return slot.charges

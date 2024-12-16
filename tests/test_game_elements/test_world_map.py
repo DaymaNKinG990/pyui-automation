@@ -1,6 +1,26 @@
 import pytest
+from unittest.mock import MagicMock, patch
 from pyui_automation.game_elements import WorldMap, MapMarker, MapArea
-from ..conftest import create_mock_element
+
+
+@pytest.fixture
+def mock_element():
+    element = MagicMock()
+    element.properties = {}
+    element.clicks = 0
+    
+    def mock_click():
+        element.clicks += 1
+    
+    element.click = mock_click
+    element.get_property = lambda key: element.properties.get(key)
+    element.set_property = lambda key, value: element.properties.update({key: value})
+    return element
+
+
+@pytest.fixture
+def mock_session():
+    return MagicMock()
 
 
 @pytest.fixture
@@ -50,15 +70,19 @@ def test_add_marker(world_map):
 def test_remove_marker(world_map):
     """Test removing a map marker"""
     marker = MapMarker(100, 200, 'Quest')
-    world_map.remove_marker(marker)
-    # Verify marker was removed from internal storage
+    world_map.add_marker(100, 200, 'Quest')
+    assert world_map.remove_marker(marker)
 
 
 def test_get_markers(world_map, mock_element):
     """Test getting all markers"""
-    marker1 = create_mock_element({'type': 'Quest', 'x': 100, 'y': 200})
-    marker2 = create_mock_element({'type': 'Vendor', 'x': 300, 'y': 400})
-    mock_element.children = [marker1, marker2]
+    marker1 = MagicMock()
+    marker1.get_property.side_effect = lambda key: {'type': 'Quest', 'x': 100, 'y': 200}.get(key)
+    
+    marker2 = MagicMock()
+    marker2.get_property.side_effect = lambda key: {'type': 'Vendor', 'x': 300, 'y': 400}.get(key)
+    
+    mock_element.find_elements.return_value = [marker1, marker2]
     
     markers = world_map.get_markers()
     assert len(markers) == 2
@@ -68,9 +92,13 @@ def test_get_markers(world_map, mock_element):
 
 def test_get_areas(world_map, mock_element):
     """Test getting map areas"""
-    area1 = create_mock_element({'name': 'Forest', 'level': '1-10'})
-    area2 = create_mock_element({'name': 'Desert', 'level': '20-30'})
-    mock_element.children = [area1, area2]
+    area1 = MagicMock()
+    area1.get_property.side_effect = lambda key: {'name': 'Forest', 'level': '1-10'}.get(key)
+    
+    area2 = MagicMock()
+    area2.get_property.side_effect = lambda key: {'name': 'Desert', 'level': '20-30'}.get(key)
+    
+    mock_element.find_elements.return_value = [area1, area2]
     
     areas = world_map.get_areas()
     assert len(areas) == 2
