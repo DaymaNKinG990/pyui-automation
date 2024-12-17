@@ -14,7 +14,7 @@ import pytest
 import logging
 import threading
 import xml.etree.ElementTree as ET
-from queue import Queue, Empty
+from queue import Queue, Empty, Full
 import atexit
 from unittest.mock import MagicMock
 import numpy as np
@@ -29,6 +29,13 @@ from datetime import datetime
 import asyncio
 import aiofiles
 import aiofiles.os as async_os
+import uuid
+import json
+
+# Добавляем корневую директорию в PYTHONPATH
+project_root = str(Path(__file__).parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from pyui_automation.elements import UIElement
 from pyui_automation.accessibility import AccessibilityChecker
@@ -37,6 +44,16 @@ from pyui_automation.performance import PerformanceMonitor
 from pyui_automation.core import AutomationSession
 from pyui_automation.server import TestReportServer, run_server
 from pyui_automation.server.server import ws_handler
+
+from pyui_automation.utils.types import (
+    TestStatus, MessageType, TestResult, TestSuite,
+    WebSocketMessage, MAX_QUEUE_SIZE, CLEANUP_INTERVAL,
+    MAX_RESULT_AGE, MAX_RETRY_ATTEMPTS, RETRY_DELAY,
+    ACK_TIMEOUT, PING_INTERVAL
+)
+
+from pyui_automation.utils.storage import TestResultStorage
+from pyui_automation.utils.notifications import NotificationManager, NotificationConfig
 
 from .data.element_data import (
     DEFAULT_ELEMENT_DATA,
@@ -122,152 +139,303 @@ class LoggingSystem:
 class TestReportingSystem:
     """Система отчетности о тестах через WebSocket."""
     
-    _instance = None
-    _results_queue = None
-    _event_loop = None
-    _writer_thread = None
-    _stop_event = None
-    _is_master = False
-    _logger = logging.getLogger('test_reporting')
-    _initialized = False
-    _lock = threading.Lock()
+    def __init__(self, notification_config: Optional[NotificationConfig] = None):
+        self.results_queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
+        self.test_suites: Dict[str, TestSuite] = {}
+        self.current_suite: Optional[TestSuite] = None
+        self.subscribers = set()
+        self._processing_task = None
+        self._cleanup_task = None
+        self._ping_task = None
+        self._retry_queue = asyncio.Queue()
+        self.logger = logging.getLogger(__name__)
+        self.metrics = {
+            'processed_results': 0,
+            'failed_sends': 0,
+            'retried_sends': 0,
+            'active_subscribers': 0,
+            'stored_results': 0,
+            'notifications_sent': 0,
+            'notification_errors': 0
+        }
+        self.storage = TestResultStorage()
+        self.notification_manager = (NotificationManager(notification_config) 
+                                   if notification_config else None)
 
-    @classmethod
-    def initialize(cls, is_master=False):
-        """Инициализация системы отчетности."""
-        with cls._lock:
-            if cls._initialized:
-                cls._logger.debug("Система отчетности уже инициализирована")
-                return
-                
-            cls._is_master = is_master
-            cls._logger.info(f"Инициализация системы отчетности (master={is_master})")
-            
-            if cls._instance is None:
-                cls._instance = cls()
-                cls._results_queue = Queue()
-                cls._stop_event = threading.Event()
-                
-                if is_master:
-                    cls._logger.info("Запуск writer thread в мастер-процессе")
-                    try:
-                        # Инициализация event loop для WebSocket
-                        cls._event_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(cls._event_loop)
-                        cls._logger.info("Event loop инициализирован успешно")
-                        
-                        # Запуск writer thread только после успешной инициализации event loop
-                        cls._writer_thread = threading.Thread(target=cls._process_results_queue, daemon=True)
-                        cls._writer_thread.start()
-                        cls._logger.info("Writer thread запущен успешно")
-                    except Exception as e:
-                        cls._logger.error(f"Ошибка инициализации мастер-процесса: {e}", exc_info=True)
-                        raise
-                        
-            cls._initialized = True
-            cls._logger.info("Инициализация завершена успешно")
-
-    @classmethod
-    def _process_results_queue(cls):
-        """Обработка очереди результатов в фоновом потоке."""
-        cls._logger.info("Запущена обработка очереди результатов")
+    async def start(self):
+        """Запуск системы обработки результатов."""
+        await self.storage.initialize()
         
-        while not cls._stop_event.is_set():
+        if self.notification_manager:
+            await self.notification_manager.start()
+        
+        # Загружаем последние результаты из хранилища
+        recent_suites = await self.storage.get_recent_suites()
+        for suite in recent_suites:
+            self.test_suites[suite.id] = suite
+            suite.results = await self.storage.get_suite_results(suite.id)
+        
+        self._processing_task = asyncio.create_task(self._process_results_queue())
+        self._cleanup_task = asyncio.create_task(self._cleanup_old_results())
+        self._ping_task = asyncio.create_task(self._ping_subscribers())
+        self.logger.info("Система обработки результатов запущена")
+
+    async def stop(self):
+        """Остановка системы обработки результатов."""
+        tasks = [
+            self._processing_task,
+            self._cleanup_task,
+            self._ping_task
+        ]
+        for task in tasks:
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        
+        if self.notification_manager:
+            await self.notification_manager.stop()
+        
+        # Закрываем все WebSocket соединения
+        for websocket in self.subscribers.copy():
             try:
-                # Проверяем очередь каждые 0.1 секунды
-                try:
-                    result = cls._results_queue.get(timeout=0.1)
-                except Empty:
-                    continue
-                    
-                if not cls._is_master:
-                    cls._logger.warning("Попытка обработки результатов в не-мастер процессе")
-                    continue
-                    
-                cls._logger.debug(f"Получен результат из очереди: {result.get('name', 'Unknown')}")
-                
-                # Отправляем результат через WebSocket
-                if cls._event_loop and not cls._event_loop.is_closed():
-                    try:
-                        future = asyncio.run_coroutine_threadsafe(
-                            cls.send_test_result(result),
-                            cls._event_loop
-                        )
-                        future.result(timeout=5)  # Ждем отправки не более 5 секунд
-                        cls._logger.debug(f"Результат успешно отправлен: {result.get('name', 'Unknown')}")
-                    except Exception as e:
-                        cls._logger.error(f"Ошибка отправки результата: {e}", exc_info=True)
-                else:
-                    cls._logger.error("Event loop не доступен для отправки результата")
-                    
+                await websocket.close()
             except Exception as e:
-                cls._logger.error(f"Ошибка обработки результата: {e}", exc_info=True)
+                self.logger.error(f"Ошибка закрытия WebSocket: {e}")
                 
-        cls._logger.info("Обработка очереди результатов остановлена")
+        self.logger.info("Система обработки результатов остановлена")
 
-    @classmethod
-    async def send_test_result(cls, result):
-        """Отправка результата теста через WebSocket."""
-        if not cls._initialized:
-            cls._logger.warning("Система отчетности не инициализирована")
-            return
-
-        try:
-            test_name = result.get('name', 'Unknown')
-            test_status = result.get('status', 'Unknown')
-            cls._logger.info(f"Начало отправки результата теста '{test_name}' (статус: {test_status}) на сервер")
-            
-            from pyui_automation.server.server import WebSocketHandler
-            await WebSocketHandler.broadcast(json.dumps(result))
-            
-            cls._logger.info(f"Результат теста '{test_name}' успешно отправлен на сервер")
-            cls._logger.debug(f"Детали отправленного результата: {result}")
-        except Exception as e:
-            cls._logger.error(f"Ошибка при отправке результата теста '{test_name}' на сервер: {e}", exc_info=True)
-            raise
-
-    @classmethod
-    def stop_writer_thread(cls):
-        """Остановка потока обработки результатов."""
-        if not cls._initialized:
-            return
-            
-        cls._logger.info("Остановка writer thread")
-        
-        if cls._stop_event:
-            cls._stop_event.set()
-            
-            if cls._writer_thread and cls._writer_thread.is_alive():
-                try:
-                    cls._writer_thread.join(timeout=5)
-                    cls._logger.info("Writer thread успешно остановлен")
-                except Exception as e:
-                    cls._logger.error(f"Ошибка при остановке writer thread: {e}", exc_info=True)
-                
-            if cls._event_loop and not cls._event_loop.is_closed():
-                try:
-                    cls._event_loop.close()
-                    cls._logger.info("Event loop закрыт")
-                except Exception as e:
-                    cls._logger.error(f"Ошибка при закрытии event loop: {e}", exc_info=True)
-
-class BrowserManager:
-    """Управление браузером для отображения отчетов."""
-    
-    _browser_opened = False
-    
-    @classmethod
-    def open_report(cls, port: int = 8000) -> None:
+    async def end_suite(self, suite_id: str) -> bool:
         """
-        Открытие отчета в браузере.
+        Завершение набора тестов.
         
         Args:
-            port: Порт, на котором запущен сервер отчетов
+            suite_id: ID набора тестов
+            
+        Returns:
+            bool: True если набор тестов успешно завершен
         """
-        if not cls._browser_opened:
-            url = f'http://localhost:{port}/'
-            webbrowser.open(url)
-            cls._browser_opened = True
+        suite = self.test_suites.get(suite_id)
+        if not suite:
+            self.logger.error(f"Набор тестов {suite_id} не найден")
+            return False
+            
+        suite.end_time = datetime.now()
+        suite.duration = (suite.end_time - suite.start_time).total_seconds()
+        
+        # Сохраняем результаты
+        try:
+            await self.storage.save_suite(suite)
+            await self.storage.save_results(suite_id, suite.results)
+            self.metrics['stored_results'] += len(suite.results)
+            
+            # Отправляем уведомление
+            if self.notification_manager:
+                try:
+                    await self.notification_manager.notify_suite_completion(suite)
+                    self.metrics['notifications_sent'] += 1
+                except Exception as e:
+                    self.logger.error(f"Ошибка отправки уведомления: {e}")
+                    self.metrics['notification_errors'] += 1
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Ошибка сохранения результатов: {e}")
+            return False
+
+    async def start_suite(self, name: str) -> str:
+        """
+        Начало нового набора тестов.
+        
+        Args:
+            name: Имя набора тестов
+            
+        Returns:
+            ID набора тестов
+        """
+        suite = TestSuite(id=str(uuid.uuid4()), name=name)
+        self.test_suites[suite.id] = suite
+        self.current_suite = suite
+        
+        # Сохраняем в хранилище
+        await self.storage.save_suite(suite)
+        
+        await self._broadcast_message(MessageType.TEST_RESULT, {
+            'type': 'suite_started',
+            'suite': asdict(suite)
+        })
+        return suite.id
+
+    async def add_result(self, result_dict: dict):
+        """
+        Добавление результата теста в очередь.
+        
+        Args:
+            result_dict: Словарь с результатами теста
+        """
+        try:
+            # Преобразуем словарь в TestResult
+            result = TestResult(
+                id=result_dict.get('id', str(uuid.uuid4())),
+                name=result_dict['name'],
+                status=TestStatus[result_dict['status'].upper()],
+                duration=result_dict.get('duration', 0.0),
+                error_message=result_dict.get('error_message'),
+                traceback=result_dict.get('traceback'),
+                metadata=result_dict.get('metadata', {})
+            )
+            
+            # Добавляем результат в текущий набор тестов
+            if self.current_suite:
+                self.current_suite.results.append(result)
+                # Сохраняем в хранилище
+                await self.storage.save_result(result, self.current_suite.id)
+                self.metrics['stored_results'] += 1
+            
+            await self.results_queue.put(result)
+            
+        except Exception as e:
+            self.logger.error(f"Ошибка добавления результата: {e}", exc_info=True)
+
+    async def subscribe(self, websocket):
+        """
+        Подписка на обновления результатов.
+        
+        Args:
+            websocket: WebSocket соединение
+        """
+        self.subscribers.add(websocket)
+        self.metrics['active_subscribers'] = len(self.subscribers)
+        
+        # Отправляем текущие результаты
+        if self.test_suites:
+            await websocket.send(json.dumps({
+                'type': MessageType.INITIAL_RESULTS.value,
+                'suites': [asdict(suite) for suite in self.test_suites.values()]
+            }))
+
+    async def unsubscribe(self, websocket):
+        """
+        Отписка от обновлений результатов.
+        
+        Args:
+            websocket: WebSocket соединение
+        """
+        self.subscribers.remove(websocket)
+        self.metrics['active_subscribers'] = len(self.subscribers)
+        try:
+            await websocket.close()
+        except Exception as e:
+            self.logger.error(f"Ошибка закрытия WebSocket: {e}")
+
+    async def _process_results_queue(self):
+        """Обработка очереди результатов."""
+        while True:
+            try:
+                result = await self.results_queue.get()
+                
+                message = WebSocketMessage(
+                    type=MessageType.TEST_RESULT,
+                    data={'result': asdict(result)}
+                )
+                
+                await self._broadcast_message_with_retry(message)
+                self.metrics['processed_results'] += 1
+                self.results_queue.task_done()
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error(f"Ошибка обработки результата: {e}", exc_info=True)
+
+    async def _broadcast_message_with_retry(self, message: WebSocketMessage, attempts: int = 0):
+        """
+        Отправка сообщения всем подписчикам с повторными попытками.
+        
+        Args:
+            message: Сообщение для отправки
+            attempts: Текущее количество попыток
+        """
+        failed_subscribers = []
+        
+        for websocket in self.subscribers.copy():
+            try:
+                await websocket.send(json.dumps({
+                    'type': message.type.value,
+                    'id': message.id,
+                    'data': message.data,
+                    'timestamp': message.timestamp.isoformat()
+                }))
+            except Exception as e:
+                self.logger.error(f"Ошибка отправки сообщения: {e}")
+                failed_subscribers.append(websocket)
+                self.metrics['failed_sends'] += 1
+
+        # Отписываем неактивных подписчиков
+        for websocket in failed_subscribers:
+            await self.unsubscribe(websocket)
+
+        # Повторяем попытку для неотправленных сообщений
+        if failed_subscribers and attempts < MAX_RETRY_ATTEMPTS:
+            self.metrics['retried_sends'] += 1
+            await asyncio.sleep(RETRY_DELAY)
+            await self._broadcast_message_with_retry(message, attempts + 1)
+
+    async def _broadcast_message(self, message_type: MessageType, data: dict):
+        """
+        Отправка сообщения всем подписчикам.
+        
+        Args:
+            message_type: Тип сообщения
+            data: Данные сообщения
+        """
+        message = WebSocketMessage(type=message_type, data=data)
+        await self._broadcast_message_with_retry(message)
+
+    async def _cleanup_old_results(self):
+        """Очистка старых результатов."""
+        while True:
+            try:
+                # Очищаем кэш
+                now = datetime.now()
+                old_suites = [
+                    suite_id for suite_id, suite in self.test_suites.items()
+                    if (now - suite.start_time).total_seconds() > MAX_RESULT_AGE
+                ]
+                
+                for suite_id in old_suites:
+                    del self.test_suites[suite_id]
+                
+                if old_suites:
+                    self.logger.info(f"Удалено {len(old_suites)} старых наборов тестов из кэша")
+                
+                # Очищаем хранилище
+                await self.storage.cleanup_old_data()
+                
+                await asyncio.sleep(CLEANUP_INTERVAL)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error(f"Ошибка очистки старых результатов: {e}", exc_info=True)
+
+    async def _ping_subscribers(self):
+        """Отправка ping-сообщений подписчикам."""
+        while True:
+            try:
+                if self.subscribers:
+                    await self._broadcast_message(
+                        MessageType.PING,
+                        {'timestamp': datetime.now().isoformat()}
+                    )
+                await asyncio.sleep(PING_INTERVAL)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error(f"Ошибка отправки ping: {e}", exc_info=True)
 
 # Create a mock module for os
 class MockOS(ModuleType):
@@ -532,31 +700,73 @@ def pytest_xdist_auto_num_workers(config):
 @pytest.fixture(scope="session")
 def is_master(request):
     """Определяет, является ли текущий процесс мастером."""
-    try:
-        return not hasattr(request.config, 'workerinput')
-    except Exception as e:
-        logging.getLogger('test_system').error(f"Ошибка при определении мастер-процесса: {e}")
-        return False
+    worker_id = getattr(request.config, 'workerinput', {}).get('workerid', None)
+    return worker_id is None
 
-@pytest.fixture(scope='session', autouse=True)
-def setup_reporting(is_master):
+@pytest.fixture(scope='session')
+def setup_reporting(request, is_master):
     """Инициализация системы отчетности."""
-    try:
-        TestReportingSystem.initialize(is_master=is_master)
-        yield
-        TestReportingSystem.stop_writer_thread()
-    except Exception as e:
-        logging.getLogger('test_system').error(f"Ошибка при инициализации системы отчетности: {e}")
+    global _is_master
+    _is_master = is_master
+    
+    if is_master:
+        # Настраиваем конфигурацию уведомлений
+        notification_config = NotificationConfig(
+            email_enabled=os.getenv('TEST_EMAIL_ENABLED', 'false').lower() == 'true',
+            email_from=os.getenv('TEST_EMAIL_FROM'),
+            email_to=os.getenv('TEST_EMAIL_TO', '').split(','),
+            email_server=os.getenv('TEST_EMAIL_SERVER', 'smtp.gmail.com'),
+            email_port=int(os.getenv('TEST_EMAIL_PORT', '587')),
+            email_username=os.getenv('TEST_EMAIL_USERNAME'),
+            email_password=os.getenv('TEST_EMAIL_PASSWORD'),
+            
+            slack_enabled=os.getenv('TEST_SLACK_ENABLED', 'false').lower() == 'true',
+            slack_webhook_url=os.getenv('TEST_SLACK_WEBHOOK_URL'),
+            
+            telegram_enabled=os.getenv('TEST_TELEGRAM_ENABLED', 'false').lower() == 'true',
+            telegram_bot_token=os.getenv('TEST_TELEGRAM_BOT_TOKEN'),
+            telegram_chat_ids=os.getenv('TEST_TELEGRAM_CHAT_IDS', '').split(','),
+            
+            notification_threshold=float(os.getenv('TEST_NOTIFICATION_THRESHOLD', '80.0'))
+        )
+        
+        # Создаем экземпляр системы отчетности
+        reporting_system = TestReportingSystem(notification_config)
+        
+        # Запускаем сервер в отдельном потоке
+        def run_server():
+            asyncio.run(run_server('localhost', 8000))
+            
+        server_thread = threading.Thread(target=run_server)
+        server_thread.daemon = True
+        server_thread.start()
+        
+        # Регистрируем функцию очистки
+        def cleanup():
+            global _is_master
+            _is_master = False
+            LoggingSystem.cleanup()
+            
+        request.addfinalizer(cleanup)
+        
+        return reporting_system
+    return None
+
+@pytest.fixture(autouse=True)
+def test_reporting_system(setup_reporting):
+    """Фикстура для доступа к системе отчетности."""
+    return setup_reporting
+
+def pytest_sessionfinish(session):
+    """Called after whole test run finished."""
+    reporting = session.config.pluginmanager.get_plugin("setup_reporting")
+    if reporting:
+        reporting.stop()
 
 def pytest_configure(config):
     """Configure pytest settings"""
     global _is_master
     _is_master = not hasattr(config, "workerinput")
-
-def pytest_sessionfinish(session):
-    """Called after whole test run finished."""
-    if _is_master:
-        TestReportingSystem.stop_writer_thread()
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -569,6 +779,7 @@ def pytest_runtest_makereport(item, call):
     if call.when == "call":
         try:
             # Создаем результат теста
+            worker_id = getattr(item.config, "workerinput", {}).get("workerid", "master")
             result = {
                 'name': item.name,
                 'nodeid': item.nodeid,
@@ -576,36 +787,37 @@ def pytest_runtest_makereport(item, call):
                 'duration': report.duration,
                 'timestamp': datetime.now().isoformat(),
                 'longrepr': str(report.longrepr) if report.longrepr else None,
-                'worker_id': getattr(item.config, "workerinput", {}).get("workerid", "master")
+                'worker_id': worker_id
             }
             
-            logger.debug(f"Создан результат теста: {result['name']} ({result['worker_id']})")
+            logger.debug(f"Создан результат теста: {result['name']} ({worker_id})")
             
-            # В воркерах только добавляем результат в очередь
-            if not _is_master:
-                TestReportingSystem._results_queue.put(result)
-                logger.debug(f"Результат добавлен в очередь воркером: {result['worker_id']}")
-                return
-                
-            # В мастер-процессе отправляем через WebSocket
-            loop = TestReportingSystem._event_loop
-            if loop is None:
-                logger.error("Event loop не инициализирован в мастер-процессе")
-                return
-                
-            try:
-                if loop.is_running():
-                    loop.call_soon_threadsafe(
-                        lambda: asyncio.create_task(
-                            TestReportingSystem.send_test_result(result)
-                        )
+            # В воркере просто добавляем результат в очередь
+            if worker_id != "master":
+                try:
+                    test_reporting_system.add_result(result)
+                    logger.debug(f"Результат добавлен в очередь: {result['name']} ({worker_id})")
+                except Full:
+                    logger.error("Очередь результатов переполнена")
+                    test_reporting_system._metrics['queue_overflow_count'] += 1
+            else:
+                # В мастер-процессе сразу отправляем результат
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        test_reporting_system.add_result(result),
+                        test_reporting_system._event_loop
                     )
-                    logger.debug(f"Результат отправлен асинхронно: {result['name']}")
-                else:
-                    loop.run_until_complete(TestReportingSystem.send_test_result(result))
-                    logger.debug(f"Результат отправлен синхронно: {result['name']}")
-            except Exception as e:
-                logger.error(f"Ошибка отправки результата: {e}", exc_info=True)
+                    future.result(timeout=5)
+                    logger.debug(f"Результат отправлен напрямую: {result['name']} (master)")
+                except Exception as e:
+                    logger.error(f"Ошибка отправки результата в мастер-процессе: {e}", exc_info=True)
+                    # Добавляем в очередь при ошибке отправки
+                    try:
+                        test_reporting_system.add_result(result)
+                        logger.debug(f"Результат добавлен в очередь после ошибки: {result['name']} (master)")
+                    except Full:
+                        logger.error("Очередь результатов переполнена")
+                        test_reporting_system._metrics['queue_overflow_count'] += 1
             
         except Exception as e:
             logger.error(f"Ошибка обработки результата теста: {e}", exc_info=True)

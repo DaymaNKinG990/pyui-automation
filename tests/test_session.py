@@ -7,6 +7,7 @@ from pyui_automation.elements.base import UIElement
 from pyui_automation.backends.base import BaseBackend
 from pyui_automation.wait import ElementWaits
 from pyui_automation.core.visual import VisualTester
+from PIL import Image
 
 
 @pytest.fixture
@@ -302,3 +303,60 @@ def test_start_performance_monitoring(mock_session):
     assert "cpu_usage" in metrics
     assert "memory_usage" in metrics
     assert "duration" in metrics
+
+
+@pytest.fixture
+def mock_backend():
+    backend = MagicMock()
+    backend.capture_element_screenshot.return_value = np.ones((100, 100, 3), dtype=np.uint8)
+    backend.capture_screenshot.return_value = np.ones((1920, 1080, 3), dtype=np.uint8)
+    return backend
+
+
+@pytest.fixture
+def session(mock_backend):
+    return AutomationSession(backend=mock_backend)
+
+
+@pytest.fixture
+def mock_element(mock_backend):
+    element = UIElement(mock_backend, MagicMock())
+    return element
+
+
+def test_verify_visual_state(session, mock_element):
+    """Test verifying visual state of element"""
+    with patch.object(session, '_visual_tester') as mock_tester:
+        mock_tester.verify_visual_state.return_value = 0.98
+        result = session.verify_visual_state("test_state")
+        assert result == 0.98
+        mock_tester.verify_visual_state.assert_called_once_with("test_state")
+
+
+def test_verify_visual_state_with_differences(session, mock_element):
+    """Test verifying visual state with differences"""
+    with patch.object(session, '_visual_tester') as mock_tester:
+        mock_tester.verify_visual_state.return_value = 0.85
+        result = session.verify_visual_state("test_state")
+        assert result < 0.95
+
+
+def test_capture_baseline(session, mock_element):
+    """Test capturing visual baseline"""
+    with patch.object(session, '_visual_tester') as mock_tester:
+        session.capture_visual_baseline(mock_element, "test_baseline")
+        mock_tester.capture_baseline.assert_called_once()
+
+
+def test_capture_visual_baseline_with_element(session, mock_element):
+    """Test capturing visual baseline with element"""
+    with patch.object(session, '_visual_tester') as mock_tester:
+        session.capture_visual_baseline(mock_element, "test_baseline")
+        mock_tester.capture_baseline.assert_called_once_with("test_baseline")
+
+
+def test_capture_visual_baseline_full_screen(session):
+    """Test capturing full screen baseline"""
+    with patch.object(session, '_visual_tester') as mock_tester:
+        session.capture_visual_baseline(None, "test_baseline")
+        mock_tester.capture_baseline.assert_called_once_with("test_baseline")

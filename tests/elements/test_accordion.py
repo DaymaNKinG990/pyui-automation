@@ -83,44 +83,53 @@ def test_panel_is_expanded(panel, mock_panel_element):
 
 def test_panel_expand(panel, mock_panel_element):
     """Test expanding a collapsed panel."""
-    mock_header = MagicMock()
-    mock_panel_element.find_element.return_value = mock_header
-    
-    panel.expand()
-    mock_header.click.assert_called_once()
+    # Setup mock for is_expanded
+    with patch.object(panel, 'is_expanded', return_value=False):
+        mock_header = MagicMock()
+        mock_panel_element.find_element.return_value = mock_header
+        
+        panel.expand()
+        mock_header.click.assert_called_once()
 
 def test_panel_collapse(panel, mock_panel_element):
     """Test collapsing an expanded panel."""
-    mock_panel_element.get_property.return_value = True  # panel is expanded
-    mock_header = MagicMock()
-    mock_panel_element.find_element.return_value = mock_header
-    
-    panel.collapse()
-    mock_header.click.assert_called_once()
+    # Setup mock for is_expanded
+    with patch.object(panel, 'is_expanded', return_value=True):
+        mock_header = MagicMock()
+        mock_panel_element.find_element.return_value = mock_header
+        
+        panel.collapse()
+        mock_header.click.assert_called_once()
 
 def test_panel_wait_until_expanded(panel, mock_session):
     """Test waiting for panel to expand."""
-    assert panel.wait_until_expanded(timeout=5.0)
-    
-    mock_session.wait_for_condition.assert_called_once()
-    condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(panel, 'is_expanded', True):
-        assert condition_func()
-    with patch.object(panel, 'is_expanded', False):
-        assert not condition_func()
+    # Setup mock for is_expanded
+    with patch.object(panel, 'is_expanded', return_value=True):
+        assert panel.wait_until_expanded(timeout=5.0)
+        
+        mock_session.wait_for_condition.assert_called_once()
+        condition_func = mock_session.wait_for_condition.call_args[0][0]
+        assert condition_func() is True
+
+    # Test when not expanded
+    with patch.object(panel, 'is_expanded', return_value=False):
+        condition_func = mock_session.wait_for_condition.call_args[0][0]
+        assert condition_func() is False
 
 def test_panel_wait_until_collapsed(panel, mock_session):
     """Test waiting for panel to collapse."""
-    assert panel.wait_until_collapsed(timeout=5.0)
-    mock_session.wait_for_condition.assert_called_once()
-    
-    # Проверяем функцию условия напрямую
-    condition_func = mock_session.wait_for_condition.call_args[0][0]
-    panel._element.get_property.return_value = True
-    assert not condition_func()
-    panel._element.get_property.return_value = False
-    assert condition_func()
+    # Setup mock for is_expanded
+    with patch.object(panel, 'is_expanded', return_value=False):
+        assert panel.wait_until_collapsed(timeout=5.0)
+        
+        mock_session.wait_for_condition.assert_called_once()
+        condition_func = mock_session.wait_for_condition.call_args[0][0]
+        assert condition_func() is True
+
+    # Test when not collapsed
+    with patch.object(panel, 'is_expanded', return_value=True):
+        condition_func = mock_session.wait_for_condition.call_args[0][0]
+        assert condition_func() is False
 
 # Accordion Tests
 def test_accordion_init(accordion, mock_accordion_element, mock_session):

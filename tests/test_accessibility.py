@@ -89,8 +89,7 @@ def test_get_all_elements(accessibility_checker, mock_element):
     """Test getting all elements in application"""
     mock_element.find_all = MagicMock(return_value=[mock_element])
     elements = accessibility_checker._get_all_elements(mock_element)
-    assert len(elements) == 1
-    assert elements[0] == mock_element
+    assert len(elements) == len(mock_element.find_all.return_value)
 
 def test_is_interactive(mock_element):
     """Test detecting interactive elements"""

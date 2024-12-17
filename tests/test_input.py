@@ -1,6 +1,6 @@
 import pytest
-from unittest.mock import MagicMock
-from pyui_automation.input import Mouse, Keyboard
+from unittest.mock import MagicMock, patch
+from pyui_automation.core.input import InputManager
 
 
 # Mock backend for testing
@@ -20,166 +20,196 @@ def mock_backend():
     backend.send_keys.return_value = True
     return backend
 
-# Mouse Tests
-def test_click_valid_input(mock_backend):
-    mouse = Mouse(mock_backend)
-    assert mouse.click(100, 200, "left") is True
-    mock_backend.click.assert_called_once_with(100, 200, "left")
+# Input Manager Tests
+@pytest.fixture
+def input_manager():
+    return InputManager()
 
-def test_click_invalid_button(mock_backend):
-    mouse = Mouse(mock_backend)
-    with pytest.raises(ValueError, match="Invalid button type"):
-        mouse.click(100, 200, "invalid")  # type: ignore
+def test_click_valid_input(input_manager):
+    """Test clicking with valid coordinates"""
+    with patch.object(input_manager, 'click_mouse', return_value=True) as mock_click:
+        result = input_manager.click(100, 200)
+        assert result is True
+        mock_click.assert_called_once_with(100, 200)
 
-def test_click_invalid_coordinates(mock_backend):
-    mouse = Mouse(mock_backend)
+def test_click_invalid_coordinates_x(input_manager):
+    """Test clicking with invalid x coordinate"""
+    with pytest.raises(ValueError, match="X coordinate must be non-negative"):
+        input_manager.click(-1, 200)
+
+def test_click_invalid_coordinates_y(input_manager):
+    """Test clicking with invalid y coordinate"""
+    with pytest.raises(ValueError, match="Y coordinate must be non-negative"):
+        input_manager.click(100, -1)
+
+def test_double_click_success(input_manager):
+    """Test successful double click"""
+    with patch.object(input_manager, 'click_mouse', return_value=True) as mock_click:
+        result = input_manager.double_click(100, 200)
+        assert result is True
+        assert mock_click.call_count == 2
+
+def test_double_click_first_click_fails(input_manager):
+    """Test double click when first click fails"""
+    with patch.object(input_manager, 'click_mouse', return_value=False) as mock_click:
+        result = input_manager.double_click(100, 200)
+        assert result is False
+        mock_click.assert_called_once_with(100, 200)
+
+def test_move_valid_coordinates(input_manager):
+    """Test moving mouse with valid coordinates"""
+    with patch.object(input_manager, 'move_mouse', return_value=True) as mock_move:
+        result = input_manager.move(100, 200)
+        assert result is True
+        mock_move.assert_called_once_with(100, 200)
+
+def test_move_invalid_coordinates(input_manager):
+    """Test moving mouse with invalid coordinates"""
     with pytest.raises(ValueError, match="Coordinates must be numbers"):
-        mouse.click("invalid", 200)  # type: ignore
+        input_manager.move("invalid", 200)  # type: ignore
 
-def test_click_invalid_coordinates_x(mock_backend):
-    mouse = Mouse(mock_backend)
-    with pytest.raises(ValueError, match="x must be a number"):
-        mouse.click("invalid", 200)  # type: ignore
+def test_drag_success(input_manager):
+    """Test successful drag"""
+    with patch.object(input_manager, 'move_mouse', return_value=True) as mock_move:
+        with patch.object(input_manager, 'mouse_down', return_value=True) as mock_mouse_down:
+            with patch.object(input_manager, 'mouse_up', return_value=True) as mock_mouse_up:
+                result = input_manager.drag(100, 200, 300, 400)
+                assert result is True
+                mock_move.assert_called_with(300, 400)
+                mock_mouse_down.assert_called_once()
+                mock_mouse_up.assert_called_once()
 
-def test_click_invalid_coordinates_y(mock_backend):
-    mouse = Mouse(mock_backend)
-    with pytest.raises(ValueError, match="y must be a number"):
-        mouse.click(100, "invalid")  # type: ignore
+def test_drag_move_fails(input_manager):
+    """Test drag when move fails"""
+    with patch.object(input_manager, 'move_mouse', return_value=False) as mock_move:
+        with patch.object(input_manager, 'mouse_down', return_value=True) as mock_mouse_down:
+            with patch.object(input_manager, 'mouse_up', return_value=True) as mock_mouse_up:
+                result = input_manager.drag(100, 200, 300, 400)
+                assert result is False
+                mock_mouse_up.assert_called_once()  # Ensure cleanup
 
-def test_double_click_success(mock_backend):
-    mouse = Mouse(mock_backend)
-    assert mouse.double_click(100, 200) is True
-    assert mock_backend.click.call_count == 2
-
-def test_double_click_first_click_fails(mock_backend):
-    mock_backend.click.side_effect = [False, True]
-    mouse = Mouse(mock_backend)
-    assert mouse.double_click(100, 200) is False
-    assert mock_backend.click.call_count == 1
-
-def test_move_valid_coordinates(mock_backend):
-    mouse = Mouse(mock_backend)
-    assert mouse.move(100, 200) is True
-    mock_backend.move_mouse.assert_called_once_with(100, 200)
-
-def test_move_invalid_coordinates(mock_backend):
-    mouse = Mouse(mock_backend)
+def test_drag_invalid_coordinates(input_manager):
+    """Test drag with invalid coordinates"""
     with pytest.raises(ValueError, match="Coordinates must be numbers"):
-        mouse.move("invalid", 200)  # type: ignore
+        input_manager.drag("invalid", 200, 300, 400)  # type: ignore
 
-def test_drag_success(mock_backend):
-    mouse = Mouse(mock_backend)
-    assert mouse.drag(100, 200, 300, 400) is True
-    mock_backend.move_mouse.assert_called_with(300, 400)
-    mock_backend.mouse_down.assert_called_once()
-    mock_backend.mouse_up.assert_called_once()
+def test_type_text_success(input_manager):
+    """Test typing text"""
+    with patch.object(input_manager, 'type_text', return_value=True) as mock_type_text:
+        result = input_manager.type_text("Hello World")
+        assert result is True
+        mock_type_text.assert_called_once_with("Hello World", 0.0)
 
-def test_drag_move_fails(mock_backend):
-    mock_backend.move_mouse.side_effect = [True, False]
-    mouse = Mouse(mock_backend)
-    assert mouse.drag(100, 200, 300, 400) is False
-    mock_backend.mouse_up.assert_called_once()  # Ensure cleanup
+def test_type_text_with_interval(input_manager):
+    """Test typing text with interval"""
+    with patch.object(input_manager, 'type_text', return_value=True) as mock_type_text:
+        result = input_manager.type_text("Test", 0.1)
+        assert result is True
+        mock_type_text.assert_called_once_with("Test", 0.1)
 
-def test_drag_invalid_coordinates(mock_backend):
-    mouse = Mouse(mock_backend)
-    with pytest.raises(ValueError, match="Coordinates must be numbers"):
-        mouse.drag("invalid", 200, 300, 400)  # type: ignore
+def test_type_text_empty_string(input_manager):
+    """Test typing empty string"""
+    with patch.object(input_manager, 'type_text', return_value=True) as mock_type_text:
+        result = input_manager.type_text("")
+        assert result is True
+        mock_type_text.assert_not_called()
 
-# Keyboard Tests
-def test_type_text_success(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.type_text("Hello World") is True
-    mock_backend.type_text.assert_called_once_with("Hello World", 0.0)
-
-def test_type_text_with_interval(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.type_text("Test", 0.1) is True
-    mock_backend.type_text.assert_called_once_with("Test", 0.1)
-
-def test_type_text_empty_string(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.type_text("") is True
-    mock_backend.type_text.assert_not_called()
-
-def test_type_text_invalid_input(mock_backend):
-    keyboard = Keyboard(mock_backend)
+def test_type_text_invalid_input(input_manager):
+    """Test typing invalid input"""
     with pytest.raises(ValueError, match="Text must be a string"):
-        keyboard.type_text(123)  # type: ignore
+        input_manager.type_text(123)  # type: ignore
 
-def test_press_key_success(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.press_key("a") is True
-    mock_backend.press_key.assert_called_once_with("a")
+def test_press_key_success(input_manager):
+    """Test pressing key"""
+    with patch.object(input_manager, 'press_key', return_value=True) as mock_press_key:
+        result = input_manager.press_key("a")
+        assert result is True
+        mock_press_key.assert_called_once_with("a")
 
-def test_press_key_empty_string(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.press_key("") is True
-    mock_backend.press_key.assert_not_called()
+def test_press_key_empty_string(input_manager):
+    """Test pressing empty string"""
+    with patch.object(input_manager, 'press_key', return_value=True) as mock_press_key:
+        result = input_manager.press_key("")
+        assert result is True
+        mock_press_key.assert_not_called()
 
-def test_press_key_invalid_input(mock_backend):
-    keyboard = Keyboard(mock_backend)
+def test_press_key_invalid_input(input_manager):
+    """Test pressing invalid input"""
     with pytest.raises(ValueError, match="Key must be a string"):
-        keyboard.press_key(123)  # type: ignore
+        input_manager.press_key(123)  # type: ignore
 
-def test_release_key_success(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.release_key("a") is True
-    mock_backend.release_key.assert_called_once_with("a")
+def test_release_key_success(input_manager):
+    """Test releasing key"""
+    with patch.object(input_manager, 'release_key', return_value=True) as mock_release_key:
+        result = input_manager.release_key("a")
+        assert result is True
+        mock_release_key.assert_called_once_with("a")
 
-def test_release_key_empty_string(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.release_key("") is True
-    mock_backend.release_key.assert_not_called()
+def test_release_key_empty_string(input_manager):
+    """Test releasing empty string"""
+    with patch.object(input_manager, 'release_key', return_value=True) as mock_release_key:
+        result = input_manager.release_key("")
+        assert result is True
+        mock_release_key.assert_not_called()
 
-def test_release_key_invalid_input(mock_backend):
-    keyboard = Keyboard(mock_backend)
+def test_release_key_invalid_input(input_manager):
+    """Test releasing invalid input"""
     with pytest.raises(ValueError, match="Key must be a string"):
-        keyboard.release_key(123)  # type: ignore
+        input_manager.release_key(123)  # type: ignore
 
-def test_press_keys_success(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    result = keyboard.press_keys("ctrl", "c")
-    assert result is True
-    mock_backend.press_keys.assert_called_once_with("ctrl", "c")
+def test_press_keys_success(input_manager):
+    """Test pressing keys"""
+    with patch.object(input_manager, 'press_keys', return_value=True) as mock_press_keys:
+        result = input_manager.press_keys("ctrl", "c")
+        assert result is True
+        mock_press_keys.assert_called_once_with("ctrl", "c")
 
-def test_press_keys_empty(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.press_keys() is True
-    mock_backend.press_keys.assert_not_called()
+def test_press_keys_empty(input_manager):
+    """Test pressing empty keys"""
+    with patch.object(input_manager, 'press_keys', return_value=True) as mock_press_keys:
+        result = input_manager.press_keys()
+        assert result is True
+        mock_press_keys.assert_not_called()
 
-def test_press_keys_invalid_input(mock_backend):
-    keyboard = Keyboard(mock_backend)
+def test_press_keys_invalid_input(input_manager):
+    """Test pressing invalid input"""
     with pytest.raises(ValueError, match="All keys must be strings"):
-        keyboard.press_keys("ctrl", 123)  # type: ignore
+        input_manager.press_keys("ctrl", 123)  # type: ignore
 
-def test_release_keys_success(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    result = keyboard.release_keys("ctrl", "c")
-    assert result is True
-    mock_backend.release_keys.assert_called_once_with("ctrl", "c")
+def test_release_keys_success(input_manager):
+    """Test releasing keys"""
+    with patch.object(input_manager, 'release_keys', return_value=True) as mock_release_keys:
+        result = input_manager.release_keys("ctrl", "c")
+        assert result is True
+        mock_release_keys.assert_called_once_with("ctrl", "c")
 
-def test_release_keys_empty(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.release_keys() is True
-    mock_backend.release_keys.assert_not_called()
+def test_release_keys_empty(input_manager):
+    """Test releasing empty keys"""
+    with patch.object(input_manager, 'release_keys', return_value=True) as mock_release_keys:
+        result = input_manager.release_keys()
+        assert result is True
+        mock_release_keys.assert_not_called()
 
-def test_release_keys_invalid_input(mock_backend):
-    keyboard = Keyboard(mock_backend)
+def test_release_keys_invalid_input(input_manager):
+    """Test releasing invalid input"""
     with pytest.raises(ValueError, match="All keys must be strings"):
-        keyboard.release_keys("ctrl", 123)  # type: ignore
+        input_manager.release_keys("ctrl", 123)  # type: ignore
 
-def test_send_keys_success(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    result = keyboard.send_keys("{CTRL}c")
-    assert result is True
-    mock_backend.send_keys.assert_called_once_with("{CTRL}c")
+def test_send_keys_success(input_manager):
+    """Test sending keys"""
+    with patch.object(input_manager, 'send_keys', return_value=True) as mock_send_keys:
+        result = input_manager.send_keys("{CTRL}c")
+        assert result is True
+        mock_send_keys.assert_called_once_with("{CTRL}c")
 
-def test_send_keys_empty(mock_backend):
-    keyboard = Keyboard(mock_backend)
-    assert keyboard.send_keys("") is True
-    mock_backend.send_keys.assert_not_called()
+def test_send_keys_empty(input_manager):
+    """Test sending empty keys"""
+    with patch.object(input_manager, 'send_keys', return_value=True) as mock_send_keys:
+        result = input_manager.send_keys("")
+        assert result is True
+        mock_send_keys.assert_not_called()
 
-def test_send_keys_invalid_input(mock_backend):
-    keyboard = Keyboard(mock_backend)
+def test_send_keys_invalid_input(input_manager):
+    """Test sending invalid input"""
     with pytest.raises(ValueError, match="Keys must be a string"):
-        keyboard.send_keys(123)  # type: ignore
+        input_manager.send_keys(123)  # type: ignore

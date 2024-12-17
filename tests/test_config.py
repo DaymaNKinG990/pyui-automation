@@ -1,11 +1,24 @@
 import pytest
 from pathlib import Path
+from unittest.mock import MagicMock
 from pyui_automation.core.config import AutomationConfig
+from pyui_automation.core.automation_session import AutomationSession
 
 
 @pytest.fixture
 def config():
     return AutomationConfig()
+
+@pytest.fixture
+def mock_backend():
+    """Создаем мок для бэкенда"""
+    backend = MagicMock()
+    return backend
+
+@pytest.fixture
+def ui_automation(mock_backend):
+    """Создаем экземпляр AutomationSession с мок бэкендом"""
+    return AutomationSession(backend=mock_backend)
 
 def test_default_values(ui_automation):
     """Test default configuration values"""

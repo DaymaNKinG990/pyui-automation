@@ -1,49 +1,88 @@
 import pytest
-from unittest.mock import MagicMock
 import numpy as np
 import cv2
-from pyui_automation.core.visual import VisualMatcher, VisualDifference, VisualTester
+from unittest.mock import MagicMock, patch
+import os
+import tempfile
+import shutil
+from PIL import Image
 
-
-@pytest.fixture
-def mock_element():
-    """Create a mock UI element for testing"""
-    element = MagicMock()
-    # Create a test screen with multiple white circles that match our template
-    screen = np.zeros((100, 100, 3), dtype=np.uint8)
-    # Add three circles at different locations
-    cv2.circle(screen, (30, 30), 5, (255, 255, 255), -1)
-    cv2.circle(screen, (50, 50), 5, (255, 255, 255), -1)
-    cv2.circle(screen, (70, 70), 5, (255, 255, 255), -1)
-    # Return the actual numpy array instead of wrapping in MagicMock
-    element.capture_screenshot = lambda: screen
-    return element
+from pyui_automation.visual import VisualTester
 
 @pytest.fixture
-def visual_matcher(mock_element):
-    """Create VisualMatcher instance with mock element"""
-    matcher = VisualMatcher(mock_element)
-    matcher.similarity_threshold = 0.8  # Set a reasonable threshold for testing
-    return matcher
+def temp_baseline_dir():
+    """Создаем временную директорию для базовых изображений"""
+    temp_dir = tempfile.mkdtemp()
+    yield temp_dir
+    shutil.rmtree(temp_dir)
 
 @pytest.fixture
-def visual_tester(tmp_path):
-    """Create VisualTester instance with temporary directory"""
-    return VisualTester(tmp_path)
+def visual_tester(temp_baseline_dir):
+    """Создаем экземпляр VisualTester с временной директорией"""
+    return VisualTester(baseline_dir=temp_baseline_dir)
 
 @pytest.fixture
-def sample_images():
-    """Create sample images for testing"""
-    img1 = np.zeros((100, 100, 3), dtype=np.uint8)
-    img2 = np.zeros((100, 100, 3), dtype=np.uint8)
+def test_images():
+    """Создаем тестовые изображения"""
+    base_img = np.ones((100, 100, 3), dtype=np.uint8) * 255
+    test_img = np.ones((100, 100, 3), dtype=np.uint8) * 255
+    test_img[40:60, 40:60] = 0  # Черный квадрат для различия
+    return base_img, test_img
+
+def test_verify_visual_state(visual_tester, test_images):
+    """Test verifying visual state"""
+    base_img, test_img = test_images
     
-    cv2.circle(img1, (50, 50), 20, (255, 255, 255), -1)
-    cv2.circle(img2, (50, 50), 20, (255, 255, 255), -1)
-    cv2.rectangle(img2, (70, 70), (90, 90), (255, 255, 255), -1)
+    # Сохраняем базовое изображение
+    cv2.imwrite(os.path.join(visual_tester.baseline_dir, "test.png"), base_img)
     
-    return img1, img2
+    with patch.object(visual_tester, '_capture_screenshot', return_value=test_img):
+        similarity = visual_tester.verify_visual_state("test")
+        assert similarity > 0.95  # Высокая схожесть
 
-def test_compare_images(visual_matcher):
+def test_generate_diff_report(visual_tester, test_images, temp_baseline_dir):
+    """Test generating difference report"""
+    base_img, test_img = test_images
+    
+    # Сохраняем базовое изображение
+    cv2.imwrite(os.path.join(visual_tester.baseline_dir, "test.png"), base_img)
+    
+    report_path = os.path.join(temp_baseline_dir, "diff_report.png")
+    
+    with patch.object(visual_tester, '_capture_screenshot', return_value=test_img):
+        visual_tester.generate_diff_report("test", report_path)
+        assert os.path.exists(report_path)
+
+def test_image_similarity_threshold(visual_tester, test_images):
+    """Test image similarity threshold"""
+    base_img, test_img = test_images
+    
+    # Сохраняем базовое изображение
+    cv2.imwrite(os.path.join(visual_tester.baseline_dir, "test.png"), base_img)
+    
+    with patch.object(visual_tester, '_capture_screenshot', return_value=test_img):
+        assert visual_tester.verify_visual_state("test", threshold=0.8)
+        assert not visual_tester.verify_visual_state("test", threshold=0.99)
+
+def test_multiple_template_matching(visual_tester):
+    """Test multiple template matching"""
+    # Создаем основное изображение с несколькими шаблонами
+    main_img = np.zeros((200, 200, 3), dtype=np.uint8)
+    template = np.ones((20, 20, 3), dtype=np.uint8) * 255
+    
+    # Размещаем шаблон в трех местах
+    main_img[10:30, 10:30] = template
+    main_img[50:70, 50:70] = template
+    main_img[90:110, 90:110] = template
+    
+    # Сохраняем шаблон
+    cv2.imwrite(os.path.join(visual_tester.baseline_dir, "template.png"), template)
+    
+    with patch.object(visual_tester, '_capture_screenshot', return_value=main_img):
+        locations = visual_tester.find_all_templates("template")
+        assert len(locations) == 3
+
+def test_compare_images(visual_tester):
     """Test comparing two images"""
     img1 = np.zeros((100, 100, 3), dtype=np.uint8)
     img2 = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -51,78 +90,78 @@ def test_compare_images(visual_matcher):
     cv2.circle(img1, (50, 50), 20, (255, 255, 255), -1)
     cv2.circle(img2, (50, 50), 20, (255, 255, 255), -1)
     
-    result = visual_matcher.compare_images(img1, img2)
+    result = visual_tester.compare(img1, img2)
     assert result['match'] == True
     assert result['similarity'] > 0.95
 
-def test_find_element(visual_matcher):
+def test_find_element(visual_tester):
     """Test finding element by image"""
     template = np.zeros((20, 20, 3), dtype=np.uint8)
     cv2.circle(template, (10, 10), 5, (255, 255, 255), -1)
     
-    location = visual_matcher.find_element(template)
+    location = visual_tester.find_element(template)
     assert location is not None
     assert len(location) == 2
 
-def test_wait_for_image(visual_matcher):
+def test_wait_for_image(visual_tester):
     """Test waiting for image to appear"""
     template = np.zeros((20, 20, 3), dtype=np.uint8)
     cv2.circle(template, (10, 10), 5, (255, 255, 255), -1)
     
-    result = visual_matcher.wait_for_image(template, timeout=1)
+    result = visual_tester.wait_for_image(template, timeout=1)
     assert result == True
 
-def test_verify_visual_state(visual_matcher):
+def test_verify_visual_state(visual_tester):
     """Test verifying visual state against baseline"""
     baseline = np.zeros((100, 100, 3), dtype=np.uint8)
     cv2.circle(baseline, (50, 50), 20, (255, 255, 255), -1)
     
-    result = visual_matcher.verify_visual_state(baseline)
+    result = visual_tester.verify_visual_state(baseline)
     assert result['match'] == True
     assert result['similarity'] > 0.95
 
-def test_capture_baseline(visual_matcher, tmp_path):
+def test_capture_baseline(visual_tester, temp_baseline_dir):
     """Test capturing baseline image"""
-    baseline_path = tmp_path / "baseline.png"
-    visual_matcher.capture_baseline(baseline_path)
+    baseline_path = os.path.join(temp_baseline_dir, "baseline.png")
+    visual_tester.capture_baseline(baseline_path)
     
     # Verify the image was saved correctly
-    assert baseline_path.exists()
-    saved_image = cv2.imread(str(baseline_path))
+    assert os.path.exists(baseline_path)
+    saved_image = cv2.imread(baseline_path)
     assert saved_image is not None
     assert saved_image.shape == (100, 100, 3)
 
-def test_highlight_differences(visual_matcher):
+def test_highlight_differences(visual_tester):
     """Test highlighting differences between images"""
     img1 = np.zeros((100, 100, 3), dtype=np.uint8)
     img2 = np.zeros((100, 100, 3), dtype=np.uint8)
     cv2.circle(img2, (50, 50), 20, (255, 255, 255), -1)
     
-    diff_img = visual_matcher.highlight_differences(img1, img2)
+    diff_img = visual_tester.highlight_differences(img1, img2)
     assert diff_img is not None
     assert diff_img.shape == (100, 100, 3)
 
-def test_generate_diff_report(visual_matcher, tmp_path):
+def test_generate_diff_report(visual_tester, temp_baseline_dir):
     """Test generating visual difference report"""
     img1 = np.zeros((100, 100, 3), dtype=np.uint8)
     img2 = np.zeros((100, 100, 3), dtype=np.uint8)
     cv2.circle(img2, (50, 50), 20, (255, 255, 255), -1)
     
-    report_path = tmp_path / "diff_report.html"
-    visual_matcher.generate_diff_report(img1, img2, report_path)
-    assert report_path.exists()
+    report_path = os.path.join(temp_baseline_dir, "diff_report.html")
+    visual_tester.generate_diff_report(img1, img2, report_path)
+    assert os.path.exists(report_path)
 
-def test_image_similarity_threshold(visual_matcher):
+def test_image_similarity_threshold(visual_tester):
     """Test image similarity threshold settings"""
     img1 = np.zeros((100, 100, 3), dtype=np.uint8)
     img2 = np.zeros((100, 100, 3), dtype=np.uint8)
     cv2.circle(img2, (50, 50), 20, (255, 255, 255), -1)
     
-    visual_matcher.set_similarity_threshold(0.5)
-    result = visual_matcher.compare_images(img1, img2)
+    visual_tester.set_similarity_threshold(0.5)
+    result = visual_tester.compare(img1, img2)
     assert result['match'] == False
 
-def test_region_of_interest(visual_matcher):
+def test_region_of_interest(visual_tester):
     """Test comparing specific regions of interest"""
     img1 = np.zeros((100, 100, 3), dtype=np.uint8)
     img2 = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -131,16 +170,16 @@ def test_region_of_interest(visual_matcher):
     cv2.circle(img1, (40, 40), 10, (255, 255, 255), -1)
     cv2.circle(img2, (40, 40), 10, (255, 255, 255), -1)
     
-    result = visual_matcher.compare_images(img1, img2, roi=roi)
+    result = visual_tester.compare(img1, img2, roi=roi)
     assert result['match'] == True
     assert result['similarity'] > 0.95
 
-def test_multiple_template_matching(visual_matcher):
+def test_multiple_template_matching(visual_tester):
     """Test finding multiple instances of a template"""
     template = np.zeros((20, 20, 3), dtype=np.uint8)
     cv2.circle(template, (10, 10), 5, (255, 255, 255), -1)
     
-    locations = visual_matcher.find_all_elements(template)
+    locations = visual_tester.find_all_elements(template)
     assert len(locations) == 3  # Should find all three circles
     
     # Verify the locations match our expected circle positions
@@ -149,11 +188,11 @@ def test_multiple_template_matching(visual_matcher):
     assert all(any(abs(found[0] - exp[0]) <= 2 and abs(found[1] - exp[1]) <= 2 
               for exp in expected_centers) for found in found_centers)
 
-def test_visual_tester_init(tmp_path):
+def test_visual_tester_init(temp_baseline_dir):
     """Test VisualTester initialization"""
-    tester = VisualTester(tmp_path)
-    assert tester.baseline_dir == tmp_path
-    assert tester.baseline_dir.exists()
+    tester = VisualTester(temp_baseline_dir)
+    assert tester.baseline_dir == temp_baseline_dir
+    assert os.path.exists(tester.baseline_dir)
 
 def test_compare_identical_images(visual_tester):
     """Test comparing identical images"""
@@ -164,9 +203,9 @@ def test_compare_identical_images(visual_tester):
     assert result['match'] == True
     assert result['similarity'] == 1.0
 
-def test_compare_different_images(visual_tester, sample_images):
+def test_compare_different_images(visual_tester, test_images):
     """Test comparing different images"""
-    img1, img2 = sample_images
+    img1, img2 = test_images
     result = visual_tester.compare(img1, img2)
     assert result['match'] == False
     assert result['similarity'] < 1.0
@@ -202,9 +241,9 @@ def test_verify_hash_similar_images(visual_tester):
     # Then verify against it
     assert visual_tester.verify_hash("test_similar.png", img2) == True
 
-def test_verify_hash_different_images(visual_tester, sample_images):
+def test_verify_hash_different_images(visual_tester, test_images):
     """Test hash verification with different images"""
-    img1, img2 = sample_images
+    img1, img2 = test_images
     # First capture the baseline
     visual_tester.capture_baseline("test_different.png", img1)
     # Then verify against it
@@ -219,7 +258,7 @@ def test_calculate_phash(visual_tester):
     assert hash_value is not None
     assert isinstance(hash_value, str)
 
-def test_compare_images_with_resize(visual_matcher):
+def test_compare_images_with_resize(visual_tester):
     """Test comparing images that need resizing"""
     img1 = np.zeros((100, 100, 3), dtype=np.uint8)
     img2 = np.zeros((200, 200, 3), dtype=np.uint8)
@@ -227,16 +266,16 @@ def test_compare_images_with_resize(visual_matcher):
     cv2.circle(img1, (50, 50), 20, (255, 255, 255), -1)
     cv2.circle(img2, (100, 100), 40, (255, 255, 255), -1)
     
-    result = visual_matcher.compare_images(img1, img2, resize=True)
+    result = visual_tester.compare(img1, img2, resize=True)
     assert result['match'] == True
     assert result['similarity'] > 0.95
 
-def test_compare_images_different_content(visual_matcher):
+def test_compare_images_different_content(visual_tester):
     """Test comparing images with completely different content"""
     img1 = np.zeros((100, 100, 3), dtype=np.uint8)
     img2 = np.ones((100, 100, 3), dtype=np.uint8) * 255
     
-    result = visual_matcher.compare_images(img1, img2)
+    result = visual_tester.compare(img1, img2)
     assert result['match'] == False
     assert result['similarity'] < 0.1
 
@@ -254,13 +293,13 @@ def test_visual_difference_dataclass():
     assert diff.difference_percentage == 0.02
     assert diff.type == "pixel"
 
-def test_generate_visual_report_with_empty_differences(visual_tester, tmp_path):
+def test_generate_visual_report_with_empty_differences(visual_tester, temp_baseline_dir):
     """Test generating report with no differences"""
-    report_path = tmp_path / "empty_report.html"
+    report_path = os.path.join(temp_baseline_dir, "empty_report.html")
     visual_tester.generate_report([], report_path)
-    assert report_path.exists()
+    assert os.path.exists(report_path)
 
-def test_generate_visual_report_with_differences(visual_tester, tmp_path):
+def test_generate_visual_report_with_differences(visual_tester, temp_baseline_dir):
     """Test generating report with differences"""
     differences = [
         VisualDifference(
@@ -277,9 +316,9 @@ def test_generate_visual_report_with_differences(visual_tester, tmp_path):
         )
     ]
     
-    report_path = tmp_path / "diff_report.html"
+    report_path = os.path.join(temp_baseline_dir, "diff_report.html")
     visual_tester.generate_report(differences, report_path)
-    assert report_path.exists()
+    assert os.path.exists(report_path)
 
 def test_capture_baseline_with_invalid_image(visual_tester):
     """Test capturing baseline with invalid image data"""
@@ -288,12 +327,12 @@ def test_capture_baseline_with_invalid_image(visual_tester):
     with pytest.raises(ValueError, match="Invalid image data"):
         visual_tester.capture_baseline("test.png", np.array([]))
 
-def test_capture_baseline_with_empty_name(visual_tester, sample_images):
+def test_capture_baseline_with_empty_name(visual_tester, test_images):
     """Test capturing baseline with empty name"""
     with pytest.raises(ValueError, match="Name cannot be empty"):
-        visual_tester.capture_baseline("", sample_images[0])
+        visual_tester.capture_baseline("", test_images[0])
     with pytest.raises(ValueError, match="Name cannot be empty"):
-        visual_tester.capture_baseline(None, sample_images[0])
+        visual_tester.capture_baseline(None, test_images[0])
 
 def test_verify_hash_with_invalid_images(visual_tester):
     """Test hash verification with invalid image data"""
@@ -312,9 +351,9 @@ def test_calculate_phash_with_invalid_image(visual_tester):
     with pytest.raises(ValueError):
         visual_tester.calculate_phash(None)
 
-def test_compare_with_threshold_adjustment(visual_tester, sample_images):
+def test_compare_with_threshold_adjustment(visual_tester, test_images):
     """Test image comparison with different thresholds"""
-    img1, img2 = sample_images
+    img1, img2 = test_images
     
     # Test with high threshold (strict comparison)
     visual_tester.set_similarity_threshold(0.95)
@@ -329,11 +368,11 @@ def test_compare_with_threshold_adjustment(visual_tester, sample_images):
     # Verify that similarity values are the same regardless of threshold
     assert result_strict['similarity'] == result_lenient['similarity']
 
-def test_baseline_dir_creation(tmp_path):
+def test_baseline_dir_creation(temp_baseline_dir):
     """Test baseline directory creation with nested path"""
-    nested_path = tmp_path / "visual" / "baselines"
+    nested_path = os.path.join(temp_baseline_dir, "visual", "baselines")
     tester = VisualTester(nested_path)
-    assert tester.baseline_dir.exists()
+    assert os.path.exists(tester.baseline_dir)
     assert tester.baseline_dir == nested_path
 
 def test_compare_with_color_images(visual_tester):

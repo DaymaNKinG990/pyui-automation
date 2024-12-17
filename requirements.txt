@@ -21,6 +21,11 @@ torchvision>=0.8.0
 aiofiles>=23.2.1
 watchdog>=3.0.0  # File system monitoring
 websockets>=12.0
+aiosqlite>=0.19.0  # Асинхронная работа с SQLite
+jinja2>=3.1.0  # Шаблонизатор для HTML отчетов
+plotly>=5.18.0  # Визуализация данных
+markdown>=3.5.1  # Генерация Markdown отчетов
+aiohttp>=3.9.1  # HTTP клиент для асинхронных запросов
 
 # Game automation dependencies
 opencv-contrib-python>=4.7.0

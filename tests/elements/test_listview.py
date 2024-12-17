@@ -103,15 +103,18 @@ def test_item_select_when_already_selected(listview_item, mock_item_element):
 
 def test_item_wait_until_selected(listview_item, mock_session):
     """Test waiting for item to be selected."""
-    assert listview_item.wait_until_selected(timeout=5.0)
-    
-    mock_session.wait_for_condition.assert_called_once()
-    condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(listview_item, 'is_selected', True):
-        assert condition_func()
-    with patch.object(listview_item, 'is_selected', False):
-        assert not condition_func()
+    # Setup mock for is_selected
+    with patch.object(listview_item, 'is_selected', return_value=True):
+        assert listview_item.wait_until_selected(timeout=5.0)
+        
+        mock_session.wait_for_condition.assert_called_once()
+        condition_func = mock_session.wait_for_condition.call_args[0][0]
+        assert condition_func() is True
+
+    # Test when not selected
+    with patch.object(listview_item, 'is_selected', return_value=False):
+        condition_func = mock_session.wait_for_condition.call_args[0][0]
+        assert condition_func() is False
 
 # ListView Tests
 def test_listview_init(listview, mock_listview_element, mock_session):

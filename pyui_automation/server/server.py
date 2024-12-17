@@ -7,11 +7,53 @@ import logging
 import threading
 from pathlib import Path
 from datetime import datetime
-from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer, BaseHTTPRequestHandler
 from queue import Queue, Empty
 from threading import Thread, Event
+from dataclasses import dataclass, field
+from typing import Dict, Optional
+from collections import deque
+from statistics import mean
+import uuid
+import websockets
+from pyui_automation.utils.metrics import metrics
+from pyui_automation.utils.logging_config import setup_logging
+import base64
+import hashlib
 
+# Настройка логирования
+log_dir = Path(__file__).parent.parent / 'logs'
+log_dir.mkdir(exist_ok=True)
+
+# Очищаем все существующие обработчики
+logging.getLogger().handlers.clear()
+
+# Настраиваем корневой логгер
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_dir / 'server.log', mode='a', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+# Получаем логгер для текущего модуля
 logger = logging.getLogger(__name__)
+
+# Проверяем существование и права доступа к файлу логов
+log_file = log_dir / 'server.log'
+try:
+    if not log_file.exists():
+        log_file.touch()
+    if not os.access(log_file, os.W_OK):
+        logger.error(f"Нет прав на запись в файл логов: {log_file}")
+        sys.exit(1)
+except Exception as e:
+    logger.error(f"Ошибка при работе с файлом логов: {e}")
+    sys.exit(1)
+
+logger.info("Логирование инициализировано успешно")
 
 """
 Модуль реализации HTTP сервера для отображения результатов тестов.
@@ -20,20 +62,130 @@ logger = logging.getLogger(__name__)
 Он поддерживает кэширование результатов, CORS, и отдачу статических файлов.
 """
 
-# Настройка логирования
-log_dir = Path(__file__).parent.parent / 'logs'
-log_dir.mkdir(exist_ok=True)
+# Константы для настройки сервера
+MAX_QUEUE_SIZE = 10000  # Максимальный размер очереди
+RECONNECT_TIMEOUT = 5  # Таймаут для переподключения в секундах
+SOCKET_TIMEOUT = 30  # Таймаут для сокет-операций в секундах
+MAX_RETRIES = 3  # Максимальное количество попыток переподключения
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_dir / 'server.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+@dataclass
+class ConnectionMetrics:
+    """Метрики соединения."""
+    messages_sent: int = 0
+    messages_received: int = 0
+    errors: int = 0
+    latency_history: deque = field(default_factory=lambda: deque(maxlen=100))
+    last_activity: float = 0.0
+    reconnect_attempts: int = 0
+    
+    @property
+    def average_latency(self) -> float:
+        """Средняя задержка за последние 100 сообщений."""
+        return mean(self.latency_history) if self.latency_history else 0.0
 
-class WebSocketProtocol(asyncio.Protocol):
+class PerformanceMonitor:
+    """Монитор производительности WebSocket сервера."""
+    
+    def __init__(self):
+        self._metrics: Dict[int, ConnectionMetrics] = {}
+        self._global_metrics = ConnectionMetrics()
+        self._start_time = time.time()
+        self._logger = logging.getLogger('performance')
+        
+    def register_connection(self, connection_id: int) -> None:
+        """Регистрация нового соединения."""
+        self._metrics[connection_id] = ConnectionMetrics()
+        self._logger.info(f"Зарегистрировано новое соединение {connection_id}")
+        
+    def unregister_connection(self, connection_id: int) -> None:
+        """Удаление соединения из мониторинга."""
+        if connection_id in self._metrics:
+            metrics = self._metrics.pop(connection_id)
+            self._logger.info(
+                f"Соединение {connection_id} закрыто. "
+                f"Отправлено: {metrics.messages_sent}, "
+                f"Получено: {metrics.messages_received}, "
+                f"Ошибок: {metrics.errors}, "
+                f"Средняя задержка: {metrics.average_latency:.2f}ms"
+            )
+            
+    def record_message_sent(self, connection_id: int, size: int) -> None:
+        """Запись метрики отправленного сообщения."""
+        if connection_id in self._metrics:
+            self._metrics[connection_id].messages_sent += 1
+            self._metrics[connection_id].last_activity = time.time()
+            self._global_metrics.messages_sent += 1
+            
+    def record_message_received(self, connection_id: int, size: int) -> None:
+        """Запись метрики полученного сообщения."""
+        if connection_id in self._metrics:
+            self._metrics[connection_id].messages_received += 1
+            self._metrics[connection_id].last_activity = time.time()
+            self._global_metrics.messages_received += 1
+            
+    def record_error(self, connection_id: int) -> None:
+        """Запись ошибки соединения."""
+        if connection_id in self._metrics:
+            self._metrics[connection_id].errors += 1
+            self._global_metrics.errors += 1
+            
+    def record_latency(self, connection_id: int, latency: float) -> None:
+        """Запись задержки сообщения."""
+        if connection_id in self._metrics:
+            self._metrics[connection_id].latency_history.append(latency)
+            self._global_metrics.latency_history.append(latency)
+            
+    def record_reconnect(self, connection_id: int) -> None:
+        """Запись попытки переподключения."""
+        if connection_id in self._metrics:
+            self._metrics[connection_id].reconnect_attempts += 1
+            
+    def get_connection_stats(self, connection_id: int) -> Optional[Dict]:
+        """Получение статистики по соединению."""
+        if connection_id not in self._metrics:
+            return None
+            
+        metrics = self._metrics[connection_id]
+        return {
+            'messages_sent': metrics.messages_sent,
+            'messages_received': metrics.messages_received,
+            'errors': metrics.errors,
+            'average_latency': metrics.average_latency,
+            'last_activity': metrics.last_activity,
+            'reconnect_attempts': metrics.reconnect_attempts
+        }
+        
+    def get_global_stats(self) -> Dict:
+        """Получение глобальной статистики."""
+        uptime = time.time() - self._start_time
+        active_connections = len(self._metrics)
+        
+        return {
+            'uptime': uptime,
+            'active_connections': active_connections,
+            'total_messages_sent': self._global_metrics.messages_sent,
+            'total_messages_received': self._global_metrics.messages_received,
+            'total_errors': self._global_metrics.errors,
+            'average_latency': self._global_metrics.average_latency
+        }
+        
+    def log_stats(self) -> None:
+        """Логирование текущей статистики."""
+        stats = self.get_global_stats()
+        self._logger.info(
+            f"Статистика сервера:\n"
+            f"Время работы: {stats['uptime']:.2f}s\n"
+            f"Активных соединений: {stats['active_connections']}\n"
+            f"Всего отправлено: {stats['total_messages_sent']}\n"
+            f"Всего получено: {stats['total_messages_received']}\n"
+            f"Всего ошибок: {stats['total_errors']}\n"
+            f"Средняя задержка: {stats['average_latency']:.2f}ms"
+        )
+
+# Создаем глобальный монитор производительности
+performance_monitor = PerformanceMonitor()
+
+class WebSocketProtocol:
     """Протокол для обработки WebSocket соединений."""
     
     def __init__(self, handler):
@@ -44,42 +196,98 @@ class WebSocketProtocol(asyncio.Protocol):
         self.frame_length = 0
         self.mask = None
         self._logger = logging.getLogger('websocket')
-        
+        self.connection_id = id(self)
+        self.last_activity = time.time()
+        self.retry_count = 0
+        self.is_connected = False
+        self._message_timestamps = {}
+
     def connection_made(self, transport):
         """Установка соединения."""
         self.transport = transport
-        self._logger.info(f"Установлено новое соединение: {transport.get_extra_info('peername')}")
-        asyncio.create_task(self.handler.register(self))
-        
+        self.is_connected = True
+        self.last_activity = time.time()
+        self._logger.info(f"Соединение установлено (id: {self.connection_id})")
+        performance_monitor.register_connection(self.connection_id)
+
     def connection_lost(self, exc):
         """Потеря соединения."""
-        self._logger.info(f"Соединение закрыто: {exc if exc else 'нормальное завершение'}")
-        asyncio.create_task(self.handler.unregister(self))
-        
+        self.is_connected = False
+        self._logger.info(f"Соединение потеряно (id: {self.connection_id})")
+        if exc:
+            self._logger.error(f"Причина: {str(exc)}")
+            performance_monitor.record_error(self.connection_id)
+        self.handler.unregister(self)
+        performance_monitor.unregister_connection(self.connection_id)
+
+    def send_message(self, message):
+        """Отправка сообщения клиенту."""
+        try:
+            if not self.is_connected:
+                self._logger.warning("Попытка отправить сообщение через закрытое соединение")
+                return False
+
+            if isinstance(message, dict):
+                message = json.dumps(message)
+            if isinstance(message, str):
+                message = message.encode('utf-8')
+
+            # Формируем WebSocket фрейм
+            frame = bytearray()
+            frame.append(0x81)  # FIN + Opcode для текстового сообщения
+
+            # Длина сообщения
+            length = len(message)
+            if length <= 125:
+                frame.append(length)
+            elif length <= 65535:
+                frame.append(126)
+                frame.extend(length.to_bytes(2, 'big'))
+            else:
+                frame.append(127)
+                frame.extend(length.to_bytes(8, 'big'))
+
+            # Добавляем сообщение
+            frame.extend(message)
+
+            # Отправляем фрейм
+            self.transport.wfile.write(frame)
+            self.transport.wfile.flush()
+
+            self.last_activity = time.time()
+            performance_monitor.record_message_sent(self.connection_id, len(message))
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Ошибка при отправке сообщения: {str(e)}", exc_info=True)
+            performance_monitor.record_error(self.connection_id)
+            return False
+
     def data_received(self, data):
         """Получение данных."""
         try:
             self.buffer.extend(data)
+            self.last_activity = time.time()
             self._process_buffer()
         except Exception as e:
-            self._logger.error(f"Ошибка обработки данных: {e}", exc_info=True)
-            
+            self._logger.error(f"Ошибка при получении данных: {str(e)}", exc_info=True)
+            performance_monitor.record_error(self.connection_id)
+
     def _process_buffer(self):
         """Обработка буфера данных."""
-        while self.buffer:
+        while len(self.buffer) >= 2:
             if not self.header_parsed:
-                if len(self.buffer) < 2:
+                # Разбор заголовка фрейма
+                header1, header2 = self.buffer[0], self.buffer[1]
+                fin = (header1 & 0x80) != 0
+                opcode = header1 & 0x0F
+                masked = (header2 & 0x80) != 0
+                payload_length = header2 & 0x7F
+
+                if opcode == 0x8:  # Close frame
+                    self.connection_lost(None)
                     return
-                    
-                # Парсим заголовок WebSocket фрейма
-                first_byte = self.buffer[0]
-                second_byte = self.buffer[1]
-                
-                fin = (first_byte & 0b10000000) != 0
-                opcode = first_byte & 0b00001111
-                is_masked = (second_byte & 0b10000000) != 0
-                payload_length = second_byte & 0b01111111
-                
+
                 header_length = 2
                 if payload_length == 126:
                     if len(self.buffer) < 4:
@@ -91,94 +299,52 @@ class WebSocketProtocol(asyncio.Protocol):
                         return
                     payload_length = int.from_bytes(self.buffer[2:10], 'big')
                     header_length = 10
-                    
-                if is_masked:
+
+                if masked:
                     if len(self.buffer) < header_length + 4:
                         return
-                    self.mask = self.buffer[header_length:header_length + 4]
+                    self.mask = self.buffer[header_length:header_length+4]
                     header_length += 4
-                    
-                self.frame_length = payload_length
+
+                self.frame_length = header_length + payload_length
                 self.header_parsed = True
-                self.buffer = self.buffer[header_length:]
-                
+
             if len(self.buffer) < self.frame_length:
                 return
-                
-            # Получаем и обрабатываем payload
-            payload = self.buffer[:self.frame_length]
-            self.buffer = self.buffer[self.frame_length:]
-            
+
+            # Извлекаем и обрабатываем сообщение
+            payload = self.buffer[header_length:self.frame_length]
             if self.mask:
-                unmasked = bytearray(len(payload))
-                for i in range(len(payload)):
-                    unmasked[i] = payload[i] ^ self.mask[i % 4]
-                payload = unmasked
-                
-            try:
-                message = json.loads(payload.decode())
-                self._handle_message(message)
-            except json.JSONDecodeError:
-                self._logger.warning(f"Получено некорректное JSON сообщение: {payload}")
-            except Exception as e:
-                self._logger.error(f"Ошибка обработки сообщения: {e}", exc_info=True)
-                
+                payload = bytearray(b ^ m for b, m in zip(payload, self.mask * (len(payload) // 4 + 1)))
+
+            message = payload.decode('utf-8')
+            self._handle_message(message)
+
+            # Очищаем буфер
+            self.buffer = self.buffer[self.frame_length:]
             self.header_parsed = False
             self.frame_length = 0
             self.mask = None
-            
+
     def _handle_message(self, message):
         """Обработка полученного сообщения."""
         try:
-            message_type = message.get('type')
+            data = json.loads(message)
+            performance_monitor.record_message_received(self.connection_id, len(message))
             
-            if message_type == 'reload':
-                self._logger.info("Получена команда перезагрузки")
-                # Отправляем подтверждение
-                self.send_message(json.dumps({
-                    'type': 'reload_ack',
-                    'status': 'success'
-                }))
-            elif message_type == 'ping':
-                self._logger.debug("Получен ping")
-                self.send_message(json.dumps({
-                    'type': 'pong',
-                    'timestamp': datetime.now().isoformat()
-                }))
-            else:
-                self._logger.warning(f"Получено неизвестное сообщение: {message}")
-                
+            if isinstance(data, dict):
+                if data.get('type') == 'ping':
+                    self.send_message({'type': 'pong'})
+                elif data.get('type') == 'ack':
+                    self.handle_message_ack(data.get('message_id'))
+                else:
+                    self.handler.broadcast(data)
+        except json.JSONDecodeError:
+            self._logger.error("Получено некорректное JSON сообщение")
+            performance_monitor.record_error(self.connection_id)
         except Exception as e:
-            self._logger.error(f"Ошибка при обработке сообщения {message}: {e}", exc_info=True)
-            
-    def send_message(self, message):
-        """Отправка сообщения клиенту."""
-        if not isinstance(message, str):
-            message = json.dumps(message)
-            
-        data = message.encode()
-        length = len(data)
-        header = bytearray()
-        
-        # Первый байт: FIN + опкод
-        header.append(0x80 | 0x1)  # FIN=1, RSV=000, опкод=0x1 (text)
-        
-        # Второй байт: MASK + длина полезной нагрузки
-        if length < 126:
-            header.append(length)
-        elif length < 65536:
-            header.append(126)
-            header.extend(length.to_bytes(2, 'big'))
-        else:
-            header.append(127)
-            header.extend(length.to_bytes(8, 'big'))
-            
-        # Отправляем фрейм
-        try:
-            self.transport.write(header + data)
-            self._logger.debug(f"Отправлено сообщение длиной {length} байт")
-        except Exception as e:
-            self._logger.error(f"Ошибка отправки сообщения: {e}", exc_info=True)
+            self._logger.error(f"Ошибка при обработке сообщения: {str(e)}", exc_info=True)
+            performance_monitor.record_error(self.connection_id)
 
 class WebSocketHandler:
     """Обработчик WebSocket соединений."""
@@ -190,81 +356,36 @@ class WebSocketHandler:
         self._connection_url = None
         self.loop = None
         self._logger = logging.getLogger('websocket')
+        self.message_queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
         
-    @classmethod
-    def get_instance(cls):
-        """Получение глобального экземпляра WebSocketHandler."""
-        if not hasattr(cls, '_instance'):
-            cls._instance = cls()
-            cls._instance._logger.info("Создан новый экземпляр WebSocketHandler")
-        return cls._instance
-    
-    def is_connected(self) -> bool:
-        """Проверка состояния соединения."""
-        is_connected = self._connected and bool(self.connections)
-        self._logger.debug(f"Проверка соединения: connected={is_connected}, connections={len(self.connections)}")
-        return is_connected
-    
-    async def connect(self, url: str = None) -> bool:
-        """
-        Установка WebSocket соединения.
+    async def start(self, reporting_system):
+        """Запуск обработчика."""
+        self.test_reporting_system = reporting_system
+        self.loop = asyncio.get_event_loop()
+        asyncio.create_task(self._process_queue())
         
-        Args:
-            url: URL для подключения. Если не указан, используется последний успешный URL.
+    async def stop(self):
+        """Остановка обработчика."""
+        for conn in list(self.connections):
+            await self.unregister(conn)
             
-        Returns:
-            bool: True если соединение успешно установлено, иначе False
-        """
-        self._logger.info(f"Попытка подключения к {url or self._connection_url}")
-        
-        if url:
-            self._connection_url = url
-        elif not self._connection_url:
-            self._logger.error("URL для подключения не указан")
-            return False
-            
+    async def register(self, connection):
+        """Регистрация нового соединения."""
         try:
-            if not self.loop:
-                self.loop = asyncio.get_event_loop()
-                self._logger.debug("Получен event loop")
-                
-            # Создаем новое соединение
-            transport, protocol = await self.loop.create_connection(
-                lambda: WebSocketProtocol(self),
-                self._connection_url,
-                8001  # WebSocket порт
-            )
-            self._connected = True
-            self._logger.info(f"Успешное подключение к {self._connection_url}")
-            return True
-            
+            async with self.lock:
+                self.connections.add(connection)
+                self._logger.info(f"Зарегистрировано новое соединение. Всего соединений: {len(self.connections)}")
         except Exception as e:
-            self._logger.error(f"Ошибка при подключении к {self._connection_url}: {e}", exc_info=True)
-            self._connected = False
-            return False
-    
-    async def disconnect(self):
-        """Закрытие всех WebSocket соединений."""
-        with self.lock:
-            for ws in self.connections:
-                try:
-                    ws.transport.close()
-                except Exception as e:
-                    logger.error(f"Ошибка при закрытии соединения: {e}")
-            self.connections.clear()
-            self._connected = False
-    
-    async def register(self, websocket):
-        """Регистрация нового WebSocket соединения."""
-        with self.lock:
-            self.connections.add(websocket)
-            self._logger.info(f"Новое WebSocket соединение. Всего соединений: {len(self.connections)}")
-    
-    async def unregister(self, websocket):
-        """Удаление WebSocket соединения."""
-        with self.lock:
-            self.connections.remove(websocket)
-            self._logger.info(f"WebSocket соединение закрыто. Осталось соединений: {len(self.connections)}")
+            self._logger.error(f"Ошибка при регистрации соединения: {e}", exc_info=True)
+            
+    async def unregister(self, connection):
+        """Удаление соединения."""
+        try:
+            async with self.lock:
+                self.connections.discard(connection)
+                self._logger.info(f"Соединение удалено. Всего соединений: {len(self.connections)}")
+        except Exception as e:
+            self._logger.error(f"Ошибка при удалении соединения: {e}", exc_info=True)
     
     async def broadcast(self, message):
         """Отправка сообщения всем подключенным клиентам."""
@@ -274,9 +395,7 @@ class WebSocketHandler:
             return
             
         try:
-            for ws in self.connections:
-                ws.send_message(message)
-            self._logger.info(f"Сообщение успешно отправлено {len(self.connections)} клиентам")
+            await self.message_queue.put(message)
         except Exception as e:
             self._logger.error(f"Ошибка при широковещательной рассылке: {e}", exc_info=True)
             raise
@@ -303,335 +422,362 @@ class WebSocketHandler:
         }
         await self.broadcast(message)
     
-    async def __call__(self, websocket):
-        """Обработка WebSocket соединения."""
-        await self.register(websocket)
-        try:
-            async for message in websocket:
-                try:
-                    data = json.loads(message)
-                    if data.get('type') == 'ping':
-                        await websocket.send(json.dumps({'type': 'pong'}))
-                except json.JSONDecodeError:
-                    logger.warning(f"Получено некорректное сообщение: {message}")
-        except websockets.exceptions.ConnectionClosed:
-            pass
-        except Exception as e:
-            logger.error(f"Ошибка в WebSocket соединении: {e}", exc_info=True)
-        finally:
-            await self.unregister(websocket)
-
+    async def _process_queue(self):
+        """Обработка очереди сообщений."""
+        while True:
+            try:
+                message = await self.message_queue.get()
+                if self.message_queue.qsize() > MAX_QUEUE_SIZE * 0.8:
+                    self._logger.warning(f"Очередь сообщений заполнена на {self.message_queue.qsize()}/{MAX_QUEUE_SIZE}")
+                
+                await self._broadcast_message(message)
+                self.message_queue.task_done()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self._logger.error(f"Ошибка при обработке очереди сообщений: {e}", exc_info=True)
+                
+    async def _broadcast_message(self, message):
+        """Рассылка сообщения всем подключенным клиентам."""
+        disconnected = set()
+        
+        for connection in self.connections:
+            try:
+                if not connection.is_connected:
+                    disconnected.add(connection)
+                    continue
+                    
+                connection.send_message(message)
+            except Exception as e:
+                self._logger.error(f"Ошибка при отправке сообщения клиенту {id(connection)}: {e}", exc_info=True)
+                disconnected.add(connection)
+                
+        # Удаляем отключенные соединения
+        if disconnected:
+            async with self.lock:
+                self.connections -= disconnected
+                
 # Глобальный экземпляр WebSocketHandler
-ws_handler = WebSocketHandler.get_instance()
+ws_handler = WebSocketHandler()
 
 # Определяем пути к директориям
-CURRENT_DIR = Path(__file__).parent
+CURRENT_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = CURRENT_DIR / 'templates'
+STATIC_DIR = CURRENT_DIR / 'static'
 RESULTS_DIR = CURRENT_DIR.parent / 'results'
 
-class TestReportServer(SimpleHTTPRequestHandler):
+# Создаем директории, если они не существуют
+TEMPLATES_DIR.mkdir(exist_ok=True)
+RESULTS_DIR.mkdir(exist_ok=True)
+
+logger.info(f"Текущая директория: {CURRENT_DIR}")
+logger.info(f"Директория шаблонов: {TEMPLATES_DIR}")
+logger.info(f"Директория статических файлов: {STATIC_DIR}")
+logger.info(f"Директория результатов: {RESULTS_DIR}")
+
+class TestReportServer(BaseHTTPRequestHandler):
     """HTTP сервер для отображения результатов тестов."""
     
-    def __init__(self, *args, results_dir=None, template_dir=None, **kwargs):
+    def __init__(self, request, client_address, server):
         """Инициализация сервера."""
-        self.results_dir = Path(results_dir) if results_dir else RESULTS_DIR
-        self.template_dir = Path(template_dir) if template_dir else TEMPLATES_DIR
+        self.results_dir = RESULTS_DIR
+        self.template_dir = TEMPLATES_DIR
+        self.static_dir = STATIC_DIR
         self.cache = {}
-        super().__init__(*args, **kwargs)
+        super().__init__(request, client_address, server)
 
     def do_GET(self):
         """Обработка GET запросов."""
         try:
-            # Проверяем WebSocket запрос
-            if self.headers.get('Upgrade', '').lower() == 'websocket':
+            # Получаем информацию о клиенте
+            client_address = self.client_address[0]
+            user_agent = self.headers.get('User-Agent', 'Unknown')
+            referer = self.headers.get('Referer', 'Direct access')
+            
+            logger.info(f"Получен GET запрос: {self.path}")
+            logger.info(f"Клиент: {client_address}")
+            logger.info(f"User-Agent: {user_agent}")
+            logger.info(f"Referer: {referer}")
+            
+            # Обработка корневого пути
+            if self.path == '/':
+                logger.info("Обработка корневого пути")
+                self._serve_report()
+                return
+                
+            # Обработка метрик
+            if self.path == '/metrics':
+                logger.info("Обработка запроса метрик")
+                self._serve_metrics()
+                return
+                
+            # Обработка WebSocket
+            if self.path == '/ws':
+                logger.info("Обработка WebSocket соединения")
                 self._handle_websocket()
                 return
-
-            # Получаем путь запроса без параметров
-            path = self.path.split('?')[0].strip('/')
-            
-            # Для корневого пути отдаем report.html
-            if not path:
-                path = 'report.html'
-                file_path = TEMPLATES_DIR / path
-            # Для статических файлов
-            elif path.startswith('assets/'):
-                file_path = TEMPLATES_DIR / path
-            # Для остальных файлов ищем в assets
-            else:
-                file_path = TEMPLATES_DIR / 'assets' / path
-
-            logger.info(f"Запрошен файл: {file_path}")
-
-            # Проверяем существование файла
-            if not os.path.exists(file_path):
-                logger.warning(f"Файл не найден: {file_path}")
-                self.send_error(404, f"File not found: {path}")
+                
+            # Обработка манифеста
+            if self.path == '/manifest.json':
+                logger.info("Обработка запроса манифеста")
+                self._serve_manifest()
                 return
-
-            # Отправляем файл
-            with open(file_path, 'rb') as f:
-                content = f.read()
-
-            self.send_response(200)
-            self.send_header('Content-Type', self._get_content_type(str(file_path)))
-            self.send_header('Content-Length', str(len(content)))
-            self.end_headers()
-            self.wfile.write(content)
-
+                
+            # Обработка статических файлов
+            if self.path.startswith('/static/'):
+                logger.info(f"Обработка статического файла: {self.path}")
+                file_path = Path(self.path)
+                self._serve_static_file(file_path)
+                return
+                
+            # Если путь не найден
+            logger.warning(f"Путь не найден: {self.path}")
+            self.send_error(404)
+            
         except Exception as e:
-            logger.error(f"Ошибка при обработке GET запроса: {e}")
-            self.send_error(500, str(e))
+            logger.error(f"Ошибка при обработке GET запроса: {str(e)}", exc_info=True)
+            self.send_error(500)
 
     def _serve_report(self):
         """Отдача основного шаблона."""
         try:
-            logger.info("Запрос основного шаблона")
+            logger.info("Запрошен основной шаблон")
             template_path = self.template_dir / 'report.html'
-            logger.debug(f"Путь к шаблону: {template_path}")
+            logger.info(f"Путь к шаблону: {template_path}")
+            logger.info(f"Существование шаблона: {template_path.exists()}")
             
             if not template_path.exists():
-                logger.error(f"Шаблон не найден: {template_path}")
-                self.send_error(404)
+                logger.error("Шаблон не найден")
+                self.send_error(404, "Template not found")
                 return
                 
-            with open(template_path, 'r', encoding='utf-8') as f:
-                template_content = f.read()
+            logger.info("Читаем содержимое шаблона")
+            try:
+                with open(template_path, 'rb') as f:
+                    content = f.read()
+                logger.info(f"Размер шаблона: {len(content)} байт")
+            except Exception as e:
+                logger.error(f"Ошибка при чтении шаблона: {str(e)}", exc_info=True)
+                self.send_error(500)
+                return
                 
-            # Отправляем заголовки
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-            self.end_headers()
+            logger.info("Отправляем заголовки")
+            try:
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                logger.info("Заголовки успешно отправлены")
+            except Exception as e:
+                logger.error(f"Ошибка при отправке заголовков: {str(e)}", exc_info=True)
+                self.send_error(500)
+                return
             
-            # Отправляем контент
-            self.wfile.write(template_content.encode('utf-8'))
-            logger.info("Шаблон успешно отправлен")
+            logger.info("Отправляем содержимое")
+            try:
+                self.wfile.write(content)
+                logger.info("Шаблон успешно отправлен")
+            except Exception as e:
+                logger.error(f"Ошибка при отправке содержимого: {str(e)}", exc_info=True)
+                raise
             
         except Exception as e:
-            logger.error(f"Ошибка при отдаче шаблона: {e}", exc_info=True)
-            self.send_error(500, str(e))
+            logger.error(f"Общая ошибка при отдаче шаблона: {str(e)}", exc_info=True)
+            self.send_error(500)
 
     def _serve_static_file(self, file_path):
         """Отдача статического файла."""
         try:
-            # Получаем MIME тип
-            content_type = self._get_content_type(file_path)
+            logger.info(f"Начало обработки статического файла: {file_path}")
+            logger.info(f"Текущая директория: {os.getcwd()}")
+            logger.info(f"Директория static_dir: {STATIC_DIR}")
             
+            # Получаем путь относительно /static/
+            relative_path = str(file_path).replace('\\', '/')
+            if relative_path.startswith('/'):
+                relative_path = relative_path[1:]  # Убираем начальный слеш
+            if relative_path.startswith('static/'):
+                relative_path = relative_path[7:]  # Убираем 'static/'
+            
+            # Преобразуем путь в абсолютный
+            abs_path = (STATIC_DIR / relative_path).resolve()
+            
+            logger.info(f"Относительный путь: {relative_path}")
+            logger.info(f"Запрошен статический файл: {abs_path}")
+            logger.info(f"Существование файла: {abs_path.exists()}")
+            logger.info(f"Абсолютный путь: {abs_path.absolute()}")
+            
+            if not abs_path.exists():
+                logger.error(f"Файл не найден: {abs_path}")
+                self.send_error(404)
+                return
+
+            # Проверяем, что файл находится в разрешенной директории
+            try:
+                abs_path.relative_to(STATIC_DIR)
+            except ValueError:
+                logger.error(f"Попытка доступа к файлу вне разрешенной директории: {abs_path}")
+                logger.error(f"Разрешенная директория: {STATIC_DIR}")
+                self.send_error(403)
+                return
+
+            # Получаем MIME тип файла
+            content_type = self._get_content_type(abs_path)
+            logger.info(f"MIME тип файла: {content_type}")
+
             # Читаем файл
-            with open(file_path, 'rb') as f:
-                content = f.read()
-            
+            try:
+                with open(abs_path, 'rb') as f:
+                    content = f.read()
+                logger.info(f"Файл успешно прочитан, размер: {len(content)} байт")
+            except Exception as e:
+                logger.error(f"Ошибка при чтении файла: {str(e)}", exc_info=True)
+                self.send_error(500)
+                return
+
             # Отправляем заголовки
-            self.send_response(200)
-            self.send_header('Content-type', content_type)
-            if content_type == 'application/javascript':
-                self.send_header('Cache-Control', 'no-cache')
-            self.end_headers()
+            try:
+                self.send_response(200)
+                self.send_header('Content-Type', content_type)
+                self.send_header('Content-Length', str(len(content)))
+                self.send_header('Cache-Control', 'public, max-age=31536000')  # Кэширование на 1 год
+                self.end_headers()
+                logger.info("Заголовки успешно отправлены")
+            except Exception as e:
+                logger.error(f"Ошибка при отправке заголовков: {str(e)}", exc_info=True)
+                self.send_error(500)
+                return
+
+            # Отправляем содержимое
+            try:
+                self.wfile.write(content)
+                logger.info("Содержимое файла успешно отправлено")
+            except Exception as e:
+                logger.error(f"Ошибка при отправке содержимого: {str(e)}", exc_info=True)
+                raise
+
+        except Exception as e:
+            logger.error(f"Общая ошибка при отдаче статического файла: {str(e)}", exc_info=True)
+            self.send_error(500)
+
+    def _serve_metrics(self):
+        """Отдача метрик в формате JSON."""
+        try:
+            metrics_data = {
+                'performance': performance_monitor.get_global_stats(),
+                'websocket': {
+                    'connections': len(ws_handler.connections),
+                    'queue_size': ws_handler.message_queue.qsize()
+                }
+            }
             
-            # Отправляем контент
+            content = json.dumps(metrics_data).encode('utf-8')
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(content)))
+            self.end_headers()
             self.wfile.write(content)
-            logger.debug(f"Отправлен статический файл: {file_path}")
             
         except Exception as e:
-            logger.error(f"Ошибка при отдаче статического файла {file_path}: {e}", exc_info=True)
-            self.send_error(500, str(e))
+            logger.error(f"Ошибка при отдаче метрик: {e}", exc_info=True)
+            self.send_error(500)
 
     def _serve_manifest(self):
         """Отдача манифеста."""
         try:
-            logger.info("Запрос манифеста")
-            manifest_path = self.results_dir / 'manifest.json'
+            manifest = {
+                "name": "Test Results Dashboard",
+                "short_name": "Tests",
+                "description": "Dashboard for viewing test results",
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#ffffff",
+                "theme_color": "#2196F3",
+                "icons": [
+                    {
+                        "src": "static/icons/favicon-32x32.png",
+                        "sizes": "32x32",
+                        "type": "image/png",
+                        "purpose": "any"
+                    }
+                ]
+            }
             
-            if not manifest_path.exists():
-                logger.warning("Манифест не найден")
-                self.send_error(404)
-                return
-                
-            # Читаем манифест
-            with open(manifest_path, 'r', encoding='utf-8') as f:
-                manifest_data = json.load(f)
-                logger.debug(f"Прочитан манифест: {manifest_data}")
+            content = json.dumps(manifest, indent=2).encode('utf-8')
             
-            # Отправляем заголовки
             self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Content-Type', 'application/manifest+json')
+            self.send_header('Content-Length', str(len(content)))
+            self.send_header('Cache-Control', 'public, max-age=86400')  # кэшировать на 24 часа
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             
-            # Отправляем данные
-            manifest_json = json.dumps(manifest_data)
-            self.wfile.write(manifest_json.encode('utf-8'))
-            logger.info("Манифест успешно отправлен")
+            logger.debug(f"Отправка манифеста: {manifest}")
+            self.wfile.write(content)
             
         except Exception as e:
-            logger.error(f"Ошибка при отдаче манифеста: {e}", exc_info=True)
-            self.send_error(500, str(e))
+            logger.error(f"Ошибка при отдаче манифеста: {str(e)}", exc_info=True)
+            self.send_error(500)
+
+    def _get_content_type(self, path):
+        """Определение MIME типа файла."""
+        mime_types = {
+            '.html': 'text/html',
+            '.css': 'text/css',
+            '.js': 'application/javascript',
+            '.json': 'application/json',
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.gif': 'image/gif',
+            '.svg': 'image/svg+xml',
+            '.ico': 'image/x-icon',
+            '.woff': 'font/woff',
+            '.woff2': 'font/woff2',
+            '.ttf': 'font/ttf',
+            '.eot': 'application/vnd.ms-fontobject'
+        }
+        ext = Path(path).suffix.lower()
+        return mime_types.get(ext, 'application/octet-stream')
 
     def _handle_websocket(self):
         """Обработка WebSocket соединения."""
         try:
-            logger.info("Начало обработки WebSocket соединения")
-            
-            # Проверяем заголовки
-            headers = {k.lower(): v for k, v in self.headers.items()}
-            if 'upgrade' not in headers or headers['upgrade'].lower() != 'websocket':
-                logger.error("Отсутствует заголовок Upgrade: websocket")
-                self.send_error(400, "Expected Upgrade: websocket")
+            # Проверяем, что это WebSocket запрос
+            if 'Upgrade' not in self.headers or self.headers['Upgrade'].lower() != 'websocket':
+                logger.error("Не WebSocket запрос")
+                self.send_error(400, "Expected WebSocket request")
                 return
-                
-            if 'sec-websocket-key' not in headers:
-                logger.error("Отсутствует заголовок Sec-WebSocket-Key")
-                self.send_error(400, "Sec-WebSocket-Key header is missing")
+
+            # Проверяем наличие ключа
+            if 'Sec-WebSocket-Key' not in self.headers:
+                logger.error("Отсутствует WebSocket ключ")
+                self.send_error(400, "No WebSocket key")
                 return
-                
-            # Вычисляем ключ для ответа
-            ws_key = headers['sec-websocket-key']
-            ws_accept = self._calculate_websocket_accept(ws_key)
-            
-            # Отправляем ответ на handshake
-            logger.debug("Отправка WebSocket handshake")
-            self.send_response(101, "Switching Protocols")
+
+            # Отправляем заголовки для апгрейда соединения
+            ws_key = self.headers['Sec-WebSocket-Key'].encode('utf-8')
+            ws_accept = base64.b64encode(
+                hashlib.sha1(ws_key + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest()
+            ).decode('utf-8')
+
+            self.send_response(101)
             self.send_header('Upgrade', 'websocket')
             self.send_header('Connection', 'Upgrade')
             self.send_header('Sec-WebSocket-Accept', ws_accept)
             self.end_headers()
-            
+
+            # Создаем и регистрируем WebSocket соединение
+            protocol = WebSocketProtocol(ws_handler)
+            protocol.connection_made(self)
+            ws_handler.register(protocol)
+
             logger.info("WebSocket соединение установлено")
-            
-            # Отправляем приветственное сообщение
-            hello_message = json.dumps({
-                'type': 'hello',
-                'content': {
-                    'message': 'Соединение установлено',
-                    'timestamp': time.time()
-                }
-            })
-            self._send_websocket_frame(hello_message.encode('utf-8'))
-            
-            # Основной цикл обработки сообщений
-            while True:
-                message = self._read_websocket_frame()
-                if message is None:
-                    break
-                    
-                try:
-                    data = json.loads(message)
-                    if data.get('type') == 'hello':
-                        # Отвечаем на приветствие
-                        response = json.dumps({
-                            'type': 'hello',
-                            'content': {
-                                'status': 'connected',
-                                'timestamp': time.time()
-                            }
-                        })
-                        self._send_websocket_frame(response.encode('utf-8'))
-                    else:
-                        logger.warning(f"Получено неизвестное сообщение: {data}")
-                except json.JSONDecodeError:
-                    logger.error("Получено некорректное JSON сообщение")
-                except Exception as e:
-                    logger.error(f"Ошибка при обработке сообщения: {e}")
-                    
+
         except Exception as e:
-            logger.error(f"Ошибка WebSocket соединения: {e}")
-            return
-
-    def _read_websocket_frame(self):
-        """Чтение WebSocket фрейма."""
-        try:
-            # Читаем первые два байта
-            header = self.rfile.read(2)
-            if not header or len(header) < 2:
-                return None
-                
-            # Разбираем заголовок
-            fin = (header[0] & 0x80) >> 7
-            opcode = header[0] & 0x0F
-            mask = (header[1] & 0x80) >> 7
-            payload_len = header[1] & 0x7F
-            
-            # Проверяем опкод
-            if opcode == 0x8:  # Close frame
-                return None
-                
-            # Получаем длину данных
-            if payload_len == 126:
-                payload_len = int.from_bytes(self.rfile.read(2), 'big')
-            elif payload_len == 127:
-                payload_len = int.from_bytes(self.rfile.read(8), 'big')
-                
-            # Читаем маску
-            if mask:
-                masking_key = self.rfile.read(4)
-            
-            # Читаем данные
-            payload = self.rfile.read(payload_len)
-            
-            # Демаскируем данные если нужно
-            if mask:
-                unmasked = bytearray(payload_len)
-                for i in range(payload_len):
-                    unmasked[i] = payload[i] ^ masking_key[i % 4]
-                payload = unmasked
-                
-            return payload
-            
-        except Exception as e:
-            logger.error(f"Ошибка при чтении WebSocket фрейма: {e}")
-            return None
-
-    def _send_websocket_frame(self, data, opcode=0x01):
-        """Отправка WebSocket фрейма."""
-        try:
-            length = len(data)
-            header = bytearray()
-            
-            # Первый байт: FIN + опкод
-            header.append(0x80 | opcode)  # FIN=1, RSV=000, опкод
-            
-            # Второй байт: MASK + длина полезной нагрузки
-            if length < 126:
-                header.append(length)
-            elif length < 65536:
-                header.append(126)
-                header.extend(length.to_bytes(2, 'big'))
-            else:
-                header.append(127)
-                header.extend(length.to_bytes(8, 'big'))
-                
-            # Отправляем заголовок и данные
-            self.wfile.write(header)
-            self.wfile.write(data)
-            self.wfile.flush()
-            
-        except Exception as e:
-            logger.error(f"Ошибка при отправке WebSocket фрейма: {e}")
-            raise
-
-    def _calculate_websocket_accept(self, key):
-        """Вычисление Sec-WebSocket-Accept."""
-        import base64
-        import hashlib
-        
-        GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-        sha1 = hashlib.sha1((key + GUID).encode()).digest()
-        return base64.b64encode(sha1).decode()
-
-    def _get_content_type(self, path):
-        """Определение MIME типа файла."""
-        ext = path.split('.')[-1].lower()
-        return {
-            'html': 'text/html',
-            'js': 'application/javascript',
-            'css': 'text/css',
-            'json': 'application/json',
-            'png': 'image/png',
-            'jpg': 'image/jpeg',
-            'gif': 'image/gif',
-            'svg': 'image/svg+xml',
-        }.get(ext, 'application/octet-stream')
+            logger.error(f"Ошибка при установке WebSocket соединения: {str(e)}", exc_info=True)
+            self.send_error(500)
 
 class WebSocketServer:
     """Сервер для обработки WebSocket соединений."""
@@ -669,71 +815,58 @@ async def run_http_server(server):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, server.serve_forever)
 
-async def run_server_async(host: str = 'localhost', port: int = 8000) -> None:
+async def run_server_async(host: str, port: int):
     """
     Асинхронный запуск сервера.
     
     Args:
-        host: хост для запуска сервера
-        port: порт для запуска сервера
+        host: Хост для запуска сервера
+        port: Порт для запуска сервера
     """
     try:
-        # Создаем HTTP сервер
-        http_server = HTTPServer((host, port), TestReportServer)
-        logger.info(f"Запуск HTTP сервера на http://{host}:{port}")
+        # Создаем и запускаем HTTP сервер
+        httpd = HTTPServer((host, port), TestReportServer)
+        server_thread = threading.Thread(target=httpd.serve_forever)
+        server_thread.daemon = True
+        server_thread.start()
+        logger.info(f"HTTP сервер запущен на http://{host}:{port}")
         
-        # Создаем WebSocket сервер
-        ws_port = port + 1
-        ws_server = WebSocketServer(ws_handler, host, ws_port)
+        # Создаем и запускаем WebSocket сервер
+        ws_server = WebSocketServer(ws_handler, host, port + 1)
         await ws_server.start()
+        logger.info(f"WebSocket сервер запущен на ws://{host}:{port + 1}")
         
-        # Запускаем HTTP сервер
-        await run_http_server(http_server)
+        # Ждем завершения
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("Получен сигнал остановки")
+            httpd.shutdown()
+            await ws_server.stop()
             
     except Exception as e:
         logger.error(f"Ошибка запуска сервера: {e}", exc_info=True)
         raise
 
-def run_server(host='localhost', port=8000):
+def run_server(host: str = 'localhost', port: int = 8000):
     """Запуск сервера."""
+    logger = logging.getLogger(__name__)
+    setup_logging()
+    
     try:
-        # Определяем пути
-        base_dir = Path(__file__).resolve().parent
-        template_dir = base_dir / 'templates'
-        results_dir = base_dir.parent / 'results'
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
-        logger.info(f"Базовая директория: {base_dir}")
-        logger.info(f"Директория шаблонов: {template_dir}")
-        logger.info(f"Директория результатов: {results_dir}")
-        
-        # Проверяем существование директорий
-        if not template_dir.exists():
-            logger.error(f"Директория шаблонов не найдена: {template_dir}")
-            raise FileNotFoundError(f"Директория шаблонов не найдена: {template_dir}")
+        try:
+            loop.run_until_complete(run_server_async(host, port))
+        except KeyboardInterrupt:
+            logger.info("Сервер остановлен пользователем")
+        except Exception as e:
+            logger.error(f"Ошибка в работе сервера: {e}", exc_info=True)
+        finally:
+            loop.close()
             
-        # Проверяем наличие шаблона
-        report_template = template_dir / 'report.html'
-        if not report_template.exists():
-            logger.error(f"Файл шаблона не найден: {report_template}")
-            raise FileNotFoundError(f"Файл шаблона не найден: {report_template}")
-            
-        # Создаем директорию для результатов
-        results_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Создаем и запускаем сервер
-        server = ThreadingHTTPServer(
-            (host, port),
-            lambda *args, **kwargs: TestReportServer(
-                *args,
-                template_dir=template_dir,
-                results_dir=results_dir,
-                **kwargs
-            )
-        )
-        
-        logger.info(f"Сервер запущен на http://{host}:{port}")
-        server.serve_forever()
-        
     except Exception as e:
         logger.error(f"Ошибка запуска сервера: {e}", exc_info=True)
         raise
