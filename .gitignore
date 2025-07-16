@@ -1,14 +1,14 @@
-# Python
+# Python bytecode
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Build
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
+*.egg-info/
 .eggs/
 lib/
 lib64/
@@ -16,21 +16,22 @@ parts/
 sdist/
 var/
 wheels/
-*.egg-info/
-.installed.cfg
 *.egg
 MANIFEST
+.installed.cfg
 
-# Virtual Environment
+# Virtual Environments
 venv/
 env/
 ENV/
 .env
 .venv
+
+# Pip
 pip-log.txt
 pip-delete-this-directory.txt
 
-# IDE
+# IDE/Editor
 .idea/
 .vscode/
 *.swp
@@ -40,25 +41,33 @@ pip-delete-this-directory.txt
 .project
 .pydevproject
 .settings/
+.DS_Store
+Thumbs.db
+.directory
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
-# Test files
+# Test/CI/CD
 .coverage
-htmlcov/
-.pytest_cache/
-.tox/
 .coverage.*
 coverage.xml
 *.cover
 *.py,cover
 nosetests.xml
-coverage.xml
 .hypothesis/
 .pytest_cache/
+.tox/
 junit/
 test-output/
 pytest_temp/
+.pyre/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-# Visual Testing
+# Visual/UI Testing
+htmlcov/
 baseline_images/
 reports/
 performance_reports/
@@ -70,7 +79,7 @@ screenshot_*.png
 diff_*.png
 mask_*.png
 
-# Logs and Data
+# Logs/Data
 *.log
 *.csv
 *.dat
@@ -82,21 +91,13 @@ logs/
 temp/
 .cache/
 
-# OS
-.DS_Store
-Thumbs.db
-.directory
-Desktop.ini
-$RECYCLE.BIN/
-*.lnk
-
 # Documentation
-docs/_build/
 _build/
+docs/_build/
+docs/api/
 .docz
 .sphinx-build
 .pdoc
-docs/api/
 
 # Misc
 *.bak
@@ -106,12 +107,7 @@ docs/api/
 .env.development.local
 .env.test.local
 .env.production.local
-*.pyc
-__pycache__
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
 
-# PyPI configuration
+# PyPI
 .pypirc
+Testing Notepad++/

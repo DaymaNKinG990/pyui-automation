@@ -1,6 +1,9 @@
-from typing import Optional, Any, Dict, List, Tuple
+from typing import Optional, Any, List, TYPE_CHECKING, Dict
 from datetime import datetime
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class MailAttachment(UIElement):
@@ -96,11 +99,14 @@ class Mail(UIElement):
         Returns:
             bool: True if successful
         """
-        if self.has_gold:
-            take_button = self._element.find_element(by="type", value="take_gold")
-            if take_button and take_button.is_enabled():
-                take_button.click()
-                return True
+        try:
+            if self.has_gold:
+                take_button = self._element.find_element(by="type", value="take_gold")
+                if take_button and take_button.is_enabled():
+                    take_button.click()
+                    return True
+        except Exception:
+            return False
         return False
 
     def take_all_attachments(self) -> bool:
@@ -110,10 +116,13 @@ class Mail(UIElement):
         Returns:
             bool: True if all items taken
         """
-        take_all_button = self._element.find_element(by="type", value="take_all")
-        if take_all_button and take_all_button.is_enabled():
-            take_all_button.click()
-            return True
+        try:
+            take_all_button = self._element.find_element(by="type", value="take_all")
+            if take_all_button and take_all_button.is_enabled():
+                take_all_button.click()
+                return True
+        except Exception:
+            return False
         return False
 
     def delete(self) -> bool:
@@ -123,10 +132,13 @@ class Mail(UIElement):
         Returns:
             bool: True if successful
         """
-        delete_button = self._element.find_element(by="type", value="delete_button")
-        if delete_button and delete_button.is_enabled():
-            delete_button.click()
-            return True
+        try:
+            delete_button = self._element.find_element(by="type", value="delete_button")
+            if delete_button and delete_button.is_enabled():
+                delete_button.click()
+                return True
+        except Exception:
+            return False
         return False
 
     def return_to_sender(self) -> bool:
@@ -136,10 +148,29 @@ class Mail(UIElement):
         Returns:
             bool: True if successful
         """
-        return_button = self._element.find_element(by="type", value="return_button")
-        if return_button and return_button.is_enabled():
-            return_button.click()
-            return True
+        try:
+            return_button = self._element.find_element(by="type", value="return_button")
+            if return_button and return_button.is_enabled():
+                return_button.click()
+                return True
+        except Exception:
+            return False
+        return False
+
+    def mark_read(self) -> bool:
+        """
+        Mark mail as read
+
+        Returns:
+            bool: True if successful
+        """
+        try:
+            btn = self._element.find_element(by=None, value='MarkRead')
+            if btn and hasattr(btn, 'click'):
+                btn.click()
+                return True
+        except Exception:
+            return False
         return False
 
 

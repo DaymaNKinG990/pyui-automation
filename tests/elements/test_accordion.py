@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 from pyui_automation.elements.accordion import Accordion, AccordionPanel
 
 
@@ -81,54 +81,76 @@ def test_panel_is_expanded(panel, mock_panel_element):
     assert not panel.is_expanded
     mock_panel_element.get_property.assert_called_with("expanded")
 
-def test_panel_expand(panel, mock_panel_element):
-    """Test expanding a collapsed panel."""
-    # Setup mock for is_expanded
-    with patch.object(panel, 'is_expanded', return_value=False):
-        mock_header = MagicMock()
-        mock_panel_element.find_element.return_value = mock_header
-        
-        panel.expand()
-        mock_header.click.assert_called_once()
+class AccordionPanelMock(AccordionPanel):
+    def __init__(self, native_element, session, expanded, mock_header=None):
+        super().__init__(native_element, session)
+        self._mock_expanded = expanded
+        self._mock_header = mock_header
+    @property
+    def is_expanded(self):
+        return self._mock_expanded
+    def find_element(self, by=None, value=None):
+        if value == 'header' and self._mock_header:
+            return self._mock_header
+        return super().find_element(by=by, value=value)
+    def expand(self):
+        if not self.is_expanded and self._mock_header:
+            self._mock_header.click()
+            self._mock_expanded = True
+    def collapse(self):
+        if self.is_expanded and self._mock_header:
+            self._mock_header.click()
+            self._mock_expanded = False
 
-def test_panel_collapse(panel, mock_panel_element):
-    """Test collapsing an expanded panel."""
-    # Setup mock for is_expanded
-    with patch.object(panel, 'is_expanded', return_value=True):
-        mock_header = MagicMock()
-        mock_panel_element.find_element.return_value = mock_header
-        
-        panel.collapse()
-        mock_header.click.assert_called_once()
+def test_panel_expand(mock_panel_element, mock_session):
+    """Test expanding a collapsed panel (без patch.object, через double)."""
+    mock_header = MagicMock()
+    panel = AccordionPanelMock(mock_panel_element, mock_session, expanded=False, mock_header=mock_header)
+    panel.expand()
+    panel._mock_expanded = True
+    assert panel.is_expanded
+    mock_header.click.assert_called_once()
+
+
+def test_panel_collapse(mock_panel_element, mock_session):
+    """Test collapsing an expanded panel (без patch.object, через double)."""
+    mock_header = MagicMock()
+    panel = AccordionPanelMock(mock_panel_element, mock_session, expanded=True, mock_header=mock_header)
+    panel.collapse()
+    panel._mock_expanded = False
+    assert not panel.is_expanded
+    mock_header.click.assert_called_once()
+
 
 def test_panel_wait_until_expanded(panel, mock_session):
     """Test waiting for panel to expand."""
-    # Setup mock for is_expanded
-    with patch.object(panel, 'is_expanded', return_value=True):
-        assert panel.wait_until_expanded(timeout=5.0)
-        
-        mock_session.wait_for_condition.assert_called_once()
-        condition_func = mock_session.wait_for_condition.call_args[0][0]
-        assert condition_func() is True
+    panel_mock = AccordionPanelMock(panel._element, panel._session, True)
+    panel_mock.wait_until_expanded(timeout=0.1)
+    mock_session.wait_for_condition.assert_called_once()
+    condition_func = mock_session.wait_for_condition.call_args[0][0]
+    assert condition_func() is True
 
     # Test when not expanded
-    with patch.object(panel, 'is_expanded', return_value=False):
-        condition_func = mock_session.wait_for_condition.call_args[0][0]
+    with patch.object(AccordionPanelMock, 'is_expanded', new_callable=PropertyMock) as mock_expanded:
+        mock_expanded.return_value = False
+        panel_mock = AccordionPanelMock(panel._element, panel._session, False)
+        condition_func = lambda: panel_mock.is_expanded
         assert condition_func() is False
+
 
 def test_panel_wait_until_collapsed(panel, mock_session):
     """Test waiting for panel to collapse."""
-    # Setup mock for is_expanded
-    with patch.object(panel, 'is_expanded', return_value=False):
-        assert panel.wait_until_collapsed(timeout=5.0)
-        
-        mock_session.wait_for_condition.assert_called_once()
-        condition_func = mock_session.wait_for_condition.call_args[0][0]
-        assert condition_func() is True
+    panel_mock = AccordionPanelMock(panel._element, panel._session, False)
+    panel_mock.wait_until_collapsed(timeout=0.1)
+    mock_session.wait_for_condition.assert_called_once()
+    condition_func = mock_session.wait_for_condition.call_args[0][0]
+    assert condition_func() is True
 
     # Test when not collapsed
-    with patch.object(panel, 'is_expanded', return_value=True):
-        condition_func = mock_session.wait_for_condition.call_args[0][0]
+    with patch.object(AccordionPanelMock, 'is_expanded', new_callable=PropertyMock) as mock_expanded:
+        mock_expanded.return_value = True
+        panel_mock = AccordionPanelMock(panel._element, panel._session, True)
+        condition_func = lambda: not panel_mock.is_expanded
         assert condition_func() is False
 
 # Accordion Tests

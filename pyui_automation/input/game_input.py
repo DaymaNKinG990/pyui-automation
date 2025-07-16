@@ -1,10 +1,20 @@
 import time
-import platform
 import pyautogui
 from typing import Tuple, Union, Optional
 
 class GameInput:
-    """Cross-platform class for handling game-specific input simulation."""
+    """
+    Cross-platform class for handling game-specific input simulation.
+
+    Позволяет эмулировать игровые действия: нажатия, движения мыши, сложные макросы для автоматизации игр.
+    Используется сервисным слоем InputService.
+
+    Example usage:
+        game_input = GameInput()
+        game_input.move_mouse(100, 100)
+        game_input.click(100, 100)
+        game_input.send_key('space')
+    """
     
     def __init__(self):
         pyautogui.FAILSAFE = True  # Move mouse to corner to abort

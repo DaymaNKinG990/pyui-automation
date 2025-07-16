@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.spinner import Spinner
 
 
@@ -153,35 +153,41 @@ def test_spinner_decrement_near_minimum(spinner, mock_spinner_element):
     spinner._element.set_property.assert_called_once_with('value', 0)
 
 
-def test_spinner_wait_until_value(spinner, mock_session):
-    """Test waiting for specific value."""
+class SpinnerMock(Spinner):
+    def __init__(self, native_element, session, value=50, is_enabled=True):
+        super().__init__(native_element, session)
+        self._mock_value = value
+        self._mock_is_enabled = is_enabled
+    @property
+    def value(self):
+        return self._mock_value
+    @property
+    def is_enabled(self):
+        return self._mock_is_enabled
+
+def test_spinner_wait_until_value(mock_spinner_element, mock_session):
+    """Test waiting for specific value (без patch.object, через double)."""
+    spinner = SpinnerMock(mock_spinner_element, mock_session, value=75)
     assert spinner.wait_until_value(75, timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different values
-    with patch.object(spinner, 'value', 75):
-        assert condition_func()
-    with patch.object(spinner, 'value', 50):
-        assert not condition_func()
-    # Test with value within step size
-    with patch.object(spinner, 'value', 75.5):
-        assert condition_func()
+    spinner._mock_value = 75
+    assert condition_func()
+    spinner._mock_value = 50
+    assert not condition_func()
+    spinner._mock_value = 75.5
+    assert condition_func()
 
-
-def test_spinner_wait_until_enabled(spinner, mock_session):
-    """Test waiting until enabled."""
+def test_spinner_wait_until_enabled(mock_spinner_element, mock_session):
+    """Test waiting until enabled (без patch.object, через double)."""
+    spinner = SpinnerMock(mock_spinner_element, mock_session, is_enabled=True)
     assert spinner.wait_until_enabled(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different enabled states
-    with patch.object(spinner, 'is_enabled', True):
-        assert condition_func()
-    with patch.object(spinner, 'is_enabled', False):
-        assert not condition_func()
+    spinner._mock_is_enabled = True
+    assert condition_func()
+    spinner._mock_is_enabled = False
+    assert not condition_func()
 
 
 def test_spinner_float_values(spinner, mock_spinner_element):
@@ -193,12 +199,17 @@ def test_spinner_float_values(spinner, mock_spinner_element):
         'step': 0.5,
         'enabled': True
     }.get(prop)
-    
     assert spinner.value == 50.5
     assert spinner.step == 0.5
-    
     spinner.set_value(75.5)
     spinner._element.set_property.assert_called_once_with('value', 75.5)
-    
+    # Подменяем value для корректного increment
+    mock_spinner_element.get_property.side_effect = lambda prop: {
+        'value': 75.5,
+        'minimum': 0.0,
+        'maximum': 100.0,
+        'step': 0.5,
+        'enabled': True
+    }.get(prop)
     spinner.increment()
     spinner._element.set_property.assert_called_with('value', 76.0)

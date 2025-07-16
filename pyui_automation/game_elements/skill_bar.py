@@ -1,5 +1,8 @@
-from typing import Optional, Any, List, Dict, Tuple
+from typing import Optional, Any, List, Dict, Tuple, TYPE_CHECKING
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class SkillSlot(UIElement):

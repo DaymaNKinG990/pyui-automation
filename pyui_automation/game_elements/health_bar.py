@@ -1,5 +1,8 @@
-from typing import Optional, Any, Tuple
+from typing import Any, TYPE_CHECKING, Tuple, Dict
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class HealthBar(UIElement):

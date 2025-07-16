@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
-import time
+from unittest.mock import patch
 import pyautogui
 from pyui_automation.input.game_input import GameInput
 
@@ -10,14 +9,13 @@ def game_input():
 
 @pytest.fixture
 def mock_pyautogui():
-    with patch('pyautogui.keyDown') as mock_key_down, \
-         patch('pyautogui.keyUp') as mock_key_up, \
-         patch('pyautogui.moveTo') as mock_move, \
-         patch('pyautogui.click') as mock_click, \
-         patch('pyautogui.dragTo') as mock_drag, \
-         patch('pyautogui.position') as mock_pos, \
-         patch('pyautogui.scroll') as mock_scroll:
-        
+    with patch('pyui_automation.input.game_input.pyautogui.keyDown') as mock_key_down, \
+         patch('pyui_automation.input.game_input.pyautogui.keyUp') as mock_key_up, \
+         patch('pyui_automation.input.game_input.pyautogui.moveTo') as mock_move, \
+         patch('pyui_automation.input.game_input.pyautogui.click') as mock_click, \
+         patch('pyui_automation.input.game_input.pyautogui.dragTo') as mock_drag, \
+         patch('pyui_automation.input.game_input.pyautogui.position') as mock_pos, \
+         patch('pyui_automation.input.game_input.pyautogui.scroll') as mock_scroll:
         yield {
             'key_down': mock_key_down,
             'key_up': mock_key_up,

@@ -4,6 +4,8 @@ from pyui_automation.backends.base import BaseBackend
 from typing import Optional, List, Tuple, Any, Dict, Union
 import numpy as np
 from pathlib import Path
+from pyui_automation.backends.qt import QtBackend
+from pyui_automation.services.backend_impl import BackendServiceImpl
 
 
 class ConcreteBackend(BaseBackend):
@@ -156,6 +158,24 @@ class ConcreteBackend(BaseBackend):
     def set_window_position(self, window: Any, x: int, y: int) -> None:
         pass
 
+    # --- STUBS FOR ALL ABSTRACT METHODS ---
+    def find_element_by_object_name(self, object_name: str) -> Optional[Any]:
+        return None
+    def find_elements_by_object_name(self, object_name: str) -> List[Any]:
+        return []
+    def find_element_by_widget_type(self, widget_type: str) -> Optional[Any]:
+        return None
+    def find_elements_by_widget_type(self, widget_type: str) -> List[Any]:
+        return []
+    def find_element_by_text(self, text: str) -> Optional[Any]:
+        return None
+    def find_elements_by_text(self, text: str) -> List[Any]:
+        return []
+    def find_element_by_property(self, property_name: str, value: str) -> Optional[Any]:
+        return None
+    def find_elements_by_property(self, property_name: str, value: str) -> List[Any]:
+        return []
+
     @property
     def application(self) -> Any:
         """Get the current application instance"""
@@ -209,19 +229,19 @@ class IncompleteBackend(BaseBackend):
         self._mock_element = MagicMock()
 
     def find_element(self, by: str, value: str, timeout: float = 0) -> Optional[Any]:
-        return None
+        raise NotImplementedError()
 
     def find_elements(self, by: str, value: str) -> List[Any]:
-        return []
+        raise NotImplementedError()
 
     def get_active_window(self) -> Optional[Any]:
-        return None
+        raise NotImplementedError()
 
     def take_screenshot(self, filepath: str) -> None:
-        pass
+        raise NotImplementedError()
 
     def get_screen_size(self) -> Tuple[int, int]:
-        return (800, 600)
+        raise NotImplementedError()
 
     def capture_screenshot(self) -> np.ndarray:
         return np.zeros((100, 100, 3), dtype=np.uint8)
@@ -391,6 +411,103 @@ class IncompleteBackend(BaseBackend):
         """Get current mouse cursor position"""
         return (0, 0)  # Return a default position for this incomplete implementation
 
+    def find_element_by_object_name(self, object_name: str) -> Optional[Any]:
+        raise NotImplementedError()
+    def find_elements_by_object_name(self, object_name: str) -> List[Any]:
+        raise NotImplementedError()
+    def find_element_by_widget_type(self, widget_type: str) -> Optional[Any]:
+        raise NotImplementedError()
+    def find_elements_by_widget_type(self, widget_type: str) -> List[Any]:
+        raise NotImplementedError()
+    def find_element_by_text(self, text: str) -> Optional[Any]:
+        raise NotImplementedError()
+    def find_elements_by_text(self, text: str) -> List[Any]:
+        raise NotImplementedError()
+    def find_element_by_property(self, property_name: str, value: str) -> Optional[Any]:
+        raise NotImplementedError()
+    def find_elements_by_property(self, property_name: str, value: str) -> List[Any]:
+        raise NotImplementedError()
+
+
+class DummyQtBackend(QtBackend):
+    def attach_to_application(self, pid): return None
+    def capture_element_screenshot(self, element): return None
+    def capture_screenshot(self): return None
+    def check_accessibility(self, element=None): return {}
+    def click_mouse(self, x, y): return None
+    def close_application(self): return None
+    def close_window(self, window): return None
+    def double_click_mouse(self, x, y): return None
+    def find_element(self, by, value): return None
+    def find_elements(self, by, value): return []
+    def get_active_window(self): return None
+    def get_screen_size(self): return (0, 0)
+    def get_window_bounds(self, window): return (0, 0, 0, 0)
+    def get_window_title(self, window): return ''
+    def launch_application(self, path, args): return None
+    def maximize_window(self, window): return None
+    def minimize_window(self, window): return None
+    def move_mouse(self, x, y): return None
+    def press_key(self, key): return None
+    def release_key(self, key): return None
+    def resize_window(self, window, width, height): return None
+    def right_click_mouse(self, x, y): return None
+    def send_keys(self, text): return None
+    def set_window_position(self, window, x, y): return None
+    def take_screenshot(self, save_path): return None
+    def get_element_attributes(self, element): return {}
+    def get_element_property(self, element, property_name): return None
+    def set_element_property(self, element, property_name, value): return None
+    def get_element_pattern(self, element, pattern_name): return None
+    def invoke_element_pattern_method(self, pattern, method_name, *args): return None
+    def get_element_rect(self, element): return (0, 0, 0, 0)
+    def scroll_element(self, element, direction, amount): return None
+    def get_element_text(self, element): return ''
+    def set_element_text(self, element, text): return None
+    def get_element_value(self, element): return None
+    def set_element_value(self, element, value): return None
+    def get_element_state(self, element): return {}
+    def generate_accessibility_report(self, output_dir): return None
+    def get_application(self): return None
+    def close_application(self, application): return None
+    def attach_to_application(self, process_id): return None
+    def find_element_by_object_name(self, object_name): return None
+    def find_elements_by_object_name(self, object_name): return []
+    def find_element_by_widget_type(self, widget_type): return None
+    def find_elements_by_widget_type(self, widget_type): return []
+    def find_element_by_text(self, text): return None
+    def find_elements_by_text(self, text): return []
+    def find_element_by_property(self, property_name, value): return None
+    def find_elements_by_property(self, property_name, value): return []
+
+class TestQtBackend:
+    def setup_method(self):
+        self.backend = DummyQtBackend()
+
+    def test_find_element_by_object_name(self):
+        assert self.backend.find_element_by_object_name('obj') is None
+
+    def test_find_elements_by_object_name(self):
+        assert self.backend.find_elements_by_object_name('obj') == []
+
+    def test_find_element_by_widget_type(self):
+        assert self.backend.find_element_by_widget_type('QPushButton') is None
+
+    def test_find_elements_by_widget_type(self):
+        assert self.backend.find_elements_by_widget_type('QPushButton') == []
+
+    def test_find_element_by_text(self):
+        assert self.backend.find_element_by_text('text') is None
+
+    def test_find_elements_by_text(self):
+        assert self.backend.find_elements_by_text('text') == []
+
+    def test_find_element_by_property(self):
+        assert self.backend.find_element_by_property('prop', 'val') is None
+
+    def test_find_elements_by_property(self):
+        assert self.backend.find_elements_by_property('prop', 'val') == []
+
 
 @pytest.fixture
 def backend():
@@ -404,81 +521,61 @@ def incomplete_backend():
     return IncompleteBackend()
 
 
-def test_find_element_by_id(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("id", "test_id")
+def test_find_element_by_object_name(backend):
+    backend._mock_find_element_by_object_name = MagicMock(return_value="test_element")
+    backend.find_element_by_object_name = backend._mock_find_element_by_object_name
+    result = backend.find_element_by_object_name("mainWindow")
     assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("id", "test_id")
+    backend._mock_find_element_by_object_name.assert_called_once_with("mainWindow")
 
+def test_find_elements_by_object_name(backend):
+    backend._mock_find_elements_by_object_name = MagicMock(return_value=["el1", "el2"])
+    backend.find_elements_by_object_name = backend._mock_find_elements_by_object_name
+    result = backend.find_elements_by_object_name("mainWindow")
+    assert result == ["el1", "el2"]
+    backend._mock_find_elements_by_object_name.assert_called_once_with("mainWindow")
 
-def test_find_element_by_name(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("name", "test_name")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("name", "test_name")
+def test_find_element_by_widget_type(backend):
+    backend._mock_find_element_by_widget_type = MagicMock(return_value="test_widget")
+    backend.find_element_by_widget_type = backend._mock_find_element_by_widget_type
+    result = backend.find_element_by_widget_type("QPushButton")
+    assert result == "test_widget"
+    backend._mock_find_element_by_widget_type.assert_called_once_with("QPushButton")
 
-
-def test_find_element_by_class(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("class", "test_class")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("class", "test_class")
-
-
-def test_find_element_by_role(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("role", "button")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("role", "button")
-
-
-def test_find_element_by_xpath(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("xpath", "//button[@id='test']")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("xpath", "//button[@id='test']")
-
-
-def test_find_element_by_css(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("css", "#test")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("css", "#test")
-
+def test_find_elements_by_widget_type(backend):
+    backend._mock_find_elements_by_widget_type = MagicMock(return_value=["w1", "w2"])
+    backend.find_elements_by_widget_type = backend._mock_find_elements_by_widget_type
+    result = backend.find_elements_by_widget_type("QPushButton")
+    assert result == ["w1", "w2"]
+    backend._mock_find_elements_by_widget_type.assert_called_once_with("QPushButton")
 
 def test_find_element_by_text(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("text", "Click me")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("text", "Click me")
+    backend._mock_find_element_by_text = MagicMock(return_value="test_text")
+    backend.find_element_by_text = backend._mock_find_element_by_text
+    result = backend.find_element_by_text("OK")
+    assert result == "test_text"
+    backend._mock_find_element_by_text.assert_called_once_with("OK")
 
+def test_find_elements_by_text(backend):
+    backend._mock_find_elements_by_text = MagicMock(return_value=["t1", "t2"])
+    backend.find_elements_by_text = backend._mock_find_elements_by_text
+    result = backend.find_elements_by_text("OK")
+    assert result == ["t1", "t2"]
+    backend._mock_find_elements_by_text.assert_called_once_with("OK")
 
-def test_find_element_by_partial_text(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("partial text", "Click")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("partial text", "Click")
+def test_find_element_by_property(backend):
+    backend._mock_find_element_by_property = MagicMock(return_value="test_prop")
+    backend.find_element_by_property = backend._mock_find_element_by_property
+    result = backend.find_element_by_property("visible", "true")
+    assert result == "test_prop"
+    backend._mock_find_element_by_property.assert_called_once_with("visible", "true")
 
-
-def test_find_element_by_ocr(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("ocr", "Click me")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("ocr", "Click me")
-
-
-def test_find_element_by_image(backend):
-    backend._mock_find_element.return_value = "test_element"
-    result = backend.find_element("image", "button.png")
-    assert result == "test_element"
-    backend._mock_find_element.assert_called_once_with("image", "button.png")
-
-
-def test_find_element_returns_none(backend):
-    backend._mock_find_element.return_value = None
-    result = backend.find_element("id", "nonexistent")
-    assert result is None
-    backend._mock_find_element.assert_called_once_with("id", "nonexistent")
+def test_find_elements_by_property(backend):
+    backend._mock_find_elements_by_property = MagicMock(return_value=["p1", "p2"])
+    backend.find_elements_by_property = backend._mock_find_elements_by_property
+    result = backend.find_elements_by_property("visible", "true")
+    assert result == ["p1", "p2"]
+    backend._mock_find_elements_by_property.assert_called_once_with("visible", "true")
 
 
 def test_get_active_window(backend):
@@ -540,3 +637,47 @@ def test_abstract_take_screenshot(incomplete_backend):
 def test_abstract_get_screen_size(incomplete_backend):
     with pytest.raises(NotImplementedError):
         incomplete_backend.get_screen_size()
+
+
+def test_backend_service_impl_delegation():
+    backend = MagicMock()
+    service = BackendServiceImpl(backend)
+    # find_element
+    service.find_element('by', 'val', 1)
+    backend.find_element.assert_called_once_with('by', 'val', 1)
+    # find_elements
+    service.find_elements('by', 'val')
+    backend.find_elements.assert_called_once_with('by', 'val')
+    # capture_screenshot
+    service.capture_screenshot()
+    backend.capture_screenshot.assert_called_once()
+    # get_active_window
+    service.get_active_window()
+    backend.get_active_window.assert_called_once()
+    # get_screen_size
+    service.get_screen_size()
+    backend.get_screen_size.assert_called_once()
+    # find_element_by_object_name
+    service.find_element_by_object_name('obj')
+    backend.find_element_by_object_name.assert_called_once_with('obj')
+    # find_elements_by_object_name
+    service.find_elements_by_object_name('obj')
+    backend.find_elements_by_object_name.assert_called_once_with('obj')
+    # find_element_by_widget_type
+    service.find_element_by_widget_type('type')
+    backend.find_element_by_widget_type.assert_called_once_with('type')
+    # find_elements_by_widget_type
+    service.find_elements_by_widget_type('type')
+    backend.find_elements_by_widget_type.assert_called_once_with('type')
+    # find_element_by_text
+    service.find_element_by_text('text')
+    backend.find_element_by_text.assert_called_once_with('text')
+    # find_elements_by_text
+    service.find_elements_by_text('text')
+    backend.find_elements_by_text.assert_called_once_with('text')
+    # find_element_by_property
+    service.find_element_by_property('prop', 'val')
+    backend.find_element_by_property.assert_called_once_with('prop', 'val')
+    # find_elements_by_property
+    service.find_elements_by_property('prop', 'val')
+    backend.find_elements_by_property.assert_called_once_with('prop', 'val')

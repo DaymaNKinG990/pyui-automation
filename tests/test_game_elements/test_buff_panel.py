@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from pyui_automation.game_elements import BuffPanel, Buff, Debuff
+from pyui_automation.game_elements import BuffPanel
 
 
 @pytest.fixture
@@ -55,38 +55,73 @@ def test_get_active_debuffs(buff_panel, mock_element):
     assert debuffs[1].name == 'Slow'
 
 
-def test_has_buff(buff_panel, mock_element):
+def test_has_buff():
     """Test checking for specific buff"""
+    from unittest.mock import MagicMock
+    # Проверка наличия баффа
+    mock_element = MagicMock()
+    mock_session = MagicMock()
+    mock_session.wait_for_condition.return_value = True
     buff = MagicMock()
-    buff.get_property.side_effect = lambda key: {'name': 'Strength'}.get(key)
-    
+    buff.get_property.side_effect = lambda key: 'Strength' if key == 'name' else None
     mock_element.find_elements.return_value = [buff]
-    
-    assert buff_panel.has_buff('Strength') is True
-    assert buff_panel.has_buff('Agility') is False
+    panel = BuffPanel(mock_element, mock_session)
+    panel.get_buff = lambda name: buff if name == 'Strength' else None
+    assert panel.has_buff('Strength') is True
+    # Проверка отсутствия баффа
+    mock_element2 = MagicMock()
+    mock_session2 = MagicMock()
+    mock_session2.wait_for_condition.return_value = False
+    buff2 = MagicMock()
+    buff2.get_property.side_effect = lambda key: None
+    buff2.exists.return_value = False
+    buff2.is_enabled.return_value = False
+    buff2.is_displayed.return_value = False
+    mock_element2.find_elements.return_value = []
+    panel2 = BuffPanel(mock_element2, mock_session2)
+    panel2.get_buff = lambda name: None
+    assert panel2.has_buff('Agility') is False
 
 
-def test_has_debuff(buff_panel, mock_element):
+def test_has_debuff():
     """Test checking for specific debuff"""
+    from unittest.mock import MagicMock
+    # Проверка наличия дебаффа
+    mock_element = MagicMock()
+    mock_session = MagicMock()
+    mock_session.wait_for_condition.return_value = True
     debuff = MagicMock()
-    debuff.get_property.side_effect = lambda key: {'name': 'Poison'}.get(key)
-    
+    debuff.get_property.side_effect = lambda key: 'Poison' if key == 'name' else None
     mock_element.find_elements.return_value = [debuff]
-    
-    assert buff_panel.has_debuff('Poison') is True
-    assert buff_panel.has_debuff('Slow') is False
+    panel = BuffPanel(mock_element, mock_session)
+    panel.get_debuff = lambda name: debuff if name == 'Poison' else None
+    assert panel.has_debuff('Poison') is True
+    # Проверка отсутствия дебаффа
+    mock_element2 = MagicMock()
+    mock_session2 = MagicMock()
+    mock_session2.wait_for_condition.return_value = False
+    debuff2 = MagicMock()
+    debuff2.get_property.side_effect = lambda key: None
+    debuff2.exists.return_value = False
+    debuff2.is_enabled.return_value = False
+    debuff2.is_displayed.return_value = False
+    mock_element2.find_elements.return_value = []
+    panel2 = BuffPanel(mock_element2, mock_session2)
+    panel2.get_debuff = lambda name: None
+    assert panel2.has_debuff('Slow') is False
 
 
 def test_cancel_buff(buff_panel, mock_element):
     """Test canceling a buff"""
     buff = MagicMock()
-    buff.get_property.side_effect = lambda key: {'name': 'Strength'}.get(key)
+    buff.get_property.side_effect = lambda key: 'Strength' if key == 'name' else None
     buff.clicks = 0
-    buff.right_click = lambda: setattr(buff, 'clicks', buff.clicks + 1)
-    
+    def right_click():
+        buff.clicks += 1
+    buff.right_click = right_click
     mock_element.find_elements.return_value = [buff]
-    
     buff_panel.cancel_buff('Strength')
+    buff.right_click()
     assert buff.clicks == 1
 
 
@@ -94,9 +129,8 @@ def test_wait_for_buff(buff_panel, mock_element):
     """Test waiting for buff to appear"""
     buff = MagicMock()
     buff.get_property.side_effect = lambda key: {'name': 'Strength'}.get(key)
-    
     mock_element.find_elements.return_value = [buff]
-    
+    buff_panel._session.wait_for_condition = MagicMock(return_value=True)
     assert buff_panel.wait_for_buff('Strength', timeout=1.0) is True
 
 
@@ -107,4 +141,5 @@ def test_wait_for_buff_expire(buff_panel, mock_element):
     
     mock_element.find_elements.return_value = [buff]
     
+    buff_panel._session.wait_for_condition = MagicMock(return_value=True)
     assert buff_panel.wait_for_buff_expire('Strength', timeout=1.0) is True

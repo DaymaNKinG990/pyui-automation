@@ -1,6 +1,9 @@
-from typing import Optional, Any, Dict, List, Tuple
-from datetime import datetime, timedelta
+from typing import Optional, Any, List, TYPE_CHECKING
+from datetime import timedelta
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class AuctionItem(UIElement):
@@ -85,6 +88,22 @@ class AuctionItem(UIElement):
         if buyout_button and buyout_button.is_enabled():
             buyout_button.click()
             confirm_button = self._element.find_element(by="type", value="confirm_buyout")
+            if confirm_button:
+                confirm_button.click()
+                return True
+        return False
+
+    def cancel(self) -> bool:
+        """
+        Cancel this auction item (for own auctions)
+
+        Returns:
+            bool: True if cancelled successfully
+        """
+        cancel_button = self._element.find_element(by="type", value="cancel_button")
+        if cancel_button and cancel_button.is_enabled():
+            cancel_button.click()
+            confirm_button = self._element.find_element(by="type", value="confirm_cancel")
             if confirm_button:
                 confirm_button.click()
                 return True

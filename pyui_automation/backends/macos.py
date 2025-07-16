@@ -1,15 +1,13 @@
-import sys
 from typing import Optional, List, Tuple, Any, Dict
 import numpy as np
 from PIL import Image
-import time
 import platform
 
 if platform.system() == 'Darwin':
     import objc  # type: ignore
     import Quartz  # type: ignore
     from AppKit import NSWorkspace, NSScreen  # type: ignore
-    from Cocoa import *  # type: ignore
+    from Cocoa import NSApplication, NSWindow, NSRunningApplication  # type: ignore
 else:
     objc = None
     Quartz = None
@@ -34,53 +32,7 @@ class MacOSBackend(BaseBackend):
         self.ax = objc.ObjCClass('AXUIElement')
         self.system = self.ax.systemWide()
 
-    def find_element(self, by: str, value: str, timeout: float = 0) -> Optional[Any]:
-        """
-        Find a UI element using Apple Accessibility API
-        
-        Args:
-            by: Strategy to find element ('id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for
-            timeout: Time to wait for element (0 for no wait)
-        
-        Returns:
-            AXUIElement if found, None otherwise
-        """
-        if timeout > 0:
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                app = self._get_frontmost_application()
-                if not app:
-                    time.sleep(0.1)
-                    continue
-                element = self._find_element_recursive(app, by, value)
-                if element:
-                    return element
-                time.sleep(0.1)
-            return None
-            
-        app = self._get_frontmost_application()
-        if not app:
-            return None
-        return self._find_element_recursive(app, by, value)
-
-    def find_elements(self, by: str, value: str) -> List[Any]:
-        """
-        Find all matching UI elements
-
-        Args:
-            by: Strategy to find elements ('id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for
-
-        Returns:
-            A list of all matching elements. If no elements are found, an empty list is returned.
-        """
-        app = self._get_frontmost_application()
-        if not app:
-            return []
-        elements = []
-        self._find_elements_recursive(app, by, value, elements)
-        return elements
+    # Удалены методы find_element и find_elements (универсальные by/value)
 
     def get_active_window(self) -> Optional[Any]:
         """
@@ -122,7 +74,6 @@ class MacOSBackend(BaseBackend):
             # Convert to PIL Image
             width = Quartz.CGImageGetWidth(image)
             height = Quartz.CGImageGetHeight(image)
-            bytesperrow = Quartz.CGImageGetBytesPerRow(image)
             
             # Create PIL Image
             pil_image = Image.frombytes(
@@ -363,7 +314,7 @@ class MacOSBackend(BaseBackend):
                 role = target.AXRole()
                 if not role or role == "AXUnknown":
                     issues["role"] = "Element has unknown role"
-            except:
+            except Exception:
                 issues["role_error"] = "Could not check element role"
 
             # Check title/description
@@ -371,7 +322,7 @@ class MacOSBackend(BaseBackend):
                 title = target.AXTitle()
                 if not title or title.isspace():
                     issues["missing_title"] = "Element lacks a title"
-            except:
+            except Exception:
                 issues["title_error"] = "Could not check element title"
 
             # Check help text
@@ -379,21 +330,21 @@ class MacOSBackend(BaseBackend):
                 help_text = target.AXHelp()
                 if not help_text or help_text.isspace():
                     issues["missing_help"] = "Element lacks help text"
-            except:
+            except Exception:
                 issues["help_error"] = "Could not check element help text"
 
             # Check enabled state
             try:
                 if not target.AXEnabled():
                     issues["disabled"] = "Element is disabled"
-            except:
+            except Exception:
                 issues["enabled_error"] = "Could not check if element is enabled"
 
             # Check focused state
             try:
                 if not target.AXFocused():
                     issues["focus"] = "Element is not focused"
-            except:
+            except Exception:
                 issues["focus_error"] = "Could not check element focus"
 
             # Check position
@@ -402,7 +353,7 @@ class MacOSBackend(BaseBackend):
                 size = target.AXSize()
                 if not position or not size:
                     issues["bounds"] = "Element lacks proper bounds"
-            except:
+            except Exception:
                 issues["bounds_error"] = "Could not check element bounds"
 
             return issues

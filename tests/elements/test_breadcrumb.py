@@ -98,10 +98,8 @@ def test_item_click_without_url(breadcrumb_item, mock_item_element):
         'current': False,
         'url': None
     }.get(prop)
-    
-    with patch.object(breadcrumb_item, '_element') as mock_element:
-        breadcrumb_item.click()
-        mock_element.click.assert_not_called()
+    breadcrumb_item.click()
+    mock_item_element.click.assert_not_called()
 
 # Breadcrumb Tests
 def test_breadcrumb_init(breadcrumb, mock_breadcrumb_element, mock_session):
@@ -124,10 +122,12 @@ def test_breadcrumb_current_item(breadcrumb, mock_breadcrumb_element):
     assert current.is_current
     mock_breadcrumb_element.find_element.assert_called_with(by="state", value="current")
 
-def test_breadcrumb_current_item_none(breadcrumb, mock_breadcrumb_element):
+def test_breadcrumb_current_item_none(mock_breadcrumb_element, mock_session):
     """Test getting current item when none is current."""
-    mock_breadcrumb_element.find_element.return_value = None
+    from pyui_automation.elements.breadcrumb import Breadcrumb
+    mock_breadcrumb_element.find_element.side_effect = lambda *a, **kw: None
     mock_breadcrumb_element.find_elements.return_value = []
+    breadcrumb = Breadcrumb(mock_breadcrumb_element, mock_session)
     assert breadcrumb.current_item is None
 
 def test_breadcrumb_path(breadcrumb):

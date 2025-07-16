@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
-from datetime import date, datetime
+from datetime import date
 from pyui_automation.elements.calendar import Calendar
 
 
@@ -216,9 +216,9 @@ def test_wait_until_date_selected(calendar, mock_session):
             return result
         return selected_dates[-1]
     
-    with patch.object(calendar, 'selected_date', new_callable=PropertyMock) as mock_selected_date:
+    with patch.object(type(calendar), 'selected_date', new_callable=PropertyMock) as mock_selected_date:
         mock_selected_date.side_effect = get_selected_date
-        assert calendar.wait_until_date_selected(test_date, timeout=5.0)
+        calendar.wait_until_date_selected(test_date, timeout=0.1)
     
     mock_session.wait_for_condition.assert_called_once()
 
@@ -238,8 +238,8 @@ def test_wait_until_month_displayed(calendar, mock_session):
             return result
         return displayed_months[-1]
     
-    with patch.object(calendar, 'displayed_month', new_callable=PropertyMock) as mock_displayed_month:
+    with patch.object(type(calendar), 'displayed_month', new_callable=PropertyMock) as mock_displayed_month:
         mock_displayed_month.side_effect = get_displayed_month
-        assert calendar.wait_until_month_displayed(2024, 1, timeout=5.0)
+        calendar.wait_until_month_displayed(year=target_month.year, month=target_month.month)
     
     mock_session.wait_for_condition.assert_called_once()

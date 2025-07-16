@@ -1,6 +1,9 @@
-from typing import Optional, Any, List, Dict, Tuple
+from typing import Optional, Any, List, TYPE_CHECKING, Dict
 from ..elements.base import UIElement
 from .inventory_slot import InventorySlot
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class TradeSlot(InventorySlot):
@@ -28,6 +31,16 @@ class TradeSlot(InventorySlot):
             bool: True if confirmed, False otherwise
         """
         return bool(self._element.get_property("confirmed"))
+
+    @property
+    def is_empty(self) -> bool:
+        """
+        Check if slot is empty (no item).
+
+        Returns:
+            bool: True if empty, False otherwise
+        """
+        return not bool(self._element.get_property("item_name"))
 
 
 class TradeOffer(UIElement):
@@ -239,7 +252,7 @@ class TradeWindow(UIElement):
             # Trade window should close when complete
             try:
                 return not self._element.is_visible()
-            except:
+            except Exception:
                 return True
 
         return self._session.wait_for_condition(

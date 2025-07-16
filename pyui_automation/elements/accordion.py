@@ -1,5 +1,8 @@
-from typing import Optional, Any, List
+from typing import Optional, Any, List, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class AccordionPanel(UIElement):
@@ -32,13 +35,11 @@ class AccordionPanel(UIElement):
 
     @property
     def is_expanded(self) -> bool:
-        """
-        Check if the panel is expanded.
-
-        Returns:
-            bool: True if expanded, False if collapsed
-        """
-        return self._element.get_property("expanded")
+        """Check if the panel is expanded."""
+        try:
+            return bool(self._element.get_property("expanded"))
+        except Exception:
+            return False
 
     def expand(self) -> None:
         """Expand the panel if it's collapsed"""

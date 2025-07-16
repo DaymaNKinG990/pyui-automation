@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.toolbar import Toolbar, ToolbarButton
 
 
@@ -100,12 +100,12 @@ def test_toolbar_buttons(toolbar, mock_toolbar_element):
     mock_toolbar_element.find_elements.assert_called_with(by='type', value='button')
 
 
-def test_toolbar_get_button(toolbar, mock_toolbar_element):
+def test_toolbar_get_button(toolbar, mock_toolbar_element, mock_session):
     """Test getting button by text."""
-    mock_button = MagicMock()
-    mock_button.text = 'Button 1'
-    mock_toolbar_element.find_elements.return_value = [mock_button]
-    
+    from pyui_automation.elements.toolbar import ToolbarButton
+    mock_button_element = MagicMock()
+    mock_button_element.get_property.side_effect = lambda prop: {'text': 'Button 1', 'tooltip': 'Tooltip text', 'enabled': True, 'pressed': False}.get(prop)
+    mock_toolbar_element.find_elements.return_value = [mock_button_element]
     button = toolbar.get_button('Button 1')
     assert isinstance(button, ToolbarButton)
 
@@ -117,3 +117,41 @@ def test_toolbar_get_button_not_found(toolbar, mock_toolbar_element):
     mock_toolbar_element.find_elements.return_value = [mock_button]
     
     assert toolbar.get_button('Nonexistent') is None
+
+def test_toolbar_get_button_by_tooltip_found(toolbar, mock_toolbar_element, mock_session):
+    from pyui_automation.elements.toolbar import ToolbarButton
+    mock_button_element = MagicMock()
+    mock_button_element.get_property.side_effect = lambda prop: {'text': 'Button 1', 'tooltip': 'Tooltip text', 'enabled': True, 'pressed': False}.get(prop)
+    mock_toolbar_element.find_elements.return_value = [mock_button_element]
+    button = toolbar.get_button_by_tooltip('Tooltip text')
+    assert isinstance(button, ToolbarButton)
+
+def test_toolbar_get_button_by_tooltip_not_found(toolbar, mock_toolbar_element):
+    mock_button = MagicMock()
+    mock_button.tooltip = 'Tooltip text'
+    mock_toolbar_element.find_elements.return_value = [mock_button]
+    assert toolbar.get_button_by_tooltip('Nonexistent') is None
+
+def test_toolbar_click_button_found(toolbar, mock_toolbar_element):
+    button = MagicMock()
+    button.click = MagicMock()
+    toolbar.get_button = MagicMock(return_value=button)
+    toolbar.click_button('Button 1')
+    button.click.assert_called_once()
+
+def test_toolbar_click_button_not_found(toolbar):
+    toolbar.get_button = MagicMock(return_value=None)
+    with pytest.raises(ValueError):
+        toolbar.click_button('Nonexistent')
+
+def test_toolbar_click_button_by_tooltip_found(toolbar, mock_toolbar_element):
+    button = MagicMock()
+    button.click = MagicMock()
+    toolbar.get_button_by_tooltip = MagicMock(return_value=button)
+    toolbar.click_button_by_tooltip('Tooltip text')
+    button.click.assert_called_once()
+
+def test_toolbar_click_button_by_tooltip_not_found(toolbar):
+    toolbar.get_button_by_tooltip = MagicMock(return_value=None)
+    with pytest.raises(ValueError):
+        toolbar.click_button_by_tooltip('Nonexistent')

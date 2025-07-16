@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.input import Input
 
 
@@ -68,22 +68,25 @@ def test_paste(input_element, mock_session):
     input_element.paste()
     mock_session.keyboard.paste.assert_called_once()
 
-def test_wait_until_value_is_with_default_timeout(input_element, mock_session):
-    """Test waiting for specific value with default timeout."""
+def test_wait_until_value_is_with_default_timeout(mock_session):
+    """Test waiting for specific value with default timeout (double вместо patch.object)."""
+    class InputDouble(Input):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._mock_value = 'current value'
+        @property
+        def value(self):
+            return self._mock_value
+    input_element = InputDouble(MagicMock(), mock_session)
     assert input_element.wait_until_value_is('expected value')
-    
     mock_session.waits.wait_until.assert_called_once()
     args = mock_session.waits.wait_until.call_args
-    
-    # Verify timeout
     assert args[1]['timeout'] == 10.0
-    
-    # Verify condition function
     condition_func = args[0][0]
-    with patch.object(input_element, 'value', 'expected value'):
-        assert condition_func()
-    with patch.object(input_element, 'value', 'different value'):
-        assert not condition_func()
+    input_element._mock_value = 'expected value'
+    assert condition_func()
+    input_element._mock_value = 'different value'
+    assert not condition_func()
 
 def test_wait_until_value_is_with_custom_timeout(input_element, mock_session):
     """Test waiting for specific value with custom timeout."""
@@ -94,3 +97,16 @@ def test_wait_until_value_is_with_custom_timeout(input_element, mock_session):
     
     # Verify custom timeout
     assert args[1]['timeout'] == 5.0
+
+def test_value_setter(input_element):
+    """Test setting value property directly (setter)."""
+    input_element.value = 'Setter Value'
+    input_element._element.clear.assert_called_once()
+    input_element._element.send_keys.assert_called_once_with('Setter Value')
+
+def test_value_deleter():
+    """Test deleting value property (deleter)."""
+    input_elem = Input(MagicMock(), MagicMock())
+    input_elem._value = 'to be deleted'
+    del input_elem.value
+    assert hasattr(input_elem, '_value') and input_elem._value == ''

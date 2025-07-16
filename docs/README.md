@@ -1,6 +1,20 @@
 # PyUI Automation Documentation
 
-PyUI Automation is a powerful, cross-platform Python library for desktop UI testing and automation. This documentation provides comprehensive guides and examples for using the library effectively.
+PyUI Automation is a powerful cross-platform Python library for automating and testing desktop application UIs (Windows, Qt, games). It supports visual testing, accessibility, performance, OCR.
+
+## Supported Platforms
+- Windows
+- Linux
+- macOS
+- Qt applications (via the appropriate backend)
+
+## Features
+- Search and interact with UI elements (objectName, widget type, text, property)
+- Visual comparison and baseline testing
+- Accessibility checks
+- Performance monitoring
+- OCR (text recognition)
+- Extensible service architecture (DI)
 
 ## Table of Contents
 

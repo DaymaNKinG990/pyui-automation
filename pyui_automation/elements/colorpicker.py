@@ -1,5 +1,8 @@
-from typing import Optional, Any, Tuple, Union
+from typing import Any, Tuple, Union, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class ColorPicker(UIElement):

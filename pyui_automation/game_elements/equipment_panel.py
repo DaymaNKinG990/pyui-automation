@@ -1,5 +1,8 @@
-from typing import Optional, Any, Dict, List, Tuple
+from typing import Optional, Any, Dict, List, Tuple, TYPE_CHECKING
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class EquipmentSlot(UIElement):
@@ -277,13 +280,22 @@ class EquipmentPanel(UIElement):
         if self.get_equipment_set(name):
             raise ValueError(f"Equipment set '{name}' already exists")
 
-        new_set = self._element.find_element(by="name", value="NewSet")
-        if new_set:
-            new_set.click()
+        btn = self._element.find_element(by=None, value='CreateSet')
+        if btn:
+            btn.click()
             name_input = self._session.find_element(by="type", value="input")
             if name_input:
                 name_input.send_keys(name)
                 name_input.send_keys("Enter")
+        # fallback: старое поведение
+        else:
+            new_set = self._element.find_element(by="name", value="NewSet")
+            if new_set:
+                new_set.click()
+                name_input = self._session.find_element(by="type", value="input")
+                if name_input:
+                    name_input.send_keys(name)
+                    name_input.send_keys("Enter")
 
     def repair_all(self) -> None:
         """Repair all equipped items"""
@@ -293,6 +305,11 @@ class EquipmentPanel(UIElement):
 
     def unequip_all(self) -> None:
         """Unequip all items"""
+        btn = self._element.find_element(by=None, value='UnequipAll')
+        if btn:
+            btn.click()
+            return
+        # fallback: старое поведение
         for slot in self.slots.values():
             if slot.item_name:
                 slot.unequip()

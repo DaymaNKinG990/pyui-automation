@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.splitter import Splitter, SplitterPanel
 
 
@@ -103,3 +103,85 @@ def test_get_panel_at_invalid_index(splitter):
     """Test getting panel at invalid index."""
     panel = splitter.get_panel_at(5)
     assert panel is None
+
+
+def test_resize_panel_invalid_index(splitter):
+    with pytest.raises(ValueError):
+        splitter.resize_panel(10, 100)
+
+def test_resize_panel_size_out_of_range(splitter, mock_splitter_element, mock_session):
+    panel = splitter.get_panel_at(0)
+    # Мокаем get_property для min_size/max_size
+    panel._element.get_property.side_effect = lambda prop: {
+        'min_width': 50, 'min_height': 50, 'max_width': 500, 'max_height': 500, 'width': 100, 'height': 200, 'collapsed': False
+    }[prop]
+    splitter._element.get_property.return_value = 'vertical'
+    with pytest.raises(ValueError):
+        splitter.resize_panel(0, 10)
+    with pytest.raises(ValueError):
+        splitter.resize_panel(0, 1000)
+
+def test_resize_panel_handle_not_found(splitter, mock_splitter_element):
+    splitter._element.find_element.return_value = None
+    panel = splitter.get_panel_at(0)
+    panel._element.get_property.side_effect = lambda prop: {
+        'min_width': 50, 'min_height': 50, 'max_width': 500, 'max_height': 500, 'width': 100, 'height': 200, 'collapsed': False
+    }[prop]
+    splitter._element.get_property.return_value = 'horizontal'
+    splitter.resize_panel(0, 100)
+
+def test_resize_panel_drag_by_called(splitter, mock_splitter_element):
+    # Мокаем handle с drag_by
+    handle = MagicMock()
+    splitter._element.find_element.return_value = handle
+    splitter._element.get_property.return_value = 'vertical'
+    panel = splitter.get_panel_at(0)
+    # Текущий размер = 100, хотим 150
+    panel._element.get_property.side_effect = lambda prop: {
+        'width': 100, 'height': 200, 'min_width': 50, 'min_height': 50, 'max_width': 500, 'max_height': 500, 'collapsed': False
+    }[prop]
+    splitter.resize_panel(0, 150)
+    handle.drag_by.assert_called_with(50, 0)
+
+def test_collapse_panel_invalid_index(splitter):
+    with pytest.raises(ValueError):
+        splitter.collapse_panel(10)
+
+def test_collapse_panel_button_not_found(splitter, mock_splitter_element):
+    panel = splitter.get_panel_at(0)
+    panel._element.find_element.return_value = None
+    # Не должно быть исключения, просто ничего не происходит
+    splitter.collapse_panel(0)
+
+def test_collapse_panel_click_called(splitter, mock_splitter_element):
+    panel = splitter.get_panel_at(0)
+    button = MagicMock()
+    panel._element.find_element.return_value = button
+    panel._element.get_property.side_effect = lambda prop: {
+        'width': 100, 'height': 200, 'min_width': 50, 'min_height': 50, 'max_width': 500, 'max_height': 500, 'collapsed': False
+    }[prop]
+    splitter.collapse_panel(0)
+    button.click.assert_called_once()
+
+def test_expand_panel_invalid_index(splitter):
+    with pytest.raises(ValueError):
+        splitter.expand_panel(10)
+
+def test_expand_panel_button_not_found(splitter, mock_splitter_element):
+    panel = splitter.get_panel_at(0)
+    # panel.is_collapsed = True
+    panel._element.get_property.side_effect = lambda prop: {
+        'width': 100, 'height': 200, 'min_width': 50, 'min_height': 50, 'max_width': 500, 'max_height': 500, 'collapsed': True
+    }[prop]
+    panel._element.find_element.return_value = None
+    splitter.expand_panel(0)
+
+def test_expand_panel_click_called(splitter, mock_splitter_element):
+    panel = splitter.get_panel_at(0)
+    button = MagicMock()
+    panel._element.get_property.side_effect = lambda prop: {
+        'width': 100, 'height': 200, 'min_width': 50, 'min_height': 50, 'max_width': 500, 'max_height': 500, 'collapsed': True
+    }[prop]
+    panel._element.find_element.return_value = button
+    splitter.expand_panel(0)
+    button.click.assert_called_once()

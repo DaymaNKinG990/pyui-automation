@@ -1,4 +1,3 @@
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -45,6 +44,8 @@ def safe_remove(path: Path) -> bool:
         bool: True if removal was successful, False otherwise.
     """
     try:
+        if not path.exists():
+            return False
         if path.is_file():
             path.unlink()
         elif path.is_dir():

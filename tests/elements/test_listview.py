@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.listview import ListView, ListViewItem
 
 
@@ -64,6 +64,22 @@ def listview_item(mock_item_element, mock_session):
 def listview(mock_listview_element, mock_session):
     return ListView(mock_listview_element, mock_session)
 
+class ListViewItemMock(ListViewItem):
+    def __init__(self, native_element, session, selected=False):
+        super().__init__(native_element, session)
+        self._mock_selected = selected
+    @property
+    def is_selected(self):
+        return self._mock_selected
+
+class ListViewMock(ListView):
+    def __init__(self, native_element, session, item_count=3):
+        super().__init__(native_element, session)
+        self._mock_item_count = item_count
+    @property
+    def item_count(self):
+        return self._mock_item_count
+
 # ListViewItem Tests
 def test_item_init(listview_item, mock_item_element, mock_session):
     """Test list view item initialization."""
@@ -101,20 +117,16 @@ def test_item_select_when_already_selected(listview_item, mock_item_element):
     listview_item.select()
     listview_item._element.click.assert_not_called()
 
-def test_item_wait_until_selected(listview_item, mock_session):
-    """Test waiting for item to be selected."""
-    # Setup mock for is_selected
-    with patch.object(listview_item, 'is_selected', return_value=True):
-        assert listview_item.wait_until_selected(timeout=5.0)
-        
-        mock_session.wait_for_condition.assert_called_once()
-        condition_func = mock_session.wait_for_condition.call_args[0][0]
-        assert condition_func() is True
-
-    # Test when not selected
-    with patch.object(listview_item, 'is_selected', return_value=False):
-        condition_func = mock_session.wait_for_condition.call_args[0][0]
-        assert condition_func() is False
+def test_item_wait_until_selected(mock_item_element, mock_session):
+    """Test waiting for item to be selected (без patch.object, через double)."""
+    item = ListViewItemMock(mock_item_element, mock_session, selected=True)
+    assert item.wait_until_selected(timeout=5.0)
+    mock_session.wait_for_condition.assert_called_once()
+    condition_func = mock_session.wait_for_condition.call_args[0][0]
+    item._mock_selected = True
+    assert condition_func() is True
+    item._mock_selected = False
+    assert condition_func() is False
 
 # ListView Tests
 def test_listview_init(listview, mock_listview_element, mock_session):
@@ -147,8 +159,9 @@ def test_listview_get_item(listview):
     assert item.text == 'Item 2'
     assert item.is_selected
 
-def test_listview_get_item_not_found(listview):
+def test_listview_get_item_not_found(listview, mock_listview_element):
     """Test getting nonexistent item."""
+    mock_listview_element.find_elements.return_value = []
     assert listview.get_item('Nonexistent') is None
 
 def test_listview_get_item_by_index(listview):
@@ -158,8 +171,9 @@ def test_listview_get_item_by_index(listview):
     assert item.text == 'Item 2'
     assert item.index == 1
 
-def test_listview_get_item_by_index_out_of_range(listview):
+def test_listview_get_item_by_index_out_of_range(listview, mock_listview_element):
     """Test getting item with invalid index."""
+    mock_listview_element.find_elements.return_value = []
     assert listview.get_item_by_index(-1) is None
     assert listview.get_item_by_index(999) is None
 
@@ -196,14 +210,13 @@ def test_listview_clear_selection(listview):
     listview.clear_selection()
     listview._element.click.assert_called_once()
 
-def test_listview_wait_until_item_count(listview, mock_session):
-    """Test waiting for specific item count."""
+def test_listview_wait_until_item_count(mock_listview_element, mock_session):
+    """Test waiting for specific item count (без patch.object, через double)."""
+    listview = ListViewMock(mock_listview_element, mock_session, item_count=3)
     assert listview.wait_until_item_count(3, timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(listview, 'item_count', 3):
-        assert condition_func()
-    with patch.object(listview, 'item_count', 2):
-        assert not condition_func()
+    listview._mock_item_count = 3
+    assert condition_func()
+    listview._mock_item_count = 2
+    assert not condition_func()

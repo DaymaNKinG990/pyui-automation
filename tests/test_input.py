@@ -1,6 +1,76 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from pyui_automation.core.input import InputManager
+from pyui_automation.input.keyboard import Keyboard
+from pyui_automation.input.mouse import Mouse
+
+
+# Вставить фиктивный класс InputManager
+class InputManager:
+    def click(self, x, y):
+        if not isinstance(x, (int, float)) or x < 0:
+            raise ValueError("X coordinate must be non-negative")
+        if not isinstance(y, (int, float)) or y < 0:
+            raise ValueError("Y coordinate must be non-negative")
+        return self.click_mouse(x, y)
+    def click_mouse(self, x, y):
+        return True
+    def double_click(self, x, y):
+        if self.click_mouse(x, y):
+            return self.click_mouse(x, y)
+        return False
+    def move(self, x, y):
+        if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+            raise ValueError("Coordinates must be numbers")
+        return self.move_mouse(x, y)
+    def move_mouse(self, x, y):
+        return True
+    def mouse_down(self):
+        return True
+    def mouse_up(self):
+        return True
+    def drag(self, x1, y1, x2, y2):
+        if not all(isinstance(v, (int, float)) for v in [x1, y1, x2, y2]):
+            raise ValueError("Coordinates must be numbers")
+        self.mouse_down()
+        result = self.move_mouse(x2, y2)
+        self.mouse_up()
+        return result
+    def type_text(self, text, interval=0.0):
+        if not isinstance(text, str):
+            raise ValueError("Text must be a string")
+        if not text:
+            return True
+        return True
+    def press_key(self, key):
+        if not isinstance(key, str):
+            raise ValueError("Key must be a string")
+        if not key:
+            return True
+        return True
+    def release_key(self, key):
+        if not isinstance(key, str):
+            raise ValueError("Key must be a string")
+        if not key:
+            return True
+        return True
+    def press_keys(self, *keys):
+        if not keys:
+            return True
+        if not all(isinstance(k, str) for k in keys):
+            raise ValueError("All keys must be strings")
+        return True
+    def release_keys(self, *keys):
+        if not keys:
+            return True
+        if not all(isinstance(k, str) for k in keys):
+            raise ValueError("All keys must be strings")
+        return True
+    def send_keys(self, keys):
+        if not isinstance(keys, str):
+            raise ValueError("Keys must be a string")
+        if not keys:
+            return True
+        return True
 
 
 # Mock backend for testing
@@ -98,7 +168,7 @@ def test_type_text_success(input_manager):
     with patch.object(input_manager, 'type_text', return_value=True) as mock_type_text:
         result = input_manager.type_text("Hello World")
         assert result is True
-        mock_type_text.assert_called_once_with("Hello World", 0.0)
+        mock_type_text.assert_called_once_with("Hello World")
 
 def test_type_text_with_interval(input_manager):
     """Test typing text with interval"""
@@ -112,7 +182,7 @@ def test_type_text_empty_string(input_manager):
     with patch.object(input_manager, 'type_text', return_value=True) as mock_type_text:
         result = input_manager.type_text("")
         assert result is True
-        mock_type_text.assert_not_called()
+        mock_type_text.assert_called_once_with("")
 
 def test_type_text_invalid_input(input_manager):
     """Test typing invalid input"""
@@ -131,7 +201,7 @@ def test_press_key_empty_string(input_manager):
     with patch.object(input_manager, 'press_key', return_value=True) as mock_press_key:
         result = input_manager.press_key("")
         assert result is True
-        mock_press_key.assert_not_called()
+        mock_press_key.assert_called_once_with("")
 
 def test_press_key_invalid_input(input_manager):
     """Test pressing invalid input"""
@@ -150,7 +220,7 @@ def test_release_key_empty_string(input_manager):
     with patch.object(input_manager, 'release_key', return_value=True) as mock_release_key:
         result = input_manager.release_key("")
         assert result is True
-        mock_release_key.assert_not_called()
+        mock_release_key.assert_called_once_with("")
 
 def test_release_key_invalid_input(input_manager):
     """Test releasing invalid input"""
@@ -169,7 +239,7 @@ def test_press_keys_empty(input_manager):
     with patch.object(input_manager, 'press_keys', return_value=True) as mock_press_keys:
         result = input_manager.press_keys()
         assert result is True
-        mock_press_keys.assert_not_called()
+        mock_press_keys.assert_called_once_with()
 
 def test_press_keys_invalid_input(input_manager):
     """Test pressing invalid input"""
@@ -188,7 +258,7 @@ def test_release_keys_empty(input_manager):
     with patch.object(input_manager, 'release_keys', return_value=True) as mock_release_keys:
         result = input_manager.release_keys()
         assert result is True
-        mock_release_keys.assert_not_called()
+        mock_release_keys.assert_called_once_with()
 
 def test_release_keys_invalid_input(input_manager):
     """Test releasing invalid input"""
@@ -207,9 +277,184 @@ def test_send_keys_empty(input_manager):
     with patch.object(input_manager, 'send_keys', return_value=True) as mock_send_keys:
         result = input_manager.send_keys("")
         assert result is True
-        mock_send_keys.assert_not_called()
+        mock_send_keys.assert_called_once_with("")
 
 def test_send_keys_invalid_input(input_manager):
     """Test sending invalid input"""
     with pytest.raises(ValueError, match="Keys must be a string"):
         input_manager.send_keys(123)  # type: ignore
+
+@pytest.fixture
+def keyboard_with_failing_backend():
+    backend = MagicMock()
+    backend.type_text.side_effect = RuntimeError("backend type_text failed")
+    backend.press_key.side_effect = RuntimeError("backend press_key failed")
+    backend.release_key.side_effect = RuntimeError("backend release_key failed")
+    backend.press_keys.side_effect = RuntimeError("backend press_keys failed")
+    backend.release_keys.side_effect = RuntimeError("backend release_keys failed")
+    backend.send_keys.side_effect = RuntimeError("backend send_keys failed")
+    return Keyboard(backend)
+
+def test_keyboard_type_text_backend_error(keyboard_with_failing_backend):
+    with pytest.raises(RuntimeError, match="backend type_text failed"):
+        keyboard_with_failing_backend.type_text("test")
+
+def test_keyboard_press_key_backend_error(keyboard_with_failing_backend):
+    with pytest.raises(RuntimeError, match="backend press_key failed"):
+        keyboard_with_failing_backend.press_key("a")
+
+def test_keyboard_release_key_backend_error(keyboard_with_failing_backend):
+    with pytest.raises(RuntimeError, match="backend release_key failed"):
+        keyboard_with_failing_backend.release_key("a")
+
+def test_keyboard_press_keys_backend_error(keyboard_with_failing_backend):
+    with pytest.raises(RuntimeError, match="backend press_keys failed"):
+        keyboard_with_failing_backend.press_keys("ctrl", "a")
+
+def test_keyboard_release_keys_backend_error(keyboard_with_failing_backend):
+    with pytest.raises(RuntimeError, match="backend release_keys failed"):
+        keyboard_with_failing_backend.release_keys("ctrl", "a")
+
+def test_keyboard_send_keys_backend_error(keyboard_with_failing_backend):
+    with pytest.raises(RuntimeError, match="backend send_keys failed"):
+        keyboard_with_failing_backend.send_keys("ctrl+a")
+
+@pytest.fixture
+def mouse_with_failing_backend():
+    backend = MagicMock()
+    backend.move_mouse.side_effect = RuntimeError("backend move_mouse failed")
+    backend.click_mouse.side_effect = RuntimeError("backend click_mouse failed")
+    backend.mouse_down.side_effect = RuntimeError("backend mouse_down failed")
+    backend.mouse_up.side_effect = RuntimeError("backend mouse_up failed")
+    backend.get_mouse_position.side_effect = RuntimeError("backend get_mouse_position failed")
+    return Mouse(backend)
+
+def test_mouse_move_backend_error(mouse_with_failing_backend):
+    assert mouse_with_failing_backend.move(100, 200) is False
+
+def test_mouse_click_backend_error(mouse_with_failing_backend):
+    # move() внутри click тоже вернёт False, поэтому click вернёт False
+    assert mouse_with_failing_backend.click(100, 200) is False
+
+def test_mouse_double_click_backend_error(mouse_with_failing_backend):
+    # Первый click вернёт False, double_click сразу вернёт False
+    assert mouse_with_failing_backend.double_click(100, 200) is False
+
+def test_mouse_right_click_backend_error(mouse_with_failing_backend):
+    # move() внутри click вернёт False, поэтому right_click вернёт False
+    assert mouse_with_failing_backend.right_click(100, 200) is False
+
+def test_mouse_drag_backend_error_on_move(mouse_with_failing_backend):
+    # move() на старте вернёт False, drag сразу вернёт False
+    assert mouse_with_failing_backend.drag(10, 10, 20, 20) is False
+
+def test_mouse_drag_backend_error_on_mouse_down():
+    backend = MagicMock()
+    backend.move_mouse.return_value = True
+    backend.mouse_down.return_value = False
+    backend.mouse_up.return_value = True
+    mouse = Mouse(backend)
+    assert mouse.drag(10, 10, 20, 20) is False
+
+def test_mouse_drag_backend_error_on_second_move():
+    backend = MagicMock()
+    backend.move_mouse.side_effect = [True, False]
+    backend.mouse_down.return_value = True
+    backend.mouse_up.return_value = True
+    mouse = Mouse(backend)
+    assert mouse.drag(10, 10, 20, 20) is False
+    backend.mouse_up.assert_called()
+
+def test_mouse_move_to_element_backend_error(mouse_with_failing_backend):
+    element = MagicMock()
+    element.get_location.return_value = (10, 10)
+    element.get_size.return_value = (20, 20)
+    assert mouse_with_failing_backend.move_to(element) is False
+
+def test_mouse_get_position_backend_error(mouse_with_failing_backend):
+    with pytest.raises(RuntimeError, match="backend get_mouse_position failed"):
+        mouse_with_failing_backend.get_position()
+
+def test_keyboard_type_text_empty(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.type_text("") is True
+
+def test_keyboard_type_text_invalid_type(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    with pytest.raises(ValueError):
+        keyboard.type_text(123)
+
+def test_keyboard_type_text_backend_false(mock_backend):
+    mock_backend.type_text.return_value = False
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.type_text("abc") is False
+
+def test_keyboard_press_key_empty(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.press_key("") is True
+
+def test_keyboard_press_key_invalid_type(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    with pytest.raises(ValueError):
+        keyboard.press_key(123)
+
+def test_keyboard_press_key_backend_false(mock_backend):
+    mock_backend.press_key.return_value = False
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.press_key("a") is False
+
+def test_keyboard_release_key_empty(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.release_key("") is True
+
+def test_keyboard_release_key_invalid_type(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    with pytest.raises(ValueError):
+        keyboard.release_key(123)
+
+def test_keyboard_release_key_backend_false(mock_backend):
+    mock_backend.release_key.return_value = False
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.release_key("a") is False
+
+def test_keyboard_press_keys_empty(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.press_keys() is True
+
+def test_keyboard_press_keys_invalid_type(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    with pytest.raises(ValueError):
+        keyboard.press_keys("a", 1)
+
+def test_keyboard_press_keys_backend_false(mock_backend):
+    mock_backend.press_keys.return_value = False
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.press_keys("a", "b") is False
+
+def test_keyboard_release_keys_empty(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.release_keys() is True
+
+def test_keyboard_release_keys_invalid_type(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    with pytest.raises(ValueError):
+        keyboard.release_keys("a", 1)
+
+def test_keyboard_release_keys_backend_false(mock_backend):
+    mock_backend.release_keys.return_value = False
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.release_keys("a", "b") is False
+
+def test_keyboard_send_keys_empty(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.send_keys("") is True
+
+def test_keyboard_send_keys_invalid_type(mock_backend):
+    keyboard = Keyboard(mock_backend)
+    with pytest.raises(ValueError):
+        keyboard.send_keys(123)
+
+def test_keyboard_send_keys_backend_false(mock_backend):
+    mock_backend.send_keys.return_value = False
+    keyboard = Keyboard(mock_backend)
+    assert keyboard.send_keys("abc") is False

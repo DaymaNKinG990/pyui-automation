@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from pyui_automation.application import Application
 import psutil
 import comtypes.gen.UIAutomationClient as UIAutomationClient
+from pyui_automation.services.application_impl import ApplicationServiceImpl
 
 
 @pytest.fixture
@@ -95,7 +96,7 @@ def test_get_window(mock_application):
     assert window is not None
     assert window.CurrentName == "Test Window"
     
-    mock_application._backend.get_window.return_value = None
+    mock_application._backend.find_window.return_value = None
     window = mock_application.get_window("Nonexistent Window")
     assert window is None
 
@@ -105,7 +106,7 @@ def test_get_main_window(mock_application):
     assert window is not None
     assert window.CurrentName == "Test Window"
     
-    mock_application._backend.get_main_window.return_value = None
+    mock_application._backend.get_active_window.return_value = None
     window = mock_application.get_main_window()
     assert window is None
 
@@ -132,4 +133,107 @@ def test_get_cpu_usage(mock_application):
 def test_get_memory_usage(mock_application):
     """Test getting memory usage"""
     memory_usage = mock_application.get_memory_usage()
-    assert memory_usage == 1024*1024
+    assert memory_usage == 1
+
+def test_application_service_impl_delegation():
+    app_manager = MagicMock()
+    service = ApplicationServiceImpl(app_manager)
+    # launch_application
+    service.launch_application('path', ['arg'], 'cwd', {'ENV': '1'})
+    app_manager.launch_application.assert_called_once_with('path', ['arg'], 'cwd', {'ENV': '1'})
+    # attach_to_application
+    service.attach_to_application(123)
+    app_manager.attach_to_application.assert_called_once_with(123)
+    # get_current_application
+    service.get_current_application()
+    app_manager.get_current_application.assert_called_once()
+
+def test_launch_invalid_path():
+    """Test error when launching with invalid path"""
+    with pytest.raises(RuntimeError):
+        Application.launch(Path("/nonexistent/path.exe"))
+
+def test_launch_process_fails(monkeypatch):
+    """Test error when process fails to start"""
+    def fake_popen(*a, **k):
+        class FakeProc:
+            def poll(self): return 1
+            pid = 12345
+            def communicate(self): return (b'', b'')
+        return FakeProc()
+    monkeypatch.setattr('subprocess.Popen', fake_popen)
+    with pytest.raises(RuntimeError, match="Process failed to start"):
+        Application.launch(Path("test.exe"))
+
+def test_attach_invalid_pid():
+    """Test error when attaching to non-existent PID"""
+    with pytest.raises(ValueError):
+        Application.attach("99999999")
+
+def test_attach_invalid_name():
+    """Test error when attaching to non-existent process name"""
+    with pytest.raises(ValueError):
+        Application.attach("definitely_not_a_real_process_name.exe")
+
+def test_terminate_no_process():
+    """Test terminate when no process set"""
+    with patch('platform.system', return_value='Linux'), \
+         patch('pyui_automation.backends.linux.LinuxBackend', MagicMock()):
+        app = Application()
+        app._process = None
+        app.terminate()
+        assert app._process is None
+
+def test_kill_no_process():
+    """Test kill when no process set"""
+    with patch('platform.system', return_value='Linux'), \
+         patch('pyui_automation.backends.linux.LinuxBackend', MagicMock()):
+        app = Application()
+        app._process = None
+        app.kill()
+        assert app._process is None
+
+def test_is_running_no_process():
+    """Test is_running when no process set"""
+    with patch('platform.system', return_value='Linux'), \
+         patch('pyui_automation.backends.linux.LinuxBackend', MagicMock()):
+        app = Application()
+        app._process = None
+        assert not app.is_running()
+
+def test_get_memory_cpu_usage_no_process():
+    """Test get_memory_usage/get_cpu_usage when no process set"""
+    with patch('platform.system', return_value='Linux'), \
+         patch('pyui_automation.backends.linux.LinuxBackend', MagicMock()):
+        app = Application()
+        app._process = None
+        assert app.get_memory_usage() == 0.0
+        assert app.get_cpu_usage() == 0.0
+
+def test_get_child_processes_none():
+    """Test get_child_processes when no process set"""
+    with patch('platform.system', return_value='Linux'), \
+         patch('pyui_automation.backends.linux.LinuxBackend', MagicMock()):
+        app = Application()
+        app._process = None
+        assert app.get_child_processes() == []
+
+def test_get_child_processes_empty(mock_process):
+    """Test get_child_processes returns empty if no children"""
+    mock_process.children.return_value = []
+    with patch('platform.system', return_value='Linux'), \
+         patch('pyui_automation.backends.linux.LinuxBackend', MagicMock()):
+        app = Application(process=mock_process)
+        assert app.get_child_processes() == []
+
+def test_terminate_timeout(monkeypatch, mock_process):
+    """Test terminate with timeout expired (should call kill)"""
+    def fake_wait(timeout):
+        raise psutil.TimeoutExpired(timeout, pid=mock_process.pid)
+    mock_process.wait.side_effect = fake_wait
+    with patch('platform.system', return_value='Linux'), \
+         patch('pyui_automation.backends.linux.LinuxBackend', MagicMock()):
+        app = Application(process=mock_process)
+        app.terminate(timeout=0)
+        mock_process.terminate.assert_called_once()
+        mock_process.kill.assert_called_once()

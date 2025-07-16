@@ -1,22 +1,25 @@
-from typing import Optional, Any, Dict, List, Tuple
+from typing import Optional, Any, List, Tuple, TYPE_CHECKING, Dict
 from ..elements.base import UIElement
 from dataclasses import dataclass
 
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
+
 
 @dataclass
-class MapMarker:
+class MapMarkerData:
     """Represents a marker on the map"""
     x: float
     y: float
-    type: str
+    marker_type: str
     name: Optional[str] = None
     native_element: Optional[Any] = None
     session: Optional['AutomationSession'] = None
 
     def __eq__(self, other):
-        if not isinstance(other, MapMarker):
+        if not isinstance(other, MapMarkerData):
             return False
-        return self.x == other.x and self.y == other.y and self.type == other.type
+        return self.x == other.x and self.y == other.y and self.marker_type == other.marker_type
 
 
 @dataclass
@@ -31,7 +34,7 @@ class WorldMap(UIElement):
 
     def __init__(self, native_element: Any, session: 'AutomationSession') -> None:
         super().__init__(native_element, session)
-        self._markers: List[MapMarker] = []
+        self._markers: List[MapMarkerData] = []
 
     def open(self) -> bool:
         """Open the world map"""
@@ -60,13 +63,13 @@ class WorldMap(UIElement):
         self._element.set_property('zoom', level)
         return True
 
-    def add_marker(self, x: float, y: float, marker_type: str) -> MapMarker:
+    def add_marker(self, x: float, y: float, marker_type: str) -> MapMarkerData:
         """Add a new marker to the map"""
-        marker = MapMarker(x, y, marker_type)
+        marker = MapMarkerData(x, y, marker_type=marker_type)
         self._markers.append(marker)
         return marker
 
-    def remove_marker(self, marker: MapMarker) -> bool:
+    def remove_marker(self, marker: MapMarkerData) -> bool:
         """Remove a marker from the map"""
         if marker in self._markers:
             self._markers.remove(marker)
@@ -99,7 +102,7 @@ class WorldMap(UIElement):
 
     def get_markers(self, 
                    marker_type: Optional[str] = None,
-                   area: Optional[str] = None) -> List[MapMarker]:
+                   area: Optional[str] = None) -> List[MapMarkerData]:
         """
         Get map markers
 
@@ -116,9 +119,9 @@ class WorldMap(UIElement):
             marker_type=marker_type,
             area=area
         )
-        return [MapMarker(m.get_property('x'), m.get_property('y'), m.get_property('type')) for m in markers]
+        return [MapMarkerData(m.get_property('x'), m.get_property('y'), marker_type=m.get_property('type')) for m in markers]
 
-    def get_marker(self, name: str) -> Optional[MapMarker]:
+    def get_marker(self, name: str) -> Optional[MapMarkerData]:
         """
         Find marker by name
 
@@ -133,7 +136,7 @@ class WorldMap(UIElement):
             value="map_marker",
             name=name
         )
-        return MapMarker(marker.get_property('x'), marker.get_property('y'), marker.get_property('type')) if marker else None
+        return MapMarkerData(marker.get_property('x'), marker.get_property('y'), marker_type=marker.get_property('type')) if marker else None
 
     def pan_to(self, x: float, y: float) -> bool:
         """
@@ -153,7 +156,7 @@ class WorldMap(UIElement):
                      x: float,
                      y: float,
                      name: str,
-                     marker_type: str = "custom") -> Optional[MapMarker]:
+                     marker_type: str = "custom") -> Optional[MapMarkerData]:
         """
         Create new map marker
 

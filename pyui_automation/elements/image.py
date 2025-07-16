@@ -1,6 +1,9 @@
-from typing import Optional, Any, Tuple
+from typing import Any, Tuple, TYPE_CHECKING
 from PIL import Image as PILImage
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class Image(UIElement):

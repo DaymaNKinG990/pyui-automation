@@ -1,16 +1,18 @@
 import platform
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, TYPE_CHECKING
 
 from ..input import Keyboard, Mouse
-from ..ocr import OCREngine
 from .visual import VisualTester
 
 from ..backends.base import BaseBackend
 from ..backends.windows import WindowsBackend
 from ..backends.linux import LinuxBackend
 from ..backends.macos import MacOSBackend
+
+if TYPE_CHECKING:
+    from .ocr import OCREngine
 
 
 class BackendFactory:
@@ -61,6 +63,8 @@ class ComponentFactory:
         Returns:
             Keyboard: The created keyboard controller
         """
+        if not isinstance(backend, BaseBackend):
+            raise TypeError("backend must be a BaseBackend instance")
         return Keyboard(backend)
 
     @staticmethod
@@ -74,17 +78,20 @@ class ComponentFactory:
         Returns:
             Mouse: The created mouse controller
         """
+        if not isinstance(backend, BaseBackend):
+            raise TypeError("backend must be a BaseBackend instance")
         return Mouse(backend)
 
     @staticmethod
-    def create_ocr_engine() -> OCREngine:
+    def create_ocr_engine() -> 'OCREngine':
         """
         Create OCR engine
-
-        Returns:
-            OCREngine: The created OCR engine
         """
-        return OCREngine()
+        try:
+            from pyui_automation.ocr import OCREngine
+            return OCREngine()
+        except ImportError as e:
+            raise ImportError("OCR dependencies not available") from e
 
     @staticmethod
     def create_visual_tester(baseline_dir: Optional[Union[str, Path]] = None) -> VisualTester:

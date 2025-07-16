@@ -93,7 +93,9 @@ class Application:
             
             # Verify process exists and is running
             if process.poll() is not None:
-                raise RuntimeError(f"Process failed to start (exit code: {process.poll()})")
+                # Читаем вывод процесса для диагностики
+                stdout, stderr = process.communicate()
+                raise RuntimeError(f"Process failed to start (exit code: {process.poll()})\nSTDOUT: {stdout.decode(errors='ignore')}\nSTDERR: {stderr.decode(errors='ignore')}")
             
             try:
                 proc = psutil.Process(process.pid)

@@ -1,6 +1,9 @@
-from typing import Optional, Any, Dict, List, Tuple
+from typing import Optional, Any, List, TYPE_CHECKING, Dict
 from datetime import timedelta
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class Buff(UIElement):
@@ -414,9 +417,9 @@ class BuffPanel(UIElement):
             name (str): Buff name
 
         Returns:
-            bool: True if buff is active
+            bool: True if buff is active, False otherwise
         """
-        return self.get_buff(name) is not None
+        return bool(self.get_buff(name))
 
     def has_debuff(self, name: str) -> bool:
         """
@@ -426,6 +429,6 @@ class BuffPanel(UIElement):
             name (str): Debuff name
 
         Returns:
-            bool: True if debuff is active
+            bool: True if debuff is active, False otherwise
         """
-        return self.get_debuff(name) is not None
+        return bool(self.get_debuff(name))

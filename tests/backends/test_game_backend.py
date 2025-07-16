@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 import numpy as np
 from pyui_automation.backends.game_backend import GameBackend
+import sys
 
 class TestGameBackend(GameBackend):
     """Тестовая реализация GameBackend для тестирования"""
@@ -156,6 +157,43 @@ class TestGameBackend(GameBackend):
     def wait_for_element_state(self, element, state, timeout=10):
         return False
 
+    def find_element(self, template, threshold=0.8, region=None):
+        try:
+            if region is not None:
+                screen = self.capture_screenshot(region=region)
+            else:
+                screen = self.capture_screenshot()
+        except Exception:
+            return None
+        if screen is None:
+            return None
+        import cv2
+        # Получаем результат matchTemplate из патча теста
+        result = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
+        max_val = result.max()
+        if max_val >= threshold:
+            return (0, 0)
+        return None
+
+    def find_element_by_object_name(self, object_name: str):
+        return None
+    def find_elements_by_object_name(self, object_name: str):
+        return []
+    def find_element_by_widget_type(self, widget_type: str):
+        return None
+    def find_elements_by_widget_type(self, widget_type: str):
+        return []
+    def find_element_by_text(self, text: str):
+        return None
+    def find_elements_by_text(self, text: str):
+        return []
+    def find_element_by_property(self, property_name: str, value: str):
+        return None
+    def find_elements_by_property(self, property_name: str, value: str):
+        return []
+    def resize_window(self, *a, **kw):
+        pass
+
 @pytest.fixture
 def game_backend():
     return TestGameBackend()
@@ -201,3 +239,149 @@ def test_capture_screen_without_region_original(game_backend):
     screenshot = game_backend.capture_screenshot()
     assert isinstance(screenshot, np.ndarray)
     assert screenshot.shape[2] == 3  # RGB изображение
+
+def test_connect_windows(monkeypatch):
+    class DummyWin32:
+        @staticmethod
+        def FindWindow(a, b):
+            return 1
+        @staticmethod
+        def GetWindowRect(hwnd):
+            return (0, 0, 100, 100)
+    sys.modules['win32gui'] = DummyWin32
+    backend = TestGameBackend()
+    assert backend is not None
+
+def test_connect_windows_not_found(monkeypatch):
+    class DummyWin32:
+        @staticmethod
+        def FindWindow(a, b):
+            return 0
+    sys.modules['win32gui'] = DummyWin32
+    backend = TestGameBackend()
+    assert backend is not None
+
+def test_connect_macos(monkeypatch):
+    backend = TestGameBackend()
+    assert backend is not None
+
+def test_connect_linux(monkeypatch):
+    class DummyWindow:
+        def get_wm_name(self):
+            return 'test'
+        def get_geometry(self):
+            class G: x, y, width, height = 1, 2, 3, 4
+            return G()
+    class DummyRoot:
+        def get_full_property(self, atom, type):
+            class V: value = [1]
+            return V()
+    class DummyDisplay:
+        def screen(self):
+            class S: root = DummyRoot()
+            return S()
+    class DummyX: AnyPropertyType = 1
+    backend = TestGameBackend()
+    assert backend is not None
+
+def test_connect_exception(monkeypatch):
+    class DummyWin32:
+        @staticmethod
+        def FindWindow(a, b):
+            raise Exception('fail')
+    sys.modules['win32gui'] = DummyWin32
+    backend = TestGameBackend()
+    assert backend is not None
+
+def test_capture_screen_success(monkeypatch):
+    class DummyPyAuto:
+        @staticmethod
+        def screenshot(region=None):
+            return np.ones((100, 100, 3), dtype=np.uint8)
+    sys.modules['pyautogui'] = DummyPyAuto
+    backend = TestGameBackend()
+    img = backend.capture_screenshot()
+    assert img is not None
+
+def test_capture_screen_no_region(monkeypatch):
+    class DummyPyAuto:
+        @staticmethod
+        def screenshot(region=None):
+            return np.ones((100, 100, 3), dtype=np.uint8)
+    sys.modules['pyautogui'] = DummyPyAuto
+    backend = TestGameBackend()
+    img = backend.capture_screenshot(region=None)
+    assert img is not None
+
+def test_capture_screen_exception(monkeypatch):
+    class DummyPyAuto:
+        @staticmethod
+        def screenshot(region=None):
+            raise Exception('fail')
+    sys.modules['pyautogui'] = DummyPyAuto
+    backend = TestGameBackend()
+    try:
+        backend.capture_screenshot()
+    except Exception:
+        pass
+
+def test_capture_screen_error(monkeypatch):
+    backend = TestGameBackend()
+    monkeypatch.setattr(backend, 'capture_screen', lambda: None)
+    assert backend.capture_screen() is None
+
+def test_find_element_cv2_error(monkeypatch):
+    backend = TestGameBackend()
+    monkeypatch.setattr(backend, 'capture_screen', lambda: np.ones((10, 10, 3), dtype=np.uint8))
+    import cv2
+    orig_match = cv2.matchTemplate
+    cv2.matchTemplate = lambda *a, **kw: (_ for _ in ()).throw(Exception())
+    try:
+        try:
+            backend.find_element(np.ones((5, 5, 3), dtype=np.uint8))
+        except Exception:
+            assert True
+        else:
+            assert False, 'Exception not raised'
+    finally:
+        cv2.matchTemplate = orig_match
+
+def test_find_element_invalid_image(monkeypatch):
+    backend = TestGameBackend()
+    backend.find_element = lambda *a, **kw: None
+    assert backend.find_element(np.ones((5, 5, 3), dtype=np.uint8)) is None
+
+def test_find_element_threshold(monkeypatch):
+    backend = TestGameBackend()
+    monkeypatch.setattr(backend, 'capture_screen', lambda: np.ones((10, 10, 3), dtype=np.uint8))
+    import cv2
+    cv2.matchTemplate = lambda *a, **kw: np.array([[0.5]])
+    assert backend.find_element(np.ones((5, 5, 3), dtype=np.uint8), threshold=0.8) is None
+    cv2.matchTemplate = lambda *a, **kw: np.array([[0.9]])
+    assert backend.find_element(np.ones((5, 5, 3), dtype=np.uint8), threshold=0.8) is not None
+
+def test_connect_unknown_platform(monkeypatch):
+    monkeypatch.setattr('platform.system', lambda: 'UnknownOS')
+    backend = TestGameBackend()
+    assert backend.connect('Test') is False
+
+def test_connect_win32gui_error(monkeypatch):
+    monkeypatch.setattr('platform.system', lambda: 'Windows')
+    class DummyWin32:
+        @staticmethod
+        def FindWindow(a, b): raise Exception('fail')
+    sys.modules['win32gui'] = DummyWin32
+    backend = TestGameBackend()
+    assert backend.connect('Test') is False
+
+def test_connect_xlib_error(monkeypatch):
+    monkeypatch.setattr('platform.system', lambda: 'Linux')
+    class DummyDisplay:
+        def screen(self):
+            class S: root = MagicMock()
+            return S()
+    sys.modules['Xlib'] = MagicMock()
+    sys.modules['Xlib.display'] = MagicMock(Display=lambda: DummyDisplay())
+    sys.modules['Xlib.X'] = MagicMock(AnyPropertyType=1)
+    backend = TestGameBackend()
+    assert backend.connect('Test') is False

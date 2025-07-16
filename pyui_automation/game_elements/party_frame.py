@@ -1,5 +1,8 @@
-from typing import Optional, Any, Dict, List, Tuple
+from typing import Optional, Any, Dict, List, Tuple, TYPE_CHECKING
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class PartyMember(UIElement):
@@ -213,12 +216,14 @@ class PartyFrame(UIElement):
         Returns:
             Optional[PartyMember]: Found member or None
         """
-        member = self._element.find_element(
+        members = self._element.find_elements(
             by="type",
-            value="party_member",
+            value="member",
             name=name
         )
-        return PartyMember(member, self._session) if member else None
+        if not members:
+            return None
+        return PartyMember(members[0], self._session)
 
     def convert_to_raid(self) -> bool:
         """

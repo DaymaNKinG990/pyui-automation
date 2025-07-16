@@ -1,5 +1,3 @@
-"""Base class for UI automation backends"""
-
 from abc import ABC, abstractmethod
 from typing import Optional, List, Dict, Any, Union, Tuple
 import numpy as np
@@ -7,7 +5,17 @@ from pathlib import Path
 
 
 class BaseBackend(ABC):
-    """Abstract base class for UI automation backends"""
+    """
+    Abstract base class for all platform-specific backend implementations.
+
+    Backends реализуют низкоуровневые операции для поиска, взаимодействия и управления UI-элементами на конкретной платформе (Windows, Linux, MacOS, Qt и др.).
+    Вся бизнес-логика и сервисные вызовы должны быть вынесены в сервисы, а backend реализует только технические детали.
+
+    Назначение:
+        - Предоставлять унифицированный API для сервисного слоя
+        - Инкапсулировать все платформенные детали
+        - Не содержать бизнес-логики
+    """
 
     @abstractmethod
     def attach_to_application(self, pid: int) -> None:
@@ -47,16 +55,6 @@ class BaseBackend(ABC):
     @abstractmethod
     def double_click_mouse(self, x: int, y: int) -> None:
         """Double click mouse at coordinates"""
-        pass
-
-    @abstractmethod
-    def find_element(self, by: str, value: str) -> Optional[Any]:
-        """Find UI element"""
-        pass
-
-    @abstractmethod
-    def find_elements(self, by: str, value: str) -> List[Any]:
-        """Find multiple UI elements"""
         pass
 
     @abstractmethod
@@ -145,11 +143,6 @@ class BaseBackend(ABC):
         pass
 
     @abstractmethod
-    def set_element_property(self, element: Any, property_name: str, value: Any) -> None:
-        """Set element property"""
-        pass
-
-    @abstractmethod
     def get_element_pattern(self, element: Any, pattern_name: str) -> Any:
         """Get element pattern"""
         pass
@@ -175,18 +168,8 @@ class BaseBackend(ABC):
         pass
 
     @abstractmethod
-    def set_element_text(self, element: Any, text: str) -> None:
-        """Set element text"""
-        pass
-
-    @abstractmethod
     def get_element_value(self, element: Any) -> Any:
         """Get element value"""
-        pass
-
-    @abstractmethod
-    def set_element_value(self, element: Any, value: Any) -> None:
-        """Set element value"""
         pass
 
     @abstractmethod
@@ -195,36 +178,46 @@ class BaseBackend(ABC):
         pass
 
     @abstractmethod
-    def wait_for_element(self, by: str, value: str, timeout: float = 10) -> Optional[Any]:
-        """Wait for element"""
-        pass
-
-    @abstractmethod
-    def wait_for_element_state(self, element: Any, state: str, timeout: float = 10) -> bool:
-        """Wait for element state"""
-        pass
-
-    @abstractmethod
-    def wait_for_element_property(self, element: Any, property_name: str, value: Any, timeout: float = 10) -> bool:
-        """Wait for element property"""
-        pass
-
-    @abstractmethod
-    def generate_accessibility_report(self, output_dir: Union[str, Path]) -> None:
-        """Generate accessibility report"""
-        pass
-
-    @abstractmethod
     def get_application(self) -> Optional[Any]:
         """Get current application"""
         pass
 
     @abstractmethod
-    def close_application(self, application: Any) -> None:
-        """Close application"""
+    def find_element_by_object_name(self, object_name: str) -> Optional[Any]:
+        """Find element by Qt objectName"""
         pass
 
     @abstractmethod
-    def attach_to_application(self, process_id: int) -> Any:
-        """Attach to application"""
+    def find_elements_by_object_name(self, object_name: str) -> List[Any]:
+        """Find elements by Qt objectName"""
+        pass
+
+    @abstractmethod
+    def find_element_by_widget_type(self, widget_type: str) -> Optional[Any]:
+        """Find element by Qt widget type/class"""
+        pass
+
+    @abstractmethod
+    def find_elements_by_widget_type(self, widget_type: str) -> List[Any]:
+        """Find elements by Qt widget type/class"""
+        pass
+
+    @abstractmethod
+    def find_element_by_text(self, text: str) -> Optional[Any]:
+        """Find element by visible text/label"""
+        pass
+
+    @abstractmethod
+    def find_elements_by_text(self, text: str) -> List[Any]:
+        """Find elements by visible text/label"""
+        pass
+
+    @abstractmethod
+    def find_element_by_property(self, property_name: str, value: str) -> Optional[Any]:
+        """Find element by Qt property"""
+        pass
+
+    @abstractmethod
+    def find_elements_by_property(self, property_name: str, value: str) -> List[Any]:
+        """Find elements by Qt property"""
         pass

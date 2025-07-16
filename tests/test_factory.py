@@ -1,18 +1,16 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import sys
 from pyui_automation.core.factory import BackendFactory, ComponentFactory
 from pyui_automation.backends.base import BaseBackend
 from pyui_automation.input import Keyboard, Mouse
 from pyui_automation.core.visual import VisualTester
 import comtypes.client
+import importlib
 
 
-try:
-    from pyui_automation.ocr import OCREngine
-    HAS_OCR = True
-except ImportError:
-    HAS_OCR = False
+_paddleocr_spec = importlib.util.find_spec('paddleocr')
+HAS_OCR = _paddleocr_spec is not None
 
 
 def is_uiautomation_available():
@@ -22,7 +20,7 @@ def is_uiautomation_available():
     try:
         comtypes.client.CreateObject("UIAutomationClient.CUIAutomation")
         return True
-    except:
+    except Exception:
         return False
 
 
@@ -65,12 +63,57 @@ def test_create_ocr_engine():
     """Test creating OCR engine"""
     if not HAS_OCR:  # Extra safety check
         pytest.skip("OCR dependencies not available")
-    ocr = ComponentFactory.create_ocr_engine()
-    # Only import and use OCREngine when we know it's available
-    from pyui_automation.ocr import OCREngine
-    assert isinstance(ocr, OCREngine)
+    paddle_mock = MagicMock()
+    class MockPaddleOCR:
+        def __init__(self, *a, **kw): pass
+        def ocr(self, *a, **kw): return [[[]]]
+    paddle_mock.PaddleOCR = MockPaddleOCR
+    with patch.dict('sys.modules', {'paddleocr': paddle_mock}):
+        ocr = ComponentFactory.create_ocr_engine()
+        from pyui_automation.ocr import OCREngine
+        assert isinstance(ocr, OCREngine)
 
 def test_create_visual_tester():
     """Test creating visual tester"""
     tester = ComponentFactory.create_visual_tester()
     assert isinstance(tester, VisualTester)
+
+def test_create_keyboard_invalid_backend():
+    from pyui_automation.core.factory import ComponentFactory
+    with pytest.raises(Exception):
+        ComponentFactory.create_keyboard(None)
+    with pytest.raises(Exception):
+        ComponentFactory.create_keyboard('not_a_backend')
+
+def test_create_mouse_invalid_backend():
+    from pyui_automation.core.factory import ComponentFactory
+    with pytest.raises(Exception):
+        ComponentFactory.create_mouse(None)
+    with pytest.raises(Exception):
+        ComponentFactory.create_mouse('not_a_backend')
+
+def test_create_visual_tester_invalid_dir():
+    from pyui_automation.core.factory import ComponentFactory
+    with pytest.raises(Exception):
+        ComponentFactory.create_visual_tester(123)
+    with pytest.raises(Exception):
+        ComponentFactory.create_visual_tester(object())
+
+def test_create_ocr_engine_import_error(monkeypatch):
+    from pyui_automation.core.factory import ComponentFactory
+    import sys
+    sys.modules['pyui_automation.ocr'] = None
+    monkeypatch.setitem(sys.modules, 'pyui_automation.ocr', None)
+    # Переопределяем OCREngine в factory на выбрасывающий ImportError
+    import builtins
+    orig = builtins.__import__
+    def fake_import(name, *args, **kwargs):
+        if name == 'pyui_automation.ocr':
+            raise ImportError('No OCR')
+        return orig(name, *args, **kwargs)
+    builtins.__import__ = fake_import
+    try:
+        with pytest.raises(ImportError):
+            ComponentFactory.create_ocr_engine()
+    finally:
+        builtins.__import__ = orig

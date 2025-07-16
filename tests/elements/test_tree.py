@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from pyui_automation.elements.tree import TreeView, TreeNode
+import types
 
 
 @pytest.fixture
@@ -120,8 +121,18 @@ def test_node_select(tree_node):
     tree_node._element.click.assert_called_once()
 
 
-def test_node_get_parent(tree_node, mock_node_element):
+def test_node_get_parent(tree_node, mock_node_element, mock_session):
     """Test getting parent node."""
+    from pyui_automation.elements.tree import TreeNode
+    parent_element = MagicMock()
+    mock_node_element.get_property.side_effect = lambda prop: {
+        'text': 'Node 1',
+        'expanded': False,
+        'selected': False,
+        'level': 1,
+        'has_children': True
+    }.get(prop)
+    mock_node_element.find_element.return_value = parent_element
     parent = tree_node.get_parent()
     assert isinstance(parent, TreeNode)
     mock_node_element.find_element.assert_called_with(by='parent', value=None)
@@ -166,14 +177,46 @@ def test_treeview_root_nodes(tree_view, mock_treeview_element):
     nodes = tree_view.root_nodes
     assert len(nodes) == 2
     assert all(isinstance(node, TreeNode) for node in nodes)
-    mock_treeview_element.find_elements.assert_called_with(by='type', value='node')
+    mock_treeview_element.find_elements.assert_called_with(by='level', value=0)
 
 
-def test_treeview_get_node_by_path(tree_view):
+def test_treeview_get_node_by_path(tree_view, mock_treeview_element, mock_session):
     """Test getting node by path."""
-    path = ['Root', 'Child', 'Grandchild']
+    from pyui_automation.elements.tree import TreeNode
+    # Создаём цепочку mock-элементов
+    root = MagicMock()
+    child = MagicMock()
+    grandchild = MagicMock()
+    root.get_property.side_effect = lambda prop: {'text': 'Root', 'expanded': True, 'level': 0, 'has_children': True}.get(prop)
+    child.get_property.side_effect = lambda prop: {'text': 'Child', 'expanded': True, 'level': 1, 'has_children': True}.get(prop)
+    grandchild.get_property.side_effect = lambda prop: {'text': 'Grandchild', 'expanded': True, 'level': 2, 'has_children': False}.get(prop)
+    root_node = TreeNode(root, mock_session)
+    child_node = TreeNode(child, mock_session)
+    grandchild_node = TreeNode(grandchild, mock_session)
+    root_node.get_children = types.MethodType(lambda self: [child_node], root_node)
+    child_node.get_children = types.MethodType(lambda self: [grandchild_node], child_node)
+    grandchild_node.get_children = types.MethodType(lambda self: [], grandchild_node)
+    mock_treeview_element.find_elements.return_value = [root]
+    def tree_node_factory(native_element, session):
+        if native_element is root:
+            return root_node
+        if native_element is child:
+            return child_node
+        if native_element is grandchild:
+            return grandchild_node
+        return TreeNode(native_element, session)
+    with patch('pyui_automation.elements.tree.TreeNode', side_effect=tree_node_factory):
+        path = ['Root', 'Child', 'Grandchild']
+        node = tree_view.get_node_by_path(path)
+        assert isinstance(node, TreeNode)
+
+
+def test_treeview_get_node_by_path_not_found(tree_view, mock_treeview_element):
+    """Test getting node by path when not found."""
+    mock_treeview_element.find_elements.return_value = []
+    path = ['Nonexistent', 'Path']
     node = tree_view.get_node_by_path(path)
-    assert isinstance(node, TreeNode)
+    assert node is None
 
 
 def test_treeview_get_selected_nodes(tree_view, mock_treeview_element):
@@ -182,6 +225,13 @@ def test_treeview_get_selected_nodes(tree_view, mock_treeview_element):
     assert len(nodes) == 2
     assert all(isinstance(node, TreeNode) for node in nodes)
     mock_treeview_element.find_elements.assert_called_with(by='state', value='selected')
+
+
+def test_treeview_get_selected_nodes_empty(tree_view, mock_treeview_element):
+    """Test getting selected nodes when none are selected."""
+    mock_treeview_element.find_elements.return_value = []
+    nodes = tree_view.get_selected_nodes()
+    assert nodes == []
 
 
 def test_treeview_expand_all(tree_view):

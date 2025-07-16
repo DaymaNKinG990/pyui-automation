@@ -3,7 +3,6 @@ import platform
 from typing import Optional, List, Tuple, Any, Dict
 import numpy as np
 from PIL import Image
-import time
 
 if platform.system() == 'Linux':
     import pyatspi  # type: ignore
@@ -48,46 +47,7 @@ class LinuxBackend(BaseBackend):
         """
         return self._current_app
 
-    def find_element(self, by: str, value: str, timeout: float = 0) -> Optional[Any]:
-        """
-        Find a UI element using AT-SPI2
-
-        Args:
-            by: Strategy to find element (e.g., 'id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for using the specified strategy
-            timeout: Time to wait for element (0 for no wait)
-
-        Returns:
-            Found element, or None if no element is found
-        """
-        if timeout > 0:
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                desktop = self.registry.getDesktop(0)
-                element = self._find_element_recursive(desktop, by, value)
-                if element:
-                    return element
-                time.sleep(0.1)
-            return None
-            
-        desktop = self.registry.getDesktop(0)
-        return self._find_element_recursive(desktop, by, value)
-
-    def find_elements(self, by: str, value: str) -> List[Any]:
-        """
-        Find all matching UI elements
-
-        Args:
-            by: Strategy to find elements (e.g., 'id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for using the specified strategy
-
-        Returns:
-            A list of all matching elements. If no elements are found, an empty list is returned.
-        """
-        desktop = self.registry.getDesktop(0)
-        elements = []
-        self._find_elements_recursive(desktop, by, value, elements)
-        return elements
+    # Удалены методы find_element и find_elements (универсальные by/value)
 
     def get_active_window(self) -> Optional[Any]:
         """

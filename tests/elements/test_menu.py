@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.menu import Menu, MenuItem
 
 
@@ -102,9 +102,9 @@ def test_menu_item_expand_with_submenu(menu_item, mock_menu_item_element):
         'enabled': True,
         'has_submenu': True
     }.get(prop)
-    
+    menu_item.hover = MagicMock()
     menu_item.expand()
-    menu_item._element.hover.assert_called_once()
+    menu_item.hover.assert_called_once()
 
 
 def test_menu_item_expand_without_submenu(menu_item):
@@ -198,27 +198,32 @@ def test_menu_select_item_nonexistent(menu):
         menu.select_item('Nonexistent')
 
 
-def test_menu_wait_until_open(menu, mock_session):
-    """Test waiting for menu to open."""
+class MenuMock(Menu):
+    def __init__(self, native_element, session, is_open=False):
+        super().__init__(native_element, session)
+        self._mock_is_open = is_open
+    @property
+    def is_open(self):
+        return self._mock_is_open
+
+def test_menu_wait_until_open(mock_menu_element, mock_session):
+    """Test waiting for menu to open (без patch.object, через double)."""
+    menu = MenuMock(mock_menu_element, mock_session, is_open=True)
     assert menu.wait_until_open(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(menu, 'is_open', True):
-        assert condition_func()
-    with patch.object(menu, 'is_open', False):
-        assert not condition_func()
+    menu._mock_is_open = True
+    assert condition_func()
+    menu._mock_is_open = False
+    assert not condition_func()
 
-
-def test_menu_wait_until_closed(menu, mock_session):
-    """Test waiting for menu to close."""
+def test_menu_wait_until_closed(mock_menu_element, mock_session):
+    """Test waiting for menu to close (без patch.object, через double)."""
+    menu = MenuMock(mock_menu_element, mock_session, is_open=False)
     assert menu.wait_until_closed(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(menu, 'is_open', False):
-        assert condition_func()
-    with patch.object(menu, 'is_open', True):
-        assert not condition_func()
+    menu._mock_is_open = False
+    assert condition_func()
+    menu._mock_is_open = True
+    assert not condition_func()

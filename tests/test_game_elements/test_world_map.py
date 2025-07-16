@@ -1,106 +1,102 @@
 import pytest
-from unittest.mock import MagicMock, patch
-from pyui_automation.game_elements import WorldMap, MapMarker, MapArea
-
+from unittest.mock import MagicMock
+from pyui_automation.game_elements.world_map import WorldMap, MapMarkerData
 
 @pytest.fixture
 def mock_element():
-    element = MagicMock()
-    element.properties = {}
-    element.clicks = 0
-    
-    def mock_click():
-        element.clicks += 1
-    
-    element.click = mock_click
-    element.get_property = lambda key: element.properties.get(key)
-    element.set_property = lambda key, value: element.properties.update({key: value})
-    return element
-
+    el = MagicMock()
+    el.get_property.side_effect = lambda key: 10.0 if key in ['player_x', 'player_y'] else None
+    el.find_element.side_effect = lambda *a, **kw: None
+    el.find_elements.side_effect = lambda *a, **kw: []
+    el.click = MagicMock()
+    el.set_property = MagicMock()
+    el.pan_to = MagicMock()
+    return el
 
 @pytest.fixture
 def mock_session():
     return MagicMock()
 
-
 @pytest.fixture
 def world_map(mock_element, mock_session):
     return WorldMap(mock_element, mock_session)
 
-
 def test_open_close(world_map, mock_element):
-    """Test opening and closing the map"""
-    world_map.open()
-    assert mock_element.clicks == 1
-    
-    world_map.close()
-    assert mock_element.clicks == 2
-
+    assert world_map.open() is True
+    assert world_map.close() is True
+    assert mock_element.click.call_count == 2
 
 def test_pan_to_coordinates(world_map, mock_element):
-    """Test panning to specific coordinates"""
-    world_map.pan_to_coordinates(100, 200)
-    assert mock_element.properties['pan_x'] == 100
-    assert mock_element.properties['pan_y'] == 200
+    assert world_map.pan_to_coordinates(5.0, 7.0) is True
+    mock_element.set_property.assert_any_call('pan_x', 5.0)
+    mock_element.set_property.assert_any_call('pan_y', 7.0)
 
-
-def test_get_current_position(world_map, mock_element):
-    """Test getting current position"""
-    mock_element.properties.update({'player_x': 100, 'player_y': 200})
-    x, y = world_map.get_current_position()
-    assert x == 100
-    assert y == 200
-
+def test_get_current_position(world_map):
+    assert world_map.get_current_position() == (10.0, 10.0)
 
 def test_set_zoom(world_map, mock_element):
-    """Test setting zoom level"""
-    world_map.set_zoom(2.0)
-    assert mock_element.properties['zoom'] == 2.0
+    assert world_map.set_zoom(2.5) is True
+    mock_element.set_property.assert_called_with('zoom', 2.5)
 
+def test_add_remove_marker(world_map):
+    marker = world_map.add_marker(1.0, 2.0, 'quest')
+    assert marker in world_map._markers
+    assert world_map.remove_marker(marker) is True
+    assert world_map.remove_marker(marker) is False
 
-def test_add_marker(world_map):
-    """Test adding a map marker"""
-    marker = world_map.add_marker(100, 200, 'Quest')
-    assert isinstance(marker, MapMarker)
-    assert marker.x == 100
-    assert marker.y == 200
-    assert marker.type == 'Quest'
+def test_get_areas_empty(world_map, mock_element):
+    mock_element.find_elements.side_effect = lambda *a, **kw: []
+    assert world_map.get_areas() == []
 
+def test_get_area_none(world_map, mock_element):
+    mock_element.find_element.side_effect = lambda *a, **kw: None
+    assert world_map.get_area('Stormwind') is None
 
-def test_remove_marker(world_map):
-    """Test removing a map marker"""
-    marker = MapMarker(100, 200, 'Quest')
-    world_map.add_marker(100, 200, 'Quest')
-    assert world_map.remove_marker(marker)
+def test_get_markers_empty(world_map, mock_element):
+    mock_element.find_elements.side_effect = lambda *a, **kw: []
+    assert world_map.get_markers() == []
 
+def test_get_marker_none(world_map, mock_element):
+    mock_element.find_element.side_effect = lambda *a, **kw: None
+    assert world_map.get_marker('QuestMarker') is None
 
-def test_get_markers(world_map, mock_element):
-    """Test getting all markers"""
-    marker1 = MagicMock()
-    marker1.get_property.side_effect = lambda key: {'type': 'Quest', 'x': 100, 'y': 200}.get(key)
-    
-    marker2 = MagicMock()
-    marker2.get_property.side_effect = lambda key: {'type': 'Vendor', 'x': 300, 'y': 400}.get(key)
-    
-    mock_element.find_elements.return_value = [marker1, marker2]
-    
-    markers = world_map.get_markers()
-    assert len(markers) == 2
-    assert markers[0].type == 'Quest'
-    assert markers[1].type == 'Vendor'
+def test_pan_to(world_map, mock_element):
+    assert world_map.pan_to(3.0, 4.0) is True
+    mock_element.pan_to.assert_called_with(3.0, 4.0)
 
+def test_create_marker_no_button(world_map, mock_element):
+    mock_element.find_element.side_effect = lambda *a, **kw: None
+    assert world_map.create_marker(1.0, 2.0, 'TestMarker') is None
 
-def test_get_areas(world_map, mock_element):
-    """Test getting map areas"""
-    area1 = MagicMock()
-    area1.get_property.side_effect = lambda key: {'name': 'Forest', 'level': '1-10'}.get(key)
-    
-    area2 = MagicMock()
-    area2.get_property.side_effect = lambda key: {'name': 'Desert', 'level': '20-30'}.get(key)
-    
-    mock_element.find_elements.return_value = [area1, area2]
-    
-    areas = world_map.get_areas()
-    assert len(areas) == 2
-    assert areas[0].name == 'Forest'
-    assert areas[1].name == 'Desert'
+def test_create_marker_success(world_map, mock_element):
+    create_btn = MagicMock()
+    create_btn.click = MagicMock()
+    name_input = MagicMock()
+    name_input.send_keys = MagicMock()
+    type_dropdown = MagicMock()
+    type_dropdown.select_option = MagicMock()
+    confirm_btn = MagicMock()
+    confirm_btn.click = MagicMock()
+    marker_obj = MagicMock()
+    marker_obj.get_property.side_effect = lambda key: 1.0 if key == 'x' else 2.0 if key == 'y' else 'custom' if key == 'type' else 'TestMarker' if key == 'name' else None
+    def find_element_side_effect(*a, **kw):
+        if kw.get('value') == 'create_marker':
+            return create_btn
+        if kw.get('value') == 'marker_name':
+            return name_input
+        if kw.get('value') == 'marker_type':
+            return type_dropdown
+        if kw.get('value') == 'confirm_marker':
+            return confirm_btn
+        if kw.get('value') == 'map_marker' and kw.get('name') == 'TestMarker':
+            return marker_obj
+        return None
+    mock_element.find_element.side_effect = find_element_side_effect
+    world_map.pan_to = MagicMock()
+    marker = world_map.create_marker(1.0, 2.0, 'TestMarker')
+    assert isinstance(marker, MapMarkerData)
+    assert marker.x == 1.0 and marker.y == 2.0 and marker.marker_type == 'custom'
+
+def test_clear_markers_no_button(world_map, mock_element):
+    mock_element.find_element.side_effect = lambda *a, **kw: None
+    assert world_map.clear_markers() is False

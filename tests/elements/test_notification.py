@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.notification import Notification
 
 
@@ -30,21 +30,20 @@ def mock_notification_element():
     mock_button2 = MagicMock()
     mock_button2.get_property.return_value = 'Dismiss'
     
-    # Set up find_elements behavior for buttons
-    element.find_elements.return_value = [mock_button1, mock_button2]
-    
-    # Set up find_element behavior for specific buttons
-    def find_element_side_effect(by, value):
-        if by == 'name':
-            if value == 'Close':
-                return MagicMock()
-            elif value == 'Undo':
-                return mock_button1
-            elif value == 'Dismiss':
-                return mock_button2
+    # find_elements_by_widget_type для кнопок
+    element.find_elements_by_widget_type = MagicMock(return_value=[mock_button1, mock_button2])
+    # find_element_by_text для кнопок
+    def find_element_by_text_side_effect(text):
+        if text == 'Close':
+            close_btn = MagicMock()
+            close_btn.click = MagicMock()
+            return close_btn
+        elif text == 'Undo':
+            return mock_button1
+        elif text == 'Dismiss':
+            return mock_button2
         return None
-    
-    element.find_element.side_effect = find_element_side_effect
+    element.find_element_by_text = MagicMock(side_effect=find_element_by_text_side_effect)
     
     return element
 
@@ -105,69 +104,88 @@ def test_notification_duration_without_auto_close(notification, mock_notificatio
 
 def test_notification_close(notification, mock_notification_element):
     """Test closing notification manually."""
+    close_btn = MagicMock()
+    close_btn.click = MagicMock()
+    def side_effect(text):
+        if text == 'Close':
+            return close_btn
+        return None
+    mock_notification_element.find_element_by_text.side_effect = side_effect
     notification.close()
-    
-    # Verify close button was found and clicked
-    mock_notification_element.find_element.assert_called_with(by='name', value='Close')
-    mock_notification_element.find_element.return_value.click.assert_called_once()
+    mock_notification_element.find_element_by_text.assert_called_with('Close')
+    close_btn.click.assert_called_once()
 
 
 def test_notification_get_action_buttons(notification, mock_notification_element):
     """Test getting action button texts."""
     buttons = notification.get_action_buttons()
     assert buttons == ['Undo', 'Dismiss']
-    mock_notification_element.find_elements.assert_called_with(by='type', value='button')
+    mock_notification_element.find_elements_by_widget_type.assert_called_with('button')
 
 
 def test_notification_click_action_existing(notification, mock_notification_element):
     """Test clicking existing action button."""
+    action_btn = MagicMock()
+    action_btn.click = MagicMock()
+    def side_effect(text):
+        if text == 'Undo':
+            return action_btn
+        return None
+    mock_notification_element.find_element_by_text.side_effect = side_effect
     notification.click_action('Undo')
-    
-    mock_notification_element.find_element.assert_called_with(by='name', value='Undo')
-    mock_notification_element.find_element.return_value.click.assert_called_once()
+    mock_notification_element.find_element_by_text.assert_called_with('Undo')
+    action_btn.click.assert_called_once()
 
 
 def test_notification_click_action_nonexistent(notification, mock_notification_element):
     """Test clicking nonexistent action button."""
+    mock_notification_element.find_element_by_text.return_value = None
     with pytest.raises(ValueError, match="Action button 'Nonexistent' not found"):
         notification.click_action('Nonexistent')
 
 
-def test_notification_wait_until_visible(notification, mock_session):
-    """Test waiting for notification to become visible."""
+class NotificationMock(Notification):
+    def __init__(self, native_element, session, visible=True, text='Operation completed successfully'):
+        super().__init__(native_element, session)
+        self._mock_visible = visible
+        self._mock_text = text
+    @property
+    def is_visible(self):
+        return self._mock_visible
+    @property
+    def text(self):
+        return self._mock_text
+
+def test_notification_wait_until_visible(mock_notification_element, mock_session):
+    """Test waiting for notification to become visible (без patch.object, через double)."""
+    notification = NotificationMock(mock_notification_element, mock_session, visible=True)
     assert notification.wait_until_visible(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(notification, 'is_visible', True):
-        assert condition_func()
-    with patch.object(notification, 'is_visible', False):
-        assert not condition_func()
+    notification._mock_visible = True
+    assert condition_func()
+    notification._mock_visible = False
+    assert not condition_func()
 
-
-def test_notification_wait_until_hidden(notification, mock_session):
-    """Test waiting for notification to become hidden."""
+def test_notification_wait_until_hidden(mock_notification_element, mock_session):
+    """Test waiting for notification to become hidden (без patch.object, через double)."""
+    notification = NotificationMock(mock_notification_element, mock_session, visible=False)
     assert notification.wait_until_hidden(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(notification, 'is_visible', False):
-        assert condition_func()
-    with patch.object(notification, 'is_visible', True):
-        assert not condition_func()
+    notification._mock_visible = False
+    assert condition_func()
+    notification._mock_visible = True
+    assert not condition_func()
 
-
-def test_notification_wait_until_text(notification, mock_session):
-    """Test waiting for notification text to match."""
+def test_notification_wait_until_text(mock_notification_element, mock_session):
+    """Test waiting for notification text to match (без patch.object, через double)."""
     expected_text = 'New notification text'
+    notification = NotificationMock(mock_notification_element, mock_session, text=expected_text)
     assert notification.wait_until_text(expected_text, timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(notification, 'text', expected_text):
-        assert condition_func()
-    with patch.object(notification, 'text', 'Different text'):
-        assert not condition_func()
+    notification._mock_text = expected_text
+    assert condition_func()
+    notification._mock_text = 'Different text'
+    assert not condition_func()

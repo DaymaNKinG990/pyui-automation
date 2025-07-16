@@ -4,7 +4,22 @@ T = TypeVar('T')
 
 
 class Container:
-    """Dependency injection container"""
+    """
+    Dependency injection container.
+
+    Позволяет регистрировать и разрешать зависимости между сервисами и реализациями. Поддерживает singleton, factory, transient.
+    Используется для конфигурирования сервисного слоя и расширяемости архитектуры.
+
+    Example usage:
+        container = Container()
+        container.register(BackendService, MyBackendServiceImpl)
+        backend = container.resolve(BackendService)
+
+    Назначение:
+        - Гибкая регистрация сервисов
+        - Инъекция зависимостей для тестируемости и расширяемости
+        - Использование во всех слоях
+    """
     
     def __init__(self) -> None:
         """
@@ -26,7 +41,12 @@ class Container:
             interface (Type[T]): The interface type to register.
             implementation (Type[T]): The implementation type to associate with the interface.
         """
+        if not isinstance(interface, type) or not isinstance(implementation, type):
+            raise TypeError("interface and implementation must be types")
         self._services[interface.__name__] = implementation
+        # Если ранее был singleton, удаляем его
+        if interface.__name__ in self._singletons:
+            del self._singletons[interface.__name__]
 
     def register_singleton(self, interface: Type[T], implementation: Type[T]) -> None:
         """
@@ -36,6 +56,8 @@ class Container:
             interface (Type[T]): The interface type to register.
             implementation (Type[T]): The implementation type to associate with the interface.
         """
+        if not isinstance(interface, type) or not isinstance(implementation, type):
+            raise TypeError("interface and implementation must be types")
         self._services[interface.__name__] = implementation
         self._singletons[interface.__name__] = None
 
@@ -47,6 +69,10 @@ class Container:
             interface (Type[T]): The interface type to register.
             factory (Any): The factory function to associate with the interface.
         """
+        if not isinstance(interface, type):
+            raise TypeError("interface must be a type")
+        if not callable(factory):
+            raise TypeError("factory must be callable")
         self._factories[interface.__name__] = factory
 
     def resolve(self, interface: Type[T]) -> Optional[T]:

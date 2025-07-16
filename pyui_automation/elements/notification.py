@@ -1,5 +1,8 @@
-from typing import Optional, Any, List
+from typing import Optional, Any, List, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class Notification(UIElement):
@@ -68,7 +71,7 @@ class Notification(UIElement):
 
     def close(self) -> None:
         """Close the notification manually"""
-        close_button = self._element.find_element(by="name", value="Close")
+        close_button = self._element.find_element_by_text("Close")
         if close_button:
             close_button.click()
 
@@ -79,7 +82,7 @@ class Notification(UIElement):
         Returns:
             List[str]: List of button texts
         """
-        buttons = self._element.find_elements(by="type", value="button")
+        buttons = self._element.find_elements_by_widget_type("button")
         return [button.get_property("text") for button in buttons]
 
     def click_action(self, text: str) -> None:
@@ -92,7 +95,7 @@ class Notification(UIElement):
         Raises:
             ValueError: If button not found
         """
-        button = self._element.find_element(by="name", value=text)
+        button = self._element.find_element_by_text(text)
         if button:
             button.click()
         else:

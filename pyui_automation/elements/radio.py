@@ -1,5 +1,8 @@
-from typing import Optional, Any, List
+from typing import Any, TYPE_CHECKING, List
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class RadioButton(UIElement):

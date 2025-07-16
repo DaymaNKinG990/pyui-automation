@@ -79,25 +79,33 @@ def test_compare_to(image, mock_session):
         threshold=0.9
     )
 
-def test_wait_until_loaded(image, mock_session):
-    """Test waiting for image to load."""
+class ImageMock(Image):
+    def __init__(self, native_element, session, is_visible=True, size=(100, 100)):
+        super().__init__(native_element, session)
+        self._mock_is_visible = is_visible
+        self._mock_size = size
+    @property
+    def is_visible(self):
+        return self._mock_is_visible
+    @property
+    def size(self):
+        return self._mock_size
+
+def test_wait_until_loaded(mock_image_element, mock_session):
+    """Test waiting for image to load (без patch.object, через double)."""
+    image = ImageMock(mock_image_element, mock_session, is_visible=True, size=(100, 100))
     assert image.wait_until_loaded(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition function with different scenarios
-    with patch.object(image, 'is_visible', True), \
-         patch.object(image, 'size', (100, 100)):
-        assert condition_func()
-    
-    with patch.object(image, 'is_visible', False), \
-         patch.object(image, 'size', (100, 100)):
-        assert not condition_func()
-    
-    with patch.object(image, 'is_visible', True), \
-         patch.object(image, 'size', (0, 0)):
-        assert not condition_func()
+    image._mock_is_visible = True
+    image._mock_size = (100, 100)
+    assert condition_func()
+    image._mock_is_visible = False
+    image._mock_size = (100, 100)
+    assert not condition_func()
+    image._mock_is_visible = True
+    image._mock_size = (0, 0)
+    assert not condition_func()
 
 def test_wait_until_matches(image, mock_session):
     """Test waiting for image to match another."""

@@ -6,7 +6,19 @@ from ..backends.base import BaseBackend
 
 
 class Mouse:
-    """Handles mouse input operations"""
+    """
+    Cross-platform mouse input handler.
+
+    Позволяет программно управлять мышью: перемещать, кликать, двойной клик, правый клик и т.д.
+    Используется сервисным слоем InputService.
+
+    Example usage:
+        mouse = Mouse()
+        mouse.move(100, 200)
+        mouse.click()
+        mouse.double_click()
+        mouse.right_click()
+    """
 
     def __init__(self, backend: BaseBackend):
         """
@@ -34,8 +46,7 @@ class Mouse:
         if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
             raise ValueError("Coordinates must be numbers")
         try:
-            self._backend.move_mouse(int(x), int(y))
-            return True
+            return self._backend.move_mouse(int(x), int(y))
         except Exception:
             return False
 

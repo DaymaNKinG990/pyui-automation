@@ -1,8 +1,6 @@
 from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum, auto
-from pathlib import Path
-import time
 import logging
 
 
@@ -26,10 +24,19 @@ class AccessibilityViolation:
 class AccessibilityChecker:
     """
     Check application accessibility compliance according to WCAG guidelines.
-    
-    This class provides functionality to check UI elements for common accessibility
-    issues such as missing alt text, insufficient color contrast, keyboard
-    accessibility, and invalid ARIA roles.
+
+    Проверяет элементы UI на соответствие стандартам доступности (WCAG): alt-текст, контрастность, доступность с клавиатуры, валидные ARIA-ролли и др.
+    Используется сервисным слоем AccessibilityService.
+
+    Example usage:
+        checker = AccessibilityChecker(automation)
+        violations = checker.check_application()
+        checker.generate_report("reports/accessibility.html")
+
+    Назначение:
+        - Автоматизированный аудит доступности UI
+        - Генерация HTML-отчёта по найденным нарушениям
+        - Интеграция с сервисным слоем
     """
     
     # Valid ARIA roles from WAI-ARIA specification
@@ -117,24 +124,6 @@ class AccessibilityChecker:
             self.logger.error(f"Error checking application: {str(e)}")
         return self.violations
 
-    def generate_report(self, output_path: str) -> None:
-        """
-        Generate HTML accessibility report.
-        
-        Args:
-            output_path: Path where to save the HTML report
-        """
-        try:
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-            violations_html = self._generate_violations_html()
-            html = self._generate_report_html(timestamp, violations_html)
-            
-            output_file = Path(output_path)
-            output_file.parent.mkdir(parents=True, exist_ok=True)
-            output_file.write_text(html, encoding="utf-8")
-        except Exception as e:
-            self.logger.error(f"Error generating report: {str(e)}")
-
     def _check_alt_text(self, element: Any) -> None:
         """Check if image elements have alternative text."""
         if self._is_image_element(element) and not element.get_attribute("alt"):
@@ -186,85 +175,6 @@ class AccessibilityChecker:
                 description=f"Invalid ARIA role: {element.role}",
                 recommendation="Use a valid ARIA role from the WAI-ARIA specification"
             ))
-
-    def _generate_violations_html(self) -> str:
-        """Generate HTML for accessibility violations."""
-        violations_html = ""
-        for v in self.violations:
-            element_info = f"Element: {v.element.name if hasattr(v.element, 'name') else 'Unknown'}"
-            if hasattr(v.element, 'role'):
-                element_info += f" (Role: {v.element.role})"
-                
-            violations_html += f"""
-            <div class="violation {v.severity.name.lower()}">
-                <h3>{v.rule}</h3>
-                <p><strong>{element_info}</strong></p>
-                <p>{v.description}</p>
-                <p><em>Recommendation: {v.recommendation}</em></p>
-            </div>
-            """
-        return violations_html
-
-    def _generate_report_html(self, timestamp: str, violations_html: str) -> str:
-        """Generate complete HTML report."""
-        return f"""
-        <html>
-        <head>
-            <title>Accessibility Report</title>
-            <style>
-                body {{ 
-                    font-family: Arial, sans-serif; 
-                    margin: 2em;
-                    line-height: 1.6;
-                    max-width: 1200px;
-                    margin: 0 auto;
-                    padding: 2em;
-                }}
-                .violation {{
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    padding: 1em;
-                    margin: 1em 0;
-                    background-color: #fff;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }}
-                .high {{ border-left: 5px solid #dc3545; }}
-                .medium {{ border-left: 5px solid #ffc107; }}
-                .low {{ border-left: 5px solid #17a2b8; }}
-                h1, h2 {{ 
-                    color: #333;
-                    border-bottom: 2px solid #eee;
-                    padding-bottom: 0.5em;
-                }}
-                h3 {{ 
-                    margin-top: 0; 
-                    color: #666;
-                    font-size: 1.2em;
-                }}
-                .summary {{
-                    background-color: #f8f9fa;
-                    padding: 1em;
-                    border-radius: 4px;
-                    margin: 1em 0;
-                }}
-            </style>
-        </head>
-        <body>
-            <h1>Accessibility Report</h1>
-            <div class="summary">
-                <p>Generated on: {timestamp}</p>
-                <h2>Found {len(self.violations)} violations</h2>
-                <p>Severity breakdown:</p>
-                <ul>
-                    <li>High: {sum(1 for v in self.violations if v.severity == AccessibilitySeverity.HIGH)}</li>
-                    <li>Medium: {sum(1 for v in self.violations if v.severity == AccessibilitySeverity.MEDIUM)}</li>
-                    <li>Low: {sum(1 for v in self.violations if v.severity == AccessibilitySeverity.LOW)}</li>
-                </ul>
-            </div>
-            {violations_html}
-        </body>
-        </html>
-        """
 
     @staticmethod
     def _is_image_element(element: Any) -> bool:

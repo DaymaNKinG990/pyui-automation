@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 from pyui_automation.core.config import AutomationConfig
-from pyui_automation.core.automation_session import AutomationSession
+from pyui_automation.core.session import AutomationSession
 
 
 @pytest.fixture
@@ -67,3 +67,68 @@ def test_retry_interval(config):
     config.retry_interval = 1.5
     assert config.retry_interval == 1.5
     assert isinstance(config.retry_interval, float)
+
+def test_validate_invalid_values(config):
+    config.screenshot_quality = 200
+    with pytest.raises(ValueError):
+        config.validate()
+    config.screenshot_quality = 90
+    config.visual_threshold = -0.1
+    with pytest.raises(ValueError):
+        config.validate()
+    config.visual_threshold = 0.95
+    config.performance_interval = 0
+    with pytest.raises(ValueError):
+        config.validate()
+    config.performance_interval = 1.0
+    config.default_timeout = 0
+    with pytest.raises(ValueError):
+        config.validate()
+    config.default_timeout = 10.0
+    config.default_interval = 0
+    with pytest.raises(ValueError):
+        config.validate()
+    config.default_interval = 0.5
+    config.implicit_wait = -1
+    with pytest.raises(ValueError):
+        config.validate()
+    config.implicit_wait = 0
+    config.ocr_confidence = 2
+    with pytest.raises(ValueError):
+        config.validate()
+    config.ocr_confidence = 0.7
+    config.screenshot_format = 'tiff'
+    with pytest.raises(ValueError):
+        config.validate()
+    config.screenshot_format = 'png'
+    config.visual_algorithm = 'unknown'
+    with pytest.raises(ValueError):
+        config.validate()
+    config.visual_algorithm = 'ssim'
+    config.performance_metrics = ['cpu', 'invalid']
+    with pytest.raises(ValueError):
+        config.validate()
+    config.performance_metrics = ['cpu']
+    config.ocr_languages = ['invalid']
+    with pytest.raises(ValueError):
+        config.validate()
+    config.ocr_languages = ['eng']
+    config.accessibility_standards = ['invalid']
+    with pytest.raises(ValueError):
+        config.validate()
+    config.accessibility_standards = ['wcag2a']
+    config.backend_type = 'invalid'
+    with pytest.raises(ValueError):
+        config.validate()
+    config.backend_type = 'windows'
+
+def test_set_invalid_key_type(config):
+    with pytest.raises(Exception):
+        config.set(123, 1)
+
+def test_screenshot_dir_invalid_type(config):
+    with pytest.raises(Exception):
+        config.screenshot_dir = 123
+
+def test_get_nonexistent_key_no_default(config):
+    assert config.get('definitely_not_exist') is None

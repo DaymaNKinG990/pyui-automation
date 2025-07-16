@@ -79,3 +79,73 @@ def test_singleton_vs_transient(container):
     transient1 = container.resolve(IService)
     transient2 = container.resolve(IService)
     assert transient1 is not transient2
+
+def test_register_invalid_types(container):
+    with pytest.raises(Exception):
+        container.register(None, None)
+    with pytest.raises(Exception):
+        container.register(str, None)
+    with pytest.raises(Exception):
+        container.register(None, str)
+
+def test_register_singleton_invalid_types(container):
+    with pytest.raises(Exception):
+        container.register_singleton(None, None)
+    with pytest.raises(Exception):
+        container.register_singleton(str, None)
+    with pytest.raises(Exception):
+        container.register_singleton(None, str)
+
+def test_register_factory_invalid_types(container):
+    with pytest.raises(Exception):
+        container.register_factory(None, None)
+    with pytest.raises(Exception):
+        container.register_factory(str, None)
+    with pytest.raises(Exception):
+        container.register_factory(None, lambda: 1)
+    with pytest.raises(Exception):
+        container.register_factory(str, 123)
+
+def test_resolve_invalid_type(container):
+    with pytest.raises(Exception):
+        container.resolve(None)
+    with pytest.raises(Exception):
+        container.resolve(123)
+
+def test_factory_returns_none(container):
+    class IFoo: pass
+    container.register_factory(IFoo, lambda: None)
+    assert container.resolve(IFoo) is None
+
+def test_factory_raises(container):
+    class IBar: pass
+    def bad_factory():
+        raise RuntimeError('fail')
+    container.register_factory(IBar, bad_factory)
+    with pytest.raises(RuntimeError):
+        container.resolve(IBar)
+
+def test_singleton_constructor_error(container):
+    class IBad: pass
+    class BadImpl:
+        def __init__(self):
+            raise RuntimeError('fail')
+    container.register_singleton(IBad, BadImpl)
+    with pytest.raises(RuntimeError):
+        container.resolve(IBad)
+
+def test_re_registration_types(container):
+    class IFoo: pass
+    class ImplA:
+        pass
+    class ImplB:
+        pass
+    container.register(IFoo, ImplA)
+    container.register_singleton(IFoo, ImplB)
+    s1 = container.resolve(IFoo)
+    s2 = container.resolve(IFoo)
+    assert s1 is s2
+    container.register(IFoo, ImplA)
+    t1 = container.resolve(IFoo)
+    t2 = container.resolve(IFoo)
+    assert t1 is not t2

@@ -24,6 +24,12 @@ def wait_until(
     Returns:
         True if condition was met, raises WaitTimeout otherwise
     """
+    if not callable(condition):
+        raise TypeError("condition must be callable")
+    if timeout < 0:
+        raise ValueError("timeout must be non-negative")
+    if poll_frequency < 0:
+        raise ValueError("poll_frequency must be non-negative")
     # For short timeouts, use a shorter poll frequency
     if timeout < poll_frequency:
         poll_frequency = timeout / 4
@@ -73,72 +79,63 @@ class ElementWaits:
         """
         return wait_until(condition, timeout, poll_frequency, error_message)
 
-    def for_element(self, by: str, value: str, timeout: float = 10) -> Any:
-        """
-        Wait for element to be present
-        
-        Args:
-            by: Strategy to find element (e.g., 'id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for using the specified strategy
-            timeout: Maximum time to wait in seconds
-        
-        Returns:
-            Found element
-        """
-        found_element: list[Any] = [None]  # Use list to store element in closure
-        
-        def condition() -> bool:
-            element = self.automation.backend.find_element(by, value)  # Call backend directly with positional args
+    def for_element_by_object_name(self, object_name: str, timeout: float = 10) -> Any:
+        """Wait for element by object_name to appear."""
+        if not isinstance(object_name, str) or not object_name:
+            raise ValueError("object_name must be a non-empty string")
+        found_element = [None]
+        def condition():
+            element = self.automation.backend.find_element_by_object_name(object_name)
             if element is not None:
-                found_element[0] = element  # Store found element
+                found_element[0] = element
                 return True
             return False
-
-        self.wait_until(
-            condition,
-            timeout,
-            error_message=f"Element not found with {by}={value}"
-        )
+        self.wait_until(condition, timeout, error_message=f"Element not found with object_name={object_name}")
         return found_element[0]
 
-    def for_element_visible(self, element: Any, timeout: float = 10) -> bool:
-        """Wait for element to become visible"""
+    def for_element_by_widget_type(self, widget_type: str, timeout: float = 10) -> Any:
+        """Wait for element by widget_type to appear."""
+        if not isinstance(widget_type, str) or not widget_type:
+            raise ValueError("widget_type must be a non-empty string")
+        found_element = [None]
         def condition():
-            return not element.is_offscreen
+            element = self.automation.backend.find_element_by_widget_type(widget_type)
+            if element is not None:
+                found_element[0] = element
+                return True
+            return False
+        self.wait_until(condition, timeout, error_message=f"Element not found with widget_type={widget_type}")
+        return found_element[0]
 
-        return self.wait_until(
-            condition,
-            timeout,
-            error_message="Element not visible"
-        )
-
-    def for_element_enabled(self, element: Any, timeout: float = 10) -> bool:
-        """Wait for element to become enabled"""
+    def for_element_by_text(self, text: str, timeout: float = 10) -> Any:
+        """Wait for element by visible text to appear."""
+        if not isinstance(text, str) or not text:
+            raise ValueError("text must be a non-empty string")
+        found_element = [None]
         def condition():
-            return element.is_enabled
+            element = self.automation.backend.find_element_by_text(text)
+            if element is not None:
+                found_element[0] = element
+                return True
+            return False
+        self.wait_until(condition, timeout, error_message=f"Element not found with text={text}")
+        return found_element[0]
 
-        return self.wait_until(
-            condition,
-            timeout,
-            error_message="Element not enabled"
-        )
-
-    def for_element_property(
-        self,
-        element: Any,
-        property_name: str,
-        expected_value: Any,
-        timeout: float = 10
-    ) -> bool:
-        """Wait for element property to match expected value"""
+    def for_element_by_property(self, property_name: str, value: str, timeout: float = 10) -> Any:
+        """Wait for element by property to appear."""
+        if not isinstance(property_name, str) or not property_name:
+            raise ValueError("property_name must be a non-empty string")
+        if not isinstance(value, str) or not value:
+            raise ValueError("value must be a non-empty string")
+        found_element = [None]
         def condition():
-            return element.get_property(property_name) == expected_value
-
-        return self.wait_until(
-            condition,
-            timeout,
-            error_message="Property mismatch"
-        )
+            element = self.automation.backend.find_element_by_property(property_name, value)
+            if element is not None:
+                found_element[0] = element
+                return True
+            return False
+        self.wait_until(condition, timeout, error_message=f"Element not found with {property_name}={value}")
+        return found_element[0]
 
     def for_element_pattern(
         self,
@@ -157,70 +154,14 @@ class ElementWaits:
         Returns:
             True if element supports the pattern, raises WaitTimeout otherwise
         """
+        if not hasattr(element, 'has_pattern') or not callable(getattr(element, 'has_pattern', None)):
+            raise TypeError("element must have a callable has_pattern method")
+        if not isinstance(pattern_name, str) or not pattern_name:
+            raise ValueError("pattern_name must be a non-empty string")
         return self.wait_until(
             lambda: element.has_pattern(pattern_name),
             timeout,
             error_message=f"Pattern not supported: {pattern_name}"
         )
 
-    def for_element_text(
-        self,
-        by: str,
-        value: str,
-        text: str,
-        timeout: float = 10
-    ) -> Any:
-        """
-        Wait for element to have specific text
-
-        Args:
-            by: Strategy to find element (e.g., 'id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for using the specified strategy
-            text: Expected text content of the element
-            timeout: Maximum time to wait in seconds
-
-        Returns:
-            Found element
-
-        Raises:
-            WaitTimeout: If element text does not match expected value
-        """
-        element = self.for_element(by, value, timeout)
-        
-        def condition():
-            return element.text == text
-
-        self.wait_until(condition, timeout,
-                  error_message=f"Element text mismatch: {by}={value}")
-        return element
-
-    def for_element_contains_text(
-        self,
-        by: str,
-        value: str,
-        text: str,
-        timeout: float = 10
-    ) -> Any:
-        """
-        Wait for element to contain specific text
-
-        Args:
-            by: Strategy to find element (e.g., 'id', 'name', 'class', 'xpath', etc.)
-            value: Value to search for using the specified strategy
-            text: Substring expected to be present in the element's text content
-            timeout: Maximum time to wait in seconds
-
-        Returns:
-            Found element
-
-        Raises:
-            WaitTimeout: If the element does not contain the specified text within the timeout period
-        """
-        element = self.for_element(by, value, timeout)
-        
-        def condition():
-            return text in element.text
-
-        self.wait_until(condition, timeout,
-                  error_message=f"Element text does not contain: {text}")
-        return element
+    # Удалены устаревшие методы for_element_text и for_element_contains_text (универсальные by/value)

@@ -1,11 +1,21 @@
 """Keyboard input handling"""
 
-from typing import Optional
 from ..backends.base import BaseBackend
 
 
 class Keyboard:
-    """Keyboard input handler"""
+    """
+    Cross-platform keyboard input handler.
+
+    Позволяет программно отправлять нажатия клавиш, вводить текст, эмулировать сочетания клавиш.
+    Используется сервисным слоем InputService.
+
+    Example usage:
+        keyboard = Keyboard()
+        keyboard.type_text("hello")
+        keyboard.press("ctrl+a")
+        keyboard.release("ctrl")
+    """
     
     def __init__(self, backend: BaseBackend) -> None:
         """

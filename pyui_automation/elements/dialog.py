@@ -1,5 +1,8 @@
-from typing import Optional, Any, List
+from typing import Optional, Any, List, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class Dialog(UIElement):
@@ -71,7 +74,7 @@ class Dialog(UIElement):
 
     def close(self) -> None:
         """Close the dialog using the close button or X icon"""
-        close_button = self._element.find_element(by="name", value="Close")
+        close_button = self._element.find_element_by_object_name("Close")
         if close_button:
             close_button.click()
 
@@ -82,7 +85,7 @@ class Dialog(UIElement):
         Returns:
             str: Dialog content text
         """
-        content = self._element.find_element(by="type", value="content")
+        content = self._element.find_element_by_widget_type("content")
         return content.get_property("text") if content else ""
 
     def get_message(self) -> Optional[str]:
@@ -92,7 +95,7 @@ class Dialog(UIElement):
         Returns:
             Optional[str]: Message text or None if not a message dialog
         """
-        message = self._element.find_element(by="type", value="message")
+        message = self._element.find_element_by_widget_type("message")
         return message.get_property("text") if message else None
 
     def wait_until_open(self, timeout: float = 10) -> bool:

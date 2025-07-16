@@ -1,5 +1,8 @@
-from typing import Optional, Any, Dict, List, Tuple
+from typing import Optional, Any, List, TYPE_CHECKING, Dict
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class Mount(UIElement):

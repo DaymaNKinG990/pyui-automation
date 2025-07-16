@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.progressbar import ProgressBar
 
 
@@ -112,49 +112,56 @@ def test_progressbar_status_text_none(progressbar, mock_progressbar_element):
     mock_progressbar_element.get_property.assert_called_with('status')
 
 
-def test_progressbar_wait_until_complete(progressbar, mock_session):
-    """Test waiting for progress to complete."""
+class ProgressBarMock(ProgressBar):
+    def __init__(self, native_element, session, value=50.0, percentage=50.0, status_text='Processing...'):
+        super().__init__(native_element, session)
+        self._mock_value = value
+        self._mock_percentage = percentage
+        self._mock_status_text = status_text
+    @property
+    def value(self):
+        return self._mock_value
+    @property
+    def percentage(self):
+        return self._mock_percentage
+    @property
+    def status_text(self):
+        return self._mock_status_text
+
+def test_progressbar_wait_until_complete(mock_progressbar_element, mock_session):
+    """Test waiting for progress to complete (без patch.object, через double)."""
+    progressbar = ProgressBarMock(mock_progressbar_element, mock_session, value=100.0)
     assert progressbar.wait_until_complete(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different progress values
-    with patch.object(progressbar, 'value', 100.0):
-        assert condition_func()
-    with patch.object(progressbar, 'value', 99.9):
-        assert not condition_func()
+    progressbar._mock_value = 100.0
+    assert condition_func()
+    progressbar._mock_value = 99.9
+    assert not condition_func()
 
-
-def test_progressbar_wait_until_value(progressbar, mock_session):
-    """Test waiting for specific progress value."""
+def test_progressbar_wait_until_value(mock_progressbar_element, mock_session):
+    """Test waiting for specific progress value (без patch.object, через double)."""
+    progressbar = ProgressBarMock(mock_progressbar_element, mock_session, value=80.0)
     target_value = 75.0
     assert progressbar.wait_until_value(target_value, timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different progress values
-    with patch.object(progressbar, 'value', 80.0):
-        assert condition_func()
-    with patch.object(progressbar, 'value', 70.0):
-        assert not condition_func()
+    progressbar._mock_value = 80.0
+    assert condition_func()
+    progressbar._mock_value = 70.0
+    assert not condition_func()
 
-
-def test_progressbar_wait_until_percentage(progressbar, mock_session):
-    """Test waiting for specific progress percentage."""
+def test_progressbar_wait_until_percentage(mock_progressbar_element, mock_session):
+    """Test waiting for specific progress percentage (без patch.object, через double)."""
+    progressbar = ProgressBarMock(mock_progressbar_element, mock_session, percentage=80.0)
     target_percentage = 75.0
     assert progressbar.wait_until_percentage(target_percentage, timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different percentages
-    with patch.object(progressbar, 'percentage', 80.0):
-        assert condition_func()
-    with patch.object(progressbar, 'percentage', 70.0):
-        assert not condition_func()
-
+    progressbar._mock_percentage = 80.0
+    assert condition_func()
+    progressbar._mock_percentage = 70.0
+    assert not condition_func()
 
 def test_progressbar_wait_until_percentage_invalid(progressbar):
     """Test waiting for invalid percentage value."""
@@ -165,16 +172,14 @@ def test_progressbar_wait_until_percentage_invalid(progressbar):
         progressbar.wait_until_percentage(-10.0)
 
 
-def test_progressbar_wait_until_status(progressbar, mock_session):
-    """Test waiting for specific status text."""
+def test_progressbar_wait_until_status(mock_progressbar_element, mock_session):
+    """Test waiting for specific status text (без patch.object, через double)."""
+    progressbar = ProgressBarMock(mock_progressbar_element, mock_session, status_text='Completed')
     target_status = 'Completed'
     assert progressbar.wait_until_status(target_status, timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different status texts
-    with patch.object(progressbar, 'status_text', 'Completed'):
-        assert condition_func()
-    with patch.object(progressbar, 'status_text', 'Processing...'):
-        assert not condition_func()
+    progressbar._mock_status_text = 'Completed'
+    assert condition_func()
+    progressbar._mock_status_text = 'Processing...'
+    assert not condition_func()

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.checkbox import CheckBox
 
 
@@ -19,6 +19,35 @@ def mock_native_element():
 def checkbox(mock_native_element, mock_session):
     return CheckBox(mock_native_element, mock_session)
 
+class CheckBoxMock(CheckBox):
+    def __init__(self, native_element, session, checked=False):
+        super().__init__(native_element, session)
+        self._mock_checked = checked
+    @property
+    def is_checked(self):
+        return self._mock_checked
+
+class TestCheckBoxProperty:
+    def setup_method(self):
+        self.checkbox = CheckBox(MagicMock(), MagicMock())
+
+    def test_is_checked_setter(self):
+        self.checkbox._element.get_property.return_value = False
+        self.checkbox.click = MagicMock()
+        self.checkbox.is_checked = True
+        self.checkbox.click.assert_called_once()
+        # Если уже True, click не вызывается
+        self.checkbox.click.reset_mock()
+        self.checkbox._element.get_property.return_value = True
+        self.checkbox.is_checked = True
+        self.checkbox.click.assert_not_called()
+
+    def test_is_checked_deleter(self):
+        try:
+            del self.checkbox.is_checked
+        except AttributeError as e:
+            assert "Cannot delete is_checked property" in str(e)
+
 def test_init(checkbox, mock_native_element, mock_session):
     """Test checkbox initialization."""
     assert checkbox._element == mock_native_element
@@ -29,11 +58,11 @@ def test_is_checked(checkbox, mock_native_element):
     assert not checkbox.is_checked
     mock_native_element.get_property.assert_called_with('checked')
 
-def test_check_when_unchecked(checkbox):
-    """Test checking an unchecked checkbox."""
-    with patch.object(checkbox, 'is_checked', False):
-        checkbox.check()
-        checkbox._element.click.assert_called_once()
+def test_check_when_unchecked(mock_native_element, mock_session):
+    """Test checking an unchecked checkbox (без patch.object, через double)."""
+    checkbox = CheckBoxMock(mock_native_element, mock_session, checked=False)
+    checkbox.check()
+    mock_native_element.click.assert_called_once()
 
 def test_check_when_already_checked(checkbox, mock_native_element):
     """Test checking an already checked checkbox."""
@@ -58,26 +87,24 @@ def test_toggle(checkbox):
     checkbox.toggle()
     checkbox._element.click.assert_called_once()
 
-def test_wait_until_checked(checkbox, mock_session):
-    """Test waiting for checkbox to become checked."""
+def test_wait_until_checked(mock_native_element, mock_session):
+    """Test waiting for checkbox to become checked (без patch.object, через double)."""
+    checkbox = CheckBoxMock(mock_native_element, mock_session, checked=True)
     assert checkbox.wait_until_checked(timeout=5)
     mock_session.wait_for_condition.assert_called_once()
-    
-    # Verify the condition function
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    with patch.object(checkbox, 'is_checked', True):
-        assert condition_func()
-    with patch.object(checkbox, 'is_checked', False):
-        assert not condition_func()
+    checkbox._mock_checked = True
+    assert condition_func()
+    checkbox._mock_checked = False
+    assert not condition_func()
 
-def test_wait_until_unchecked(checkbox, mock_session):
-    """Test waiting for checkbox to become unchecked."""
+def test_wait_until_unchecked(mock_native_element, mock_session):
+    """Test waiting for checkbox to become unchecked (без patch.object, через double)."""
+    checkbox = CheckBoxMock(mock_native_element, mock_session, checked=False)
     assert checkbox.wait_until_unchecked(timeout=5)
     mock_session.wait_for_condition.assert_called_once()
-    
-    # Verify the condition function
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    with patch.object(checkbox, 'is_checked', True):
-        assert not condition_func()
-    with patch.object(checkbox, 'is_checked', False):
-        assert condition_func()
+    checkbox._mock_checked = True
+    assert not condition_func()
+    checkbox._mock_checked = False
+    assert condition_func()

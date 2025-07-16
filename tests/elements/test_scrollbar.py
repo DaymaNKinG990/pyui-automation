@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.scrollbar import ScrollBar
 
 
@@ -200,46 +200,45 @@ def test_scrollbar_is_at_end(scrollbar, mock_scrollbar_element):
     assert scrollbar.is_at_end()
 
 
-def test_scrollbar_wait_until_value(scrollbar, mock_session):
-    """Test waiting for specific scroll value."""
+class ScrollBarMock(ScrollBar):
+    def __init__(self, native_element, session, value=50.0):
+        super().__init__(native_element, session)
+        self._mock_value = value
+    @property
+    def value(self):
+        return self._mock_value
+
+def test_scrollbar_wait_until_value(mock_scrollbar_element, mock_session):
+    """Test waiting for specific scroll value (без patch.object, через double)."""
+    scrollbar = ScrollBarMock(mock_scrollbar_element, mock_session, value=75.0)
     assert scrollbar.wait_until_value(75.0, timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different values
-    with patch.object(scrollbar, 'value', 75.0):
-        assert condition_func()
-    with patch.object(scrollbar, 'value', 50.0):
-        assert not condition_func()
-    # Test with close enough value (within 0.001)
-    with patch.object(scrollbar, 'value', 75.0005):
-        assert condition_func()
+    scrollbar._mock_value = 75.0
+    assert condition_func()
+    scrollbar._mock_value = 50.0
+    assert not condition_func()
+    scrollbar._mock_value = 75.0005
+    assert condition_func()
 
-
-def test_scrollbar_wait_until_at_start(scrollbar, mock_session):
-    """Test waiting until scrolled to start."""
+def test_scrollbar_wait_until_at_start(mock_scrollbar_element, mock_session):
+    """Test waiting until scrolled to start (без patch.object, через double)."""
+    scrollbar = ScrollBarMock(mock_scrollbar_element, mock_session, value=0.0)
     assert scrollbar.wait_until_at_start(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different positions
-    with patch.object(scrollbar, 'value', 0.0):
-        assert condition_func()
-    with patch.object(scrollbar, 'value', 50.0):
-        assert not condition_func()
+    scrollbar._mock_value = 0.0
+    assert condition_func()
+    scrollbar._mock_value = 50.0
+    assert not condition_func()
 
-
-def test_scrollbar_wait_until_at_end(scrollbar, mock_session):
-    """Test waiting until scrolled to end."""
+def test_scrollbar_wait_until_at_end(mock_scrollbar_element, mock_session):
+    """Test waiting until scrolled to end (без patch.object, через double)."""
+    scrollbar = ScrollBarMock(mock_scrollbar_element, mock_session, value=100.0)
     assert scrollbar.wait_until_at_end(timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different positions
-    with patch.object(scrollbar, 'value', 100.0):
-        assert condition_func()
-    with patch.object(scrollbar, 'value', 50.0):
-        assert not condition_func()
+    scrollbar._mock_value = 100.0
+    assert condition_func()
+    scrollbar._mock_value = 50.0
+    assert not condition_func()

@@ -1,5 +1,8 @@
-from typing import Optional, Any
+from typing import Any, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class CheckBox(UIElement):

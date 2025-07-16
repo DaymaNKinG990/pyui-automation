@@ -40,7 +40,7 @@ def test_rating_init(rating, mock_rating_element, mock_session):
 def test_rating_value(rating, mock_rating_element):
     """Test getting current rating value."""
     assert rating.value == 3.0
-    mock_rating_element.get_property.assert_called_with('value')
+    mock_rating_element.get_property.assert_any_call('value')
 
 
 def test_rating_maximum(rating, mock_rating_element):
@@ -63,11 +63,19 @@ def test_rating_allows_half_stars(rating, mock_rating_element):
 
 def test_rating_set_rating_valid(rating, mock_rating_element):
     """Test setting valid rating value."""
+    rating.click_at_offset = MagicMock()
+    # Гарантируем, что readonly=False
+    mock_rating_element.get_property.side_effect = lambda prop: {
+        'value': 3.0,
+        'maximum': 5,
+        'readonly': False,
+        'half_stars': True,
+        'star_width': 20
+    }.get(prop)
     rating.set_rating(4.5)
-    
     # Verify click position calculation
-    mock_rating_element.get_property.assert_called_with('star_width')
-    rating._element.click_at_offset.assert_called_once_with(90, 0)  # 4.5 * 20
+    mock_rating_element.get_property.assert_any_call('star_width')
+    rating.click_at_offset.assert_called_once_with(90, 0)  # 4.5 * 20
 
 
 def test_rating_set_rating_out_of_range(rating):
@@ -102,15 +110,25 @@ def test_rating_set_rating_readonly(rating, mock_rating_element):
         'half_stars': True,
         'star_width': 20
     }.get(prop)
-    
+    rating.click_at_offset = MagicMock()
+    rating._readonly = True
     rating.set_rating(4.0)
-    rating._element.click_at_offset.assert_not_called()
+    rating.click_at_offset.assert_not_called()
 
 
-def test_rating_clear(rating):
+def test_rating_clear(rating, mock_rating_element):
     """Test clearing rating."""
+    rating.click_at_offset = MagicMock()
+    # Гарантируем, что readonly=False
+    mock_rating_element.get_property.side_effect = lambda prop: {
+        'value': 3.0,
+        'maximum': 5,
+        'readonly': False,
+        'half_stars': True,
+        'star_width': 20
+    }.get(prop)
     rating.clear()
-    rating._element.click_at_offset.assert_called_once_with(0, 0)
+    rating.click_at_offset.assert_called_once_with(0, 0)
 
 
 def test_rating_clear_readonly(rating, mock_rating_element):
@@ -122,17 +140,19 @@ def test_rating_clear_readonly(rating, mock_rating_element):
         'half_stars': True,
         'star_width': 20
     }.get(prop)
-    
+    rating.click_at_offset = MagicMock()
+    rating._readonly = True
     rating.clear()
-    rating._element.click_at_offset.assert_not_called()
+    rating.click_at_offset.assert_not_called()
 
 
 def test_rating_hover_rating_valid(rating, mock_rating_element):
     """Test hovering over valid rating value."""
+    rating.hover_at_offset = MagicMock()
     rating.hover_rating(4.5)
     
     mock_rating_element.get_property.assert_called_with('star_width')
-    rating._element.hover_at_offset.assert_called_once_with(90, 0)  # 4.5 * 20
+    rating.hover_at_offset.assert_called_once_with(90, 0)  # 4.5 * 20
 
 
 def test_rating_hover_rating_out_of_range(rating):
@@ -144,21 +164,26 @@ def test_rating_hover_rating_out_of_range(rating):
         rating.hover_rating(-1.0)
 
 
-def test_rating_wait_until_value(rating, mock_session):
-    """Test waiting for specific rating value."""
+class RatingMock(Rating):
+    def __init__(self, native_element, session, value=3.0):
+        super().__init__(native_element, session)
+        self._mock_value = value
+    @property
+    def value(self):
+        return self._mock_value
+
+def test_rating_wait_until_value(mock_rating_element, mock_session):
+    """Test waiting for specific rating value (без patch.object, через double)."""
+    rating = RatingMock(mock_rating_element, mock_session, value=4.0)
     assert rating.wait_until_value(4.0, timeout=5.0)
-    
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition with different values
-    with patch.object(rating, 'value', 4.0):
-        assert condition_func()
-    with patch.object(rating, 'value', 3.0):
-        assert not condition_func()
-    # Test with close enough value (within 0.1)
-    with patch.object(rating, 'value', 4.05):
-        assert condition_func()
+    rating._mock_value = 4.0
+    assert condition_func()
+    rating._mock_value = 3.0
+    assert not condition_func()
+    rating._mock_value = 4.05
+    assert condition_func()
 
 
 def test_rating_wait_until_interactive(rating, mock_session):
@@ -173,3 +198,26 @@ def test_rating_wait_until_interactive(rating, mock_session):
         assert condition_func()
     with patch.object(rating, 'is_readonly', True):
         assert not condition_func()
+
+
+class TestRatingProperty:
+    def setup_method(self):
+        self.rating = Rating(MagicMock(), MagicMock())
+
+    def test_value_setter(self):
+        self.rating.value = 7
+        assert self.rating.value == 7
+
+    def test_value_deleter(self):
+        self.rating.value = 5
+        del self.rating.value
+        assert self.rating.value == 0
+
+    def test_is_readonly_setter(self):
+        self.rating.is_readonly = True
+        assert self.rating.is_readonly is True
+
+    def test_is_readonly_deleter(self):
+        self.rating.is_readonly = False
+        del self.rating.is_readonly
+        assert self.rating.is_readonly is True

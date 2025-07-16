@@ -129,3 +129,173 @@ def test_get_attribute(backend, mock_element):
     assert value == "AXButton"
     value = backend._get_attribute(mock_element, "NonExistentAttribute")
     assert value is None
+
+def test_check_accessibility_all_ok(monkeypatch):
+    backend = MacOSBackend()
+    element = MagicMock()
+    element.AXRole.return_value = "AXButton"
+    element.AXTitle.return_value = "Test"
+    element.AXHelp.return_value = "Help"
+    element.AXEnabled.return_value = True
+    element.AXFocused.return_value = True
+    element.AXPosition.return_value = (0, 0)
+    element.AXSize.return_value = (100, 50)
+    issues = backend.check_accessibility(element)
+    assert issues == {}
+
+def test_check_accessibility_role_unknown(monkeypatch):
+    backend = MacOSBackend()
+    element = MagicMock()
+    element.AXRole.return_value = "AXUnknown"
+    element.AXTitle.return_value = "Test"
+    element.AXHelp.return_value = "Help"
+    element.AXEnabled.return_value = True
+    element.AXFocused.return_value = True
+    element.AXPosition.return_value = (0, 0)
+    element.AXSize.return_value = (100, 50)
+    issues = backend.check_accessibility(element)
+    assert "role" in issues
+
+def test_check_accessibility_missing_title(monkeypatch):
+    backend = MacOSBackend()
+    element = MagicMock()
+    element.AXRole.return_value = "AXButton"
+    element.AXTitle.return_value = ""
+    element.AXHelp.return_value = "Help"
+    element.AXEnabled.return_value = True
+    element.AXFocused.return_value = True
+    element.AXPosition.return_value = (0, 0)
+    element.AXSize.return_value = (100, 50)
+    issues = backend.check_accessibility(element)
+    assert "missing_title" in issues
+
+def test_check_accessibility_missing_help(monkeypatch):
+    backend = MacOSBackend()
+    element = MagicMock()
+    element.AXRole.return_value = "AXButton"
+    element.AXTitle.return_value = "Test"
+    element.AXHelp.return_value = ""
+    element.AXEnabled.return_value = True
+    element.AXFocused.return_value = True
+    element.AXPosition.return_value = (0, 0)
+    element.AXSize.return_value = (100, 50)
+    issues = backend.check_accessibility(element)
+    assert "missing_help" in issues
+
+def test_check_accessibility_disabled(monkeypatch):
+    backend = MacOSBackend()
+    element = MagicMock()
+    element.AXRole.return_value = "AXButton"
+    element.AXTitle.return_value = "Test"
+    element.AXHelp.return_value = "Help"
+    element.AXEnabled.return_value = False
+    element.AXFocused.return_value = True
+    element.AXPosition.return_value = (0, 0)
+    element.AXSize.return_value = (100, 50)
+    issues = backend.check_accessibility(element)
+    assert "disabled" in issues
+
+def test_check_accessibility_not_focused(monkeypatch):
+    backend = MacOSBackend()
+    element = MagicMock()
+    element.AXRole.return_value = "AXButton"
+    element.AXTitle.return_value = "Test"
+    element.AXHelp.return_value = "Help"
+    element.AXEnabled.return_value = True
+    element.AXFocused.return_value = False
+    element.AXPosition.return_value = (0, 0)
+    element.AXSize.return_value = (100, 50)
+    issues = backend.check_accessibility(element)
+    assert "focus" in issues
+
+def test_check_accessibility_missing_bounds(monkeypatch):
+    backend = MacOSBackend()
+    element = MagicMock()
+    element.AXRole.return_value = "AXButton"
+    element.AXTitle.return_value = "Test"
+    element.AXHelp.return_value = "Help"
+    element.AXEnabled.return_value = True
+    element.AXFocused.return_value = True
+    element.AXPosition.return_value = None
+    element.AXSize.return_value = None
+    issues = backend.check_accessibility(element)
+    assert "bounds" in issues
+
+def test_check_accessibility_error(monkeypatch):
+    backend = MacOSBackend()
+    # Передаём None, чтобы вызвать ошибку
+    issues = backend.check_accessibility(None)
+    assert "error" in issues
+
+def test_capture_screenshot(backend, monkeypatch):
+    monkeypatch.setattr('PIL.Image.frombytes', lambda *a, **k: MagicMock(size=(10, 10)))
+    import numpy as np
+    monkeypatch.setattr(np, 'array', lambda img: np.zeros((10, 10, 4)))
+    monkeypatch.setattr('Quartz.CGWindowListCreateImage', lambda *a, **k: MagicMock())
+    monkeypatch.setattr('Quartz.CGImageGetWidth', lambda img: 10)
+    monkeypatch.setattr('Quartz.CGImageGetHeight', lambda img: 10)
+    monkeypatch.setattr('Quartz.CGDataProviderCopyData', lambda provider: b'\x00' * (10*10*4))
+    monkeypatch.setattr('Quartz.CGImageGetDataProvider', lambda img: MagicMock())
+    arr = backend.capture_screenshot()
+    assert arr.shape == (10, 10, 4)
+
+def test_capture_screenshot_error(backend, monkeypatch):
+    monkeypatch.setattr('Quartz.CGWindowListCreateImage', lambda *a, **kw: (_ for _ in ()).throw(Exception()))
+    assert backend.capture_screenshot() is None
+
+def test_get_window_handle(backend, monkeypatch):
+    app = MagicMock()
+    app.localizedName.return_value = 'TestApp'
+    ws = MagicMock()
+    ws.frontmostApplication.return_value = app
+    monkeypatch.setattr('AppKit.NSWorkspace.sharedWorkspace', lambda: ws)
+    window = { 'kCGWindowOwnerName': 'TestApp', 'kCGWindowNumber': 42 }
+    monkeypatch.setattr('Quartz.CGWindowListCopyWindowInfo', lambda *a, **k: [window])
+    monkeypatch.setattr('Quartz.kCGWindowListOptionOnScreenOnly', 1)
+    monkeypatch.setattr('Quartz.kCGWindowListExcludeDesktopElements', 2)
+    monkeypatch.setattr('Quartz.kCGNullWindowID', 0)
+    assert backend.get_window_handle() == 42
+    # По pid
+    window2 = { 'kCGWindowOwnerPID': 123, 'kCGWindowNumber': 99 }
+    monkeypatch.setattr('Quartz.CGWindowListCopyWindowInfo', lambda *a, **k: [window2])
+    monkeypatch.setattr('Quartz.kCGWindowListOptionAll', 3)
+    assert backend.get_window_handle(pid=123) == 99
+
+def test_get_window_handle_error(backend, monkeypatch):
+    monkeypatch.setattr('Quartz.CGWindowListCopyWindowInfo', lambda *a, **kw: (_ for _ in ()).throw(Exception()))
+    assert backend.get_window_handle() is None
+
+def test_get_window_handles(backend, monkeypatch):
+    app = MagicMock()
+    app.isActive.return_value = True
+    app.processIdentifier.return_value = 1
+    ax_app = MagicMock()
+    ax_app.attributeValue_.return_value = [MagicMock(), MagicMock()]
+    backend.ax.applicationWithPID_ = MagicMock(return_value=ax_app)
+    ws = MagicMock()
+    ws.runningApplications.return_value = [app]
+    monkeypatch.setattr('AppKit.NSWorkspace.sharedWorkspace', lambda: ws)
+    handles = backend.get_window_handles()
+    assert len(handles) == 2
+
+def test_get_window_handles_error(backend, monkeypatch):
+    monkeypatch.setattr('Quartz.CGWindowListCopyWindowInfo', lambda *a, **kw: (_ for _ in ()).throw(Exception()))
+    assert backend.get_window_handles() == []
+
+def test_find_window(backend, monkeypatch):
+    backend.find_element = MagicMock(return_value='win')
+    assert backend.find_window('title') == 'win'
+
+def test_find_window_error(backend, monkeypatch):
+    monkeypatch.setattr(backend, 'find_element', lambda *a, **kw: (_ for _ in ()).throw(Exception()))
+    assert backend.find_window('Test') is None
+
+def test_cleanup(backend):
+    backend.ax = MagicMock()
+    backend.system = MagicMock()
+    backend.cleanup()
+    assert backend.ax is None
+    assert backend.system is None
+
+def test_set_ocr_languages(backend):
+    backend.set_ocr_languages(['eng', 'fra'])

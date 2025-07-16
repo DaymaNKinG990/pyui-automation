@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.colorpicker import ColorPicker
 
 
@@ -124,50 +124,83 @@ def test_select_preset_not_found(colorpicker):
     with pytest.raises(ValueError, match="Preset color 'NonexistentColor' not found"):
         colorpicker.select_preset('NonexistentColor')
 
-def test_wait_until_color_hex(colorpicker, mock_session):
-    """Test waiting for specific hex color."""
-    assert colorpicker.wait_until_color('#FF0000', timeout=5.0)
-    
-    mock_session.wait_for_condition.assert_called_once()
-    condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(colorpicker, 'color', '#FF0000'):
-        assert condition_func()
-    with patch.object(colorpicker, 'color', '#00FF00'):
-        assert not condition_func()
+class ColorPickerMock(ColorPicker):
+    def __init__(self, native_element, session, color='#FF0000', rgb=(255, 0, 0), expanded=False):
+        super().__init__(native_element, session)
+        self._mock_color = color
+        self._mock_rgb = rgb
+        self._mock_expanded = expanded
+    @property
+    def color(self):
+        return self._mock_color
+    @property
+    def rgb(self):
+        return self._mock_rgb
+    @property
+    def is_expanded(self):
+        return self._mock_expanded
 
-def test_wait_until_color_rgb(colorpicker, mock_session):
-    """Test waiting for specific RGB color."""
-    assert colorpicker.wait_until_color((255, 0, 0), timeout=5.0)
-    
+def test_wait_until_color_hex(mock_colorpicker_element, mock_session):
+    """Test waiting for specific hex color (без patch.object, через double)."""
+    picker = ColorPickerMock(mock_colorpicker_element, mock_session, color='#FF0000')
+    assert picker.wait_until_color('#FF0000', timeout=5.0)
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(colorpicker, 'rgb', (255, 0, 0)):
-        assert condition_func()
-    with patch.object(colorpicker, 'rgb', (0, 255, 0)):
-        assert not condition_func()
+    picker._mock_color = '#FF0000'
+    assert condition_func()
+    picker._mock_color = '#00FF00'
+    assert not condition_func()
 
-def test_wait_until_expanded(colorpicker, mock_session):
-    """Test waiting for color picker to expand."""
-    assert colorpicker.wait_until_expanded(timeout=5.0)
-    
+def test_wait_until_color_rgb(mock_colorpicker_element, mock_session):
+    """Test waiting for specific RGB color (без patch.object, через double)."""
+    picker = ColorPickerMock(mock_colorpicker_element, mock_session, rgb=(255, 0, 0))
+    assert picker.wait_until_color((255, 0, 0), timeout=5.0)
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(colorpicker, 'is_expanded', True):
-        assert condition_func()
-    with patch.object(colorpicker, 'is_expanded', False):
-        assert not condition_func()
+    picker._mock_rgb = (255, 0, 0)
+    assert condition_func()
+    picker._mock_rgb = (0, 255, 0)
+    assert not condition_func()
 
-def test_wait_until_collapsed(colorpicker, mock_session):
-    """Test waiting for color picker to collapse."""
-    assert colorpicker.wait_until_collapsed(timeout=5.0)
-    
+def test_wait_until_expanded(mock_colorpicker_element, mock_session):
+    """Test waiting for color picker to expand (без patch.object, через double)."""
+    picker = ColorPickerMock(mock_colorpicker_element, mock_session, expanded=True)
+    assert picker.wait_until_expanded(timeout=5.0)
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(colorpicker, 'is_expanded', True):
-        assert not condition_func()
-    with patch.object(colorpicker, 'is_expanded', False):
-        assert condition_func()
+    picker._mock_expanded = True
+    assert condition_func()
+    picker._mock_expanded = False
+    assert not condition_func()
+
+def test_wait_until_collapsed(mock_colorpicker_element, mock_session):
+    """Test waiting for color picker to collapse (без patch.object, через double)."""
+    picker = ColorPickerMock(mock_colorpicker_element, mock_session, expanded=False)
+    assert picker.wait_until_collapsed(timeout=5.0)
+    mock_session.wait_for_condition.assert_called_once()
+    condition_func = mock_session.wait_for_condition.call_args[0][0]
+    picker._mock_expanded = True
+    assert not condition_func()
+    picker._mock_expanded = False
+    assert condition_func()
+
+def test_color_deleter():
+    """Test deleting color property (deleter)."""
+    picker = ColorPicker(MagicMock(), MagicMock())
+    picker._color = '#ABCDEF'
+    del picker.color
+    assert hasattr(picker, '_color') and picker._color == '#000000'
+
+def test_rgb_deleter():
+    """Test deleting rgb property (deleter)."""
+    picker = ColorPicker(MagicMock(), MagicMock())
+    picker._rgb = (1, 2, 3)
+    del picker.rgb
+    assert hasattr(picker, '_rgb') and picker._rgb == (0, 0, 0)
+
+def test_is_expanded_deleter():
+    """Test deleting is_expanded property (deleter)."""
+    picker = ColorPicker(MagicMock(), MagicMock())
+    picker._is_expanded = True
+    del picker.is_expanded
+    assert hasattr(picker, '_is_expanded') and picker._is_expanded is False

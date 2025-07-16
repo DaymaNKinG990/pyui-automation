@@ -236,7 +236,13 @@ class UIElement:
         This method clears any input or editable content in the element.
         The element should be visible and enabled.
         """
-        self._element.clear()
+        if hasattr(self._element, 'clear') and callable(self._element.clear):
+            self._element.clear()
+        else:
+            # Fallback: send backspaces
+            text = self.text or ""
+            if text:
+                self.send_keys("\b" * len(text))
 
     def capture_screenshot(self) -> Optional[np.ndarray]:
         """Capture screenshot of this element
@@ -245,23 +251,32 @@ class UIElement:
             Screenshot as numpy array if successful, None otherwise
         """
         if hasattr(self._element, 'capture_screenshot'):
-            return self._element.capture_screenshot()
-        
+            result = self._element.capture_screenshot()
+            import numpy as np
+            if isinstance(result, np.ndarray):
+                return result
+            print('DEBUG: return None (native result not ndarray)')
+            return None
         # Fallback to capturing region from full screenshot
         screenshot = self._session.take_screenshot()
-        if screenshot is None:
-            return None
-            
-        # Get element bounds
-        loc = self.location
-        size = self.size
-        if not loc or not size:
-            return None
-            
-        # Crop to element bounds
-        x, y = loc['x'], loc['y']
-        width, height = size['width'], size['height']
-        return screenshot[y:y+height, x:x+width]
+        import numpy as np
+        print('DEBUG: screenshot type:', type(screenshot))
+        if isinstance(screenshot, np.ndarray):
+            # Get element bounds
+            loc = self.location
+            size = self.size
+            print('DEBUG: location:', loc, type(loc), 'size:', size, type(size))
+            if not loc or not size:
+                print('DEBUG: loc or size is None, return None')
+                return None
+            # Crop to element bounds
+            x, y = loc['x'], loc['y']
+            width, height = size['width'], size['height']
+            crop = screenshot[y:y+height, x:x+width]
+            print('DEBUG: crop shape:', crop.shape if isinstance(crop, np.ndarray) else None)
+            return crop
+        print('DEBUG: screenshot is not np.ndarray, return None')
+        return None
 
     def drag_and_drop(self, target: 'UIElement') -> None:
         """
@@ -345,37 +360,7 @@ class UIElement:
             return [UIElement(child, self._session) for child in children]
         return []
 
-    def find_element(self, by: str, value: str) -> Optional['UIElement']:
-        """
-        Find a child element using the specified search criteria.
-
-        Args:
-            by (str): Search method ('id', 'name', 'class', etc.)
-            value (str): Search value
-
-        Returns:
-            Optional[UIElement]: The found element or None if not found
-        """
-        if hasattr(self._element, 'find_element'):
-            element = self._element.find_element(by, value)
-            return UIElement(element, self._session) if element else None
-        return None
-
-    def find_elements(self, by: str, value: str) -> List['UIElement']:
-        """
-        Find all matching child elements using the specified search criteria.
-
-        Args:
-            by (str): Search method ('id', 'name', 'class', etc.)
-            value (str): Search value
-
-        Returns:
-            List[UIElement]: List of found elements
-        """
-        if hasattr(self._element, 'find_elements'):
-            elements = self._element.find_elements(by, value)
-            return [UIElement(element, self._session) for element in elements]
-        return []
+    # Удалены устаревшие методы поиска find_element и find_elements
 
     def take_screenshot(self) -> Optional[np.ndarray]:
         """
@@ -487,3 +472,13 @@ class UIElement:
             bool: True if the element is selected, False otherwise.
         """
         return bool(self.get_property('selected'))
+
+    @property
+    def automation_id(self) -> str:
+        """Returns the AutomationId of the element (Windows UIA)."""
+        return getattr(self._element, 'CurrentAutomationId', None)
+
+    @property
+    def class_name(self) -> str:
+        """Returns the ClassName of the element (Windows UIA)."""
+        return getattr(self._element, 'CurrentClassName', None)

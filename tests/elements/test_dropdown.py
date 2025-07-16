@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.dropdown import DropDown
 
 
@@ -44,63 +44,61 @@ def test_items(dropdown, mock_native_element):
     assert dropdown.items == ['Option 1', 'Option 2', 'Option 3']
     mock_native_element.get_property.assert_called_with('items')
 
-def test_expand_when_collapsed(dropdown):
-    """Test expanding a collapsed dropdown."""
-    with patch.object(dropdown, 'is_expanded', False):
-        dropdown.expand()
-        dropdown._element.click.assert_called_once()
+class DropDownMock(DropDown):
+    def __init__(self, native_element, session, expanded=False):
+        super().__init__(native_element, session)
+        self._mock_expanded = expanded
+    @property
+    def is_expanded(self):
+        return self._mock_expanded
 
-def test_expand_when_already_expanded(dropdown):
-    """Test expanding an already expanded dropdown."""
-    with patch.object(dropdown, 'is_expanded', True):
-        dropdown.expand()
-        dropdown._element.click.assert_not_called()
+def test_expand_when_collapsed(mock_native_element, mock_session):
+    """Test expanding a collapsed dropdown (без patch.object, через double)."""
+    dropdown = DropDownMock(mock_native_element, mock_session, expanded=False)
+    dropdown.expand()
+    mock_native_element.click.assert_called_once()
 
-def test_collapse_when_expanded(dropdown):
-    """Test collapsing an expanded dropdown."""
-    with patch.object(dropdown, 'is_expanded', True):
-        dropdown.collapse()
-        dropdown._element.click.assert_called_once()
+def test_expand_when_already_expanded(mock_native_element, mock_session):
+    """Test expanding an already expanded dropdown (без patch.object, через double)."""
+    dropdown = DropDownMock(mock_native_element, mock_session, expanded=True)
+    dropdown.expand()
+    mock_native_element.click.assert_not_called()
 
-def test_collapse_when_already_collapsed(dropdown):
-    """Test collapsing an already collapsed dropdown."""
-    with patch.object(dropdown, 'is_expanded', False):
-        dropdown.collapse()
-        dropdown._element.click.assert_not_called()
+def test_collapse_when_expanded(mock_native_element, mock_session):
+    """Test collapsing an expanded dropdown (без patch.object, через double)."""
+    dropdown = DropDownMock(mock_native_element, mock_session, expanded=True)
+    dropdown.collapse()
+    mock_native_element.click.assert_called_once()
 
-def test_select_item_success(dropdown, mock_session):
-    """Test selecting an item successfully."""
+def test_collapse_when_already_collapsed(mock_native_element, mock_session):
+    """Test collapsing an already collapsed dropdown (без patch.object, через double)."""
+    dropdown = DropDownMock(mock_native_element, mock_session, expanded=False)
+    dropdown.collapse()
+    mock_native_element.click.assert_not_called()
+
+def test_select_item_success(mock_native_element, mock_session):
+    """Test selecting an item successfully (без patch.object, через double)."""
     mock_item = MagicMock()
     mock_session.find_element.return_value = mock_item
-    
-    with patch.object(dropdown, 'is_expanded', False):
-        dropdown.select_item('Option 2')
-        
-        # Should expand if collapsed
-        dropdown._element.click.assert_called_once()
-        
-        # Should find and click the item
-        mock_session.find_element.assert_called_once_with(
-            by="name",
-            value='Option 2',
-            parent=dropdown._element
-        )
-        mock_item.click.assert_called_once()
+    dropdown = DropDownMock(mock_native_element, mock_session, expanded=False)
+    dropdown.select_item('Option 2')
+    mock_native_element.click.assert_called_once()
+    mock_session.find_element.assert_called_once_with(
+        by="name",
+        value='Option 2',
+        parent=dropdown._element
+    )
+    mock_item.click.assert_called_once()
 
-def test_select_item_already_expanded(dropdown, mock_session):
-    """Test selecting an item when dropdown is already expanded."""
+def test_select_item_already_expanded(mock_native_element, mock_session):
+    """Test selecting an item when dropdown is already expanded (без patch.object, через double)."""
     mock_item = MagicMock()
     mock_session.find_element.return_value = mock_item
-    
-    with patch.object(dropdown, 'is_expanded', True):
-        dropdown.select_item('Option 2')
-        
-        # Should not expand if already expanded
-        dropdown._element.click.assert_not_called()
-        
-        # Should find and click the item
-        mock_session.find_element.assert_called_once()
-        mock_item.click.assert_called_once()
+    dropdown = DropDownMock(mock_native_element, mock_session, expanded=True)
+    dropdown.select_item('Option 2')
+    mock_native_element.click.assert_not_called()
+    mock_session.find_element.assert_called_once()
+    mock_item.click.assert_called_once()
 
 def test_select_item_not_found(dropdown, mock_session):
     """Test selecting a non-existent item."""
@@ -109,39 +107,82 @@ def test_select_item_not_found(dropdown, mock_session):
     with pytest.raises(ValueError, match="Item 'Invalid Option' not found in dropdown"):
         dropdown.select_item('Invalid Option')
 
-def test_wait_until_expanded(dropdown, mock_session):
-    """Test waiting for dropdown to expand."""
+def test_wait_until_expanded(mock_native_element, mock_session):
+    """Test waiting for dropdown to expand (без patch.object, через double)."""
+    dropdown = DropDownMock(mock_native_element, mock_session, expanded=True)
     assert dropdown.wait_until_expanded(timeout=5)
     mock_session.wait_for_condition.assert_called_once()
-    
-    # Verify the condition function
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    with patch.object(dropdown, 'is_expanded', True):
-        assert condition_func()
-    with patch.object(dropdown, 'is_expanded', False):
-        assert not condition_func()
+    dropdown._mock_expanded = True
+    assert condition_func()
+    dropdown._mock_expanded = False
+    assert not condition_func()
 
-def test_wait_until_collapsed(dropdown, mock_session):
-    """Test waiting for dropdown to collapse."""
-    # Устанавливаем начальное состояние
-    mock_session.wait_for_condition.return_value = True
-    
-    # Проверяем ожидание
+def test_wait_until_collapsed(mock_native_element, mock_session):
+    """Test waiting for dropdown to collapse (без patch.object, через double)."""
+    dropdown = DropDownMock(mock_native_element, mock_session, expanded=False)
     assert dropdown.wait_until_collapsed()
-    
-    # Проверяем, что wait_for_condition был вызван с правильными параметрами
     mock_session.wait_for_condition.assert_called_once()
     condition = mock_session.wait_for_condition.call_args[0][0]
-    assert not condition()  # Проверяем, что условие возвращает False для collapsed state
+    dropdown._mock_expanded = True
+    assert not condition()
+    dropdown._mock_expanded = False
+    assert condition()
 
 def test_wait_until_item_selected(dropdown, mock_session):
     """Test waiting for specific item to be selected."""
-    assert dropdown.wait_until_item_selected('Option 2', timeout=5)
+    class DropDownDouble(DropDown):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._mock_selected = 'Option 2'
+        @property
+        def selected_item(self):
+            return self._mock_selected
+        @selected_item.setter
+        def selected_item(self, value):
+            self._mock_selected = value
+    dd = DropDownDouble(dropdown._element, dropdown._session)
+    assert dd.wait_until_item_selected('Option 2', timeout=5)
     mock_session.wait_for_condition.assert_called_once()
-    
-    # Verify the condition function
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    with patch.object(dropdown, 'selected_item', 'Option 2'):
-        assert condition_func()
-    with patch.object(dropdown, 'selected_item', 'Option 1'):
-        assert not condition_func()
+    dd.selected_item = 'Option 2'
+    assert condition_func()
+    dd.selected_item = 'Option 1'
+    assert not condition_func()
+
+def test_is_expanded_setter():
+    class DropDownDouble(DropDown):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._mock_expanded = False
+        @property
+        def is_expanded(self):
+            return self._mock_expanded
+        @is_expanded.setter
+        def is_expanded(self, value):
+            self._mock_expanded = value
+            self.click()
+    dropdown = DropDownDouble(MagicMock(), MagicMock())
+    dropdown.click = MagicMock()
+    dropdown.is_expanded = True
+    dropdown.click.assert_called_once()
+
+def test_is_expanded_deleter():
+    dropdown = DropDown(MagicMock(), MagicMock())
+    try:
+        del dropdown.is_expanded
+    except AttributeError as e:
+        assert "Cannot delete is_expanded property" in str(e)
+
+def test_selected_item_setter():
+    dropdown = DropDown(MagicMock(), MagicMock())
+    dropdown.select_item = MagicMock()
+    dropdown.selected_item = 'Option X'
+    dropdown.select_item.assert_called_once_with('Option X')
+
+def test_selected_item_deleter():
+    dropdown = DropDown(MagicMock(), MagicMock())
+    try:
+        del dropdown.selected_item
+    except AttributeError as e:
+        assert "Cannot delete selected_item property" in str(e)

@@ -1,5 +1,8 @@
-from typing import Optional, Any, Tuple
+from typing import Any, Tuple, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class Tooltip(UIElement):

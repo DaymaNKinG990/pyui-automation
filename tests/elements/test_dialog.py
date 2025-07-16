@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.dialog import Dialog
 
 
@@ -92,52 +92,68 @@ def test_click_button_not_found(dialog):
 
 def test_close(dialog, mock_dialog_element):
     """Test closing dialog."""
+    mock_close = MagicMock()
+    mock_dialog_element.find_element_by_object_name = MagicMock(return_value=mock_close)
     dialog.close()
-    mock_dialog_element.find_element.assert_called_with(by="name", value="Close")
+    mock_close.click.assert_called_once()
+
 
 def test_get_content_text(dialog, mock_dialog_element):
     """Test getting dialog content text."""
+    mock_content = MagicMock()
+    mock_content.get_property.return_value = "Dialog content"
+    mock_dialog_element.find_element_by_widget_type = lambda *a, **kw: mock_content
     assert dialog.get_content_text() == "Dialog content"
-    mock_dialog_element.find_element.assert_called_with(by="type", value="content")
+
 
 def test_get_content_text_none(dialog, mock_dialog_element):
     """Test getting content text when none exists."""
-    mock_dialog_element.find_element.side_effect = lambda by, value: None if value == "content" else MagicMock()
+    mock_dialog_element.find_element_by_widget_type = lambda *a, **kw: None
     assert dialog.get_content_text() == ""
+
 
 def test_get_message(dialog, mock_dialog_element):
     """Test getting dialog message text."""
+    mock_message = MagicMock()
+    mock_message.get_property.return_value = "Dialog message"
+    mock_dialog_element.find_element_by_widget_type = lambda *a, **kw: mock_message
     assert dialog.get_message() == "Dialog message"
-    mock_dialog_element.find_element.assert_called_with(by="type", value="message")
+
 
 def test_get_message_none(dialog, mock_dialog_element):
     """Test getting message when none exists."""
-    mock_dialog_element.find_element.side_effect = lambda by, value: None if value == "message" else MagicMock()
+    mock_dialog_element.find_element_by_widget_type = lambda *a, **kw: None
     assert dialog.get_message() is None
 
-def test_wait_until_open(dialog, mock_session):
-    """Test waiting for dialog to open."""
-    assert dialog.wait_until_open(timeout=5.0)
-    
-    mock_session.wait_for_condition.assert_called_once()
-    condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(dialog, 'is_visible', True):
-        assert condition_func()
-    with patch.object(dialog, 'is_visible', False):
-        assert not condition_func()
+class DialogMock(Dialog):
+    def __init__(self, native_element, session, visible=True):
+        super().__init__(native_element, session)
+        self._mock_visible = visible
+    @property
+    def is_visible(self):
+        return self._mock_visible
 
-def test_wait_until_closed(dialog, mock_session):
-    """Test waiting for dialog to close."""
-    assert dialog.wait_until_closed(timeout=5.0)
-    
+def test_wait_until_open(mock_dialog_element, mock_session):
+    """Test waiting for dialog to open (без patch.object, через double)."""
+    dialog = DialogMock(mock_dialog_element, mock_session, visible=True)
+    assert dialog.wait_until_open(timeout=5.0)
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    with patch.object(dialog, 'is_visible', True):
-        assert not condition_func()
-    with patch.object(dialog, 'is_visible', False):
-        assert condition_func()
+    dialog._mock_visible = True
+    assert condition_func()
+    dialog._mock_visible = False
+    assert not condition_func()
+
+def test_wait_until_closed(mock_dialog_element, mock_session):
+    """Test waiting for dialog to close (без patch.object, через double)."""
+    dialog = DialogMock(mock_dialog_element, mock_session, visible=False)
+    assert dialog.wait_until_closed(timeout=5.0)
+    mock_session.wait_for_condition.assert_called_once()
+    condition_func = mock_session.wait_for_condition.call_args[0][0]
+    dialog._mock_visible = True
+    assert not condition_func()
+    dialog._mock_visible = False
+    assert condition_func()
 
 def test_wait_until_button_enabled(dialog, mock_session):
     """Test waiting for button to become enabled."""

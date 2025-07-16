@@ -133,3 +133,37 @@ def test_exception_with_nested_data():
     
     assert str(exc.value) == "Wrapped error"
     assert exc.value.__cause__ == original_error
+
+def test_exception_no_message():
+    exc = AutomationError()
+    assert str(exc) == ""
+    assert exc.args == ()
+    exc2 = ElementNotFoundError()
+    assert str(exc2) == ""
+    assert exc2.args == ()
+
+def test_exception_non_string_message():
+    exc = AutomationError(123)
+    assert str(exc) == "123"
+    exc2 = ElementNotFoundError({'a': 1})
+    assert str(exc2) == "{'a': 1}"
+    assert exc2.args[0] == {'a': 1}
+
+def test_exception_pickle():
+    import pickle
+    exc = AutomationError("msg")
+    data = pickle.dumps(exc)
+    exc2 = pickle.loads(data)
+    assert isinstance(exc2, AutomationError)
+    assert str(exc2) == "msg"
+
+def test_exception_cause_context():
+    try:
+        try:
+            raise ValueError("inner")
+        except ValueError as e:
+            raise AutomationError("outer") from e
+    except AutomationError as exc:
+        assert isinstance(exc.__cause__, ValueError)
+        assert exc.__context__ is exc.__cause__
+        assert str(exc) == "outer"

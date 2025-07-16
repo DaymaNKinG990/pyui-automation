@@ -1,183 +1,82 @@
 # Game UI Automation Guide
 
-This guide covers how to use PyUI Automation for game testing and automation, with a focus on UI elements and game-specific features.
+Этот гайд описывает использование PyUI Automation для тестирования и автоматизации игровых UI, с акцентом на работу с элементами и интеграцию с core API.
 
-## Table of Contents
-- [Basic Setup](#basic-setup)
-- [Game UI Elements](#game-ui-elements)
-  - [Health & Resource Bars](#health--resource-bars)
-  - [Skill & Action Bars](#skill--action-bars)
-  - [Inventory & Equipment](#inventory--equipment)
-  - [Maps & Navigation](#maps--navigation)
-  - [Social & Party Systems](#social--party-systems)
-  - [Quest & Achievement Tracking](#quest--achievement-tracking)
-- [Advanced Topics](#advanced-topics)
-
-## Basic Setup
+## Основы
 
 ```python
-from pyui_automation import Session
+from pyui_automation.core import AutomationSession
+from pyui_automation.core.factory import BackendFactory
 from pyui_automation.game_elements import (
-    HealthBar, 
-    SkillBar,
-    WorldMap,
-    InventorySlot
+    HealthBar, SkillBar, WorldMap, InventorySlot
 )
 
-# Create automation session
-session = Session()
+backend = BackendFactory.create_backend('windows')
+session = AutomationSession(backend)
 
-# Initialize game UI elements
+# Инициализация игровых UI-элементов
 health_bar = HealthBar(session)
 skill_bar = SkillBar(session)
 world_map = WorldMap(session)
 inventory = InventorySlot(session)
 ```
 
-## Game UI Elements
+## Примеры сценариев
 
-### Health & Resource Bars
-
-Monitor and interact with health, mana, and other resource bars:
-
+### Мониторинг здоровья
 ```python
-# Health bar interactions
 current_health = health_bar.current_value
 max_health = health_bar.max_value
-health_percent = health_bar.percentage
-
-# Check health status
 if health_bar.is_low():
-    use_health_potion()
+    # Использовать зелье
+    ...
 ```
 
-### Skill & Action Bars
-
-Manage skills, spells, and abilities:
-
+### Использование скиллов
 ```python
-# Use skills
-skill_bar.use_skill(1)  # Use first skill
-skill_bar.use_skill_by_name("Fireball")
-
-# Check cooldowns
-if not skill_bar.is_on_cooldown(2):
-    skill_bar.use_skill(2)
+if not skill_bar.is_on_cooldown(1):
+    skill_bar.use_skill(1)
 ```
 
-### Inventory & Equipment
-
-Handle inventory management and equipment:
-
+### Работа с инвентарём
 ```python
-# Inventory operations
 slot = inventory.get_slot(1, 1)
 if slot.is_empty():
     slot.place_item()
 else:
     item = slot.get_item()
     print(f"Found {item.name}")
-
-# Equipment management
-equipment.equip_item("Sword")
-equipment.unequip_slot("MainHand")
 ```
 
-### Maps & Navigation
-
-Work with world maps and navigation:
-
+### Работа с картой
 ```python
-# Map interactions
-current_pos = world_map.get_player_position()
+pos = world_map.get_player_position()
 world_map.set_waypoint(x=100, y=200)
-world_map.zoom(level=2)
-
-# Area detection
 if world_map.is_in_area("Safe Zone"):
     print("Player is in safe zone")
 ```
 
-### Social & Party Systems
-
-Manage social interactions and party mechanics:
-
+### Социальные функции
 ```python
-# Party management
-party = party_frame.get_party_members()
-for member in party:
+party = session.find_element_by_object_name("party_frame")
+for member in party.get_children():
     if member.health_percentage < 50:
-        heal_party_member(member)
-
-# Social features
-friends = social_panel.get_friends_list()
-social_panel.send_message("Hello!", target="Friend")
+        # Лечим участника
+        ...
 ```
 
-### Quest & Achievement Tracking
-
-Track quests and achievements:
-
+## Визуальное сравнение игровых элементов
 ```python
-# Quest tracking
-active_quests = quest_log.get_active_quests()
-for quest in active_quests:
-    if quest.is_complete():
-        quest.turn_in()
-
-# Achievement progress
-achievements = achievement_panel.get_achievements()
-for achievement in achievements:
-    print(f"{achievement.name}: {achievement.progress}%")
-```
-
-## Advanced Topics
-
-### Error Handling
-
-```python
-try:
-    skill_bar.use_skill(1)
-except ElementNotFoundError:
-    print("Skill bar not visible")
-except CooldownError:
-    print("Skill is on cooldown")
-```
-
-### Performance Optimization
-
-```python
-# Enable performance monitoring
-with session.measure_performance() as perf:
-    skill_bar.use_skill(1)
-    world_map.set_waypoint(x=100, y=200)
-    
-print(f"Actions took: {perf.duration}ms")
-```
-
-### Visual Verification
-
-```python
-# Verify UI element state
-if health_bar.verify_visual_state():
-    print("Health bar displayed correctly")
-
-# Compare with reference image
-if world_map.compare_with_reference("map_state.png", threshold=0.95):
-    print("Map state matches reference")
+session.init_visual_testing("visual_baseline/")
+session.capture_visual_baseline("health_bar")
+result = session.compare_visual("health_bar")
+if not result["match"]:
+    session.generate_visual_report("health_bar", result["differences"], "reports/")
 ```
 
 ## Best Practices
-
-1. Always handle errors and edge cases
-2. Use visual verification for critical UI elements
-3. Monitor performance metrics
-4. Implement cooldown and rate limiting
-5. Add randomization to prevent detection
-6. Keep logs for debugging
-
-## Next Steps
-
-- Explore [API Reference](./api_reference.md) for detailed documentation
-- Check [Advanced Topics](./advanced_topics.md) for more features
-- Read [Core Concepts](./core_concepts.md) for architecture details
+- Для игровых UI используйте специализированные классы из game_elements.
+- Для сложных сценариев комбинируйте визуальное сравнение и работу с координатами.
+- Для автоматизации действий используйте session.mouse и session.keyboard.
+- Для мониторинга состояния используйте свойства игровых элементов.
+- Для интеграции с core API всегда используйте AutomationSession и backend.

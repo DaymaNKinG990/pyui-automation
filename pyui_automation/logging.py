@@ -4,7 +4,23 @@ from pathlib import Path
 
 
 class AutomationLogger:
-    """Logger for UI Automation"""
+    """
+    Logger for UI Automation.
+
+    Унифицированный логгер для всей библиотеки. Поддерживает вывод в консоль и файл, настройку уровня логирования.
+    Используется во всех сервисах и компонентах.
+
+    Example usage:
+        from pyui_automation.logging import logger
+        logger.info("Start automation")
+        logger.error("Something went wrong")
+        logger.add_file_handler("automation.log")
+
+    Назначение:
+        - Централизованный лог
+        - Гибкая настройка вывода
+        - Использование во всех слоях
+    """
     
     def __init__(self, name: str = 'pyui_automation') -> None:
         """

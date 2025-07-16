@@ -35,6 +35,12 @@ def test_value(slider, mock_native_element):
     assert slider.value == 50.0
     mock_native_element.get_property.assert_called_with('value')
 
+def test_value_deleter(slider):
+    """Test deleting slider value (deleter)."""
+    slider._value = 42
+    del slider.value
+    assert slider._value == 0
+
 def test_minimum(slider, mock_native_element):
     """Test getting slider minimum value."""
     assert slider.minimum == 0.0
@@ -101,16 +107,28 @@ def test_decrement_near_minimum(slider, mock_native_element):
 
 def test_wait_until_value(slider, mock_session):
     """Test waiting for specific value."""
-    assert slider.wait_until_value(75.0, timeout=5.0)
-    
+    # Используем double-класс для подмены value
+    class SliderMock(Slider):
+        def __init__(self, native_element, session, value=50.0):
+            super().__init__(native_element, session)
+            self._mock_value = value
+        @property
+        def value(self):
+            return self._mock_value
+        @value.setter
+        def value(self, v):
+            self._mock_value = v
+        @property
+        def step(self):
+            return 1.0
+    slider_mock = SliderMock(slider._element, slider._session, value=75.0)
+    assert slider_mock.wait_until_value(75.0, timeout=5.0)
     mock_session.wait_for_condition.assert_called_once()
     condition_func = mock_session.wait_for_condition.call_args[0][0]
-    
-    # Test condition function
-    with patch.object(slider, 'value', 75.0):
-        assert condition_func()
-    with patch.object(slider, 'value', 70.0):
-        assert not condition_func()
+    slider_mock.value = 75.0
+    assert condition_func()
+    slider_mock.value = 70.0
+    assert not condition_func()
 
 def test_wait_until_minimum(slider):
     """Test waiting for minimum value."""

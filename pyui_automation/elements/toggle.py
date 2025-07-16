@@ -1,5 +1,8 @@
-from typing import Optional, Any
+from typing import Any, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class Toggle(UIElement):
@@ -12,27 +15,11 @@ class Toggle(UIElement):
 
     @property
     def is_on(self):
-        return self._is_on
-
-    @is_on.setter
-    def is_on(self, value):
-        self._is_on = value
-
-    @is_on.deleter
-    def is_on(self):
-        self._is_on = False
+        return self._element.get_property("toggled")
 
     @property
     def is_enabled(self):
-        return self._is_enabled
-
-    @is_enabled.setter
-    def is_enabled(self, value):
-        self._is_enabled = value
-
-    @is_enabled.deleter
-    def is_enabled(self):
-        self._is_enabled = False
+        return self._element.get_property("enabled")
 
     @property
     def label(self) -> str:

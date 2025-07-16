@@ -1,5 +1,8 @@
-from typing import Optional, Any, List
+from typing import Optional, Any, List, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class BreadcrumbItem(UIElement):
@@ -40,8 +43,9 @@ class BreadcrumbItem(UIElement):
 
     def click(self) -> None:
         """Click the breadcrumb item if it's a link"""
-        if self.url:
-            super().click()
+        url = self.url
+        if url is not None and url != "":
+            self._element.click()
 
 
 class Breadcrumb(UIElement):
@@ -62,15 +66,11 @@ class Breadcrumb(UIElement):
         return [BreadcrumbItem(item, self._session) for item in items]
 
     @property
-    def current_item(self) -> Optional[BreadcrumbItem]:
-        """
-        Get the current/active breadcrumb item.
-
-        Returns:
-            Optional[BreadcrumbItem]: Current item or None if none is current
-        """
+    def current_item(self) -> Optional['BreadcrumbItem']:
         item = self._element.find_element(by="state", value="current")
-        return BreadcrumbItem(item, self._session) if item else None
+        if item is None:
+            return None
+        return BreadcrumbItem(item, self._session)
 
     @property
     def path(self) -> List[str]:

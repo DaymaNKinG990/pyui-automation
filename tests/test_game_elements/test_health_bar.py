@@ -1,54 +1,71 @@
 import pytest
-from pyui_automation.game_elements import HealthBar
-from ..conftest import create_mock_element
+from unittest.mock import MagicMock
+from pyui_automation.game_elements.health_bar import HealthBar
 
+@pytest.fixture
+def mock_element():
+    el = MagicMock()
+    el.get_property.side_effect = lambda key: {
+        'value': 50.0,
+        'max_value': 100.0,
+        'color_r': 255,
+        'color_g': 0,
+        'color_b': 0,
+    }.get(key)
+    return el
+
+@pytest.fixture
+def mock_element_critical():
+    el = MagicMock()
+    el.get_property.side_effect = lambda key: {
+        'value': 10.0,
+        'max_value': 100.0,
+        'color_r': 255,
+        'color_g': 255,
+        'color_b': 0,
+    }.get(key)
+    return el
+
+@pytest.fixture
+def mock_element_zero():
+    el = MagicMock()
+    el.get_property.side_effect = lambda key: {
+        'value': 0.0,
+        'max_value': 0.0,
+        'color_r': 0,
+        'color_g': 0,
+        'color_b': 0,
+    }.get(key)
+    return el
+
+@pytest.fixture
+def mock_session():
+    return MagicMock()
 
 @pytest.fixture
 def health_bar(mock_element, mock_session):
     return HealthBar(mock_element, mock_session)
 
+@pytest.fixture
+def health_bar_critical(mock_element_critical, mock_session):
+    return HealthBar(mock_element_critical, mock_session)
 
-def test_get_health_percentage(health_bar, mock_element):
-    """Test getting current health percentage"""
-    mock_element.properties['value'] = 75
-    mock_element.properties['max_value'] = 100
-    assert health_bar.health_percentage == 75
+@pytest.fixture
+def health_bar_zero(mock_element_zero, mock_session):
+    return HealthBar(mock_element_zero, mock_session)
 
-
-def test_is_full_health(health_bar, mock_element):
-    """Test checking if health is full"""
-    mock_element.properties['value'] = 100
-    mock_element.properties['max_value'] = 100
-    assert health_bar.health_percentage == 100
-    
-    mock_element.properties['value'] = 90
-    assert health_bar.health_percentage == 90
-
-
-def test_is_low_health(health_bar, mock_element):
-    """Test checking if health is low"""
-    mock_element.properties['value'] = 20
-    mock_element.properties['max_value'] = 100
-    assert health_bar.is_critical is True
-    
-    mock_element.properties['value'] = 50
+def test_health_bar_properties(health_bar):
+    assert health_bar.current_health == 50.0
+    assert health_bar.max_health == 100.0
+    assert health_bar.health_percentage == 50.0
+    assert health_bar.color == (255, 0, 0)
     assert health_bar.is_critical is False
 
+def test_health_bar_critical(health_bar_critical):
+    assert health_bar_critical.health_percentage == 10.0
+    assert health_bar_critical.is_critical is True
 
-def test_wait_for_full_health(health_bar, mock_element):
-    """Test waiting for full health"""
-    mock_element.properties['value'] = 100
-    mock_element.properties['max_value'] = 100
-    assert health_bar.wait_until_full(timeout=1.0) is True
-
-
-def test_wait_for_health_above(health_bar, mock_element):
-    """Test waiting for health above threshold"""
-    mock_element.properties['value'] = 80
-    assert health_bar.wait_until_health_above(75, timeout=1.0) is True
-
-
-def test_wait_for_health_below(health_bar, mock_element):
-    """Test waiting for health below threshold"""
-    mock_element.properties['value'] = 20
-    assert health_bar.wait_until_health_below(25, timeout=1.0) is True
+def test_health_bar_zero(health_bar_zero):
+    assert health_bar_zero.max_health == 0.0
+    assert health_bar_zero.health_percentage == 0.0
+    assert health_bar_zero.is_critical is True

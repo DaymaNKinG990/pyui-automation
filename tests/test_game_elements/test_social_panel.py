@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from pyui_automation.game_elements import SocialPanel, Friend, Block
+from pyui_automation.game_elements import SocialPanel
 
 
 @pytest.fixture
@@ -20,18 +20,20 @@ def mock_session():
 
 @pytest.fixture
 def social_panel(mock_element, mock_session):
-    return SocialPanel(mock_element, mock_session)
+    return SocialPanel(mock_element({}), mock_session)
 
 
 def test_get_friends(social_panel, mock_element):
     """Test getting friends list"""
     friend1 = MagicMock()
-    friend1.get_property.side_effect = lambda key: {'name': 'Player1', 'online': True}.get(key)
+    friend1.get_property.side_effect = lambda key: {'name': 'Player1', 'online': True, 'status': 'online'}.get(key)
     
     friend2 = MagicMock()
-    friend2.get_property.side_effect = lambda key: {'name': 'Player2', 'online': False}.get(key)
+    friend2.get_property.side_effect = lambda key: {'name': 'Player2', 'online': False, 'status': 'offline'}.get(key)
     
-    mock_element.find_elements.return_value = [friend1, friend2]
+    # Мокаем find_elements для друзей
+    mock_element.find_elements.side_effect = lambda **kwargs: [friend1, friend2] if kwargs.get('by') == 'type' and kwargs.get('value') == 'friend' else []
+    social_panel = SocialPanel(mock_element, MagicMock())
     
     friends = social_panel.get_friends()
     assert len(friends) == 2
@@ -49,7 +51,9 @@ def test_get_blocked_players(social_panel, mock_element):
     block2 = MagicMock()
     block2.get_property.side_effect = lambda key: {'name': 'Spammer2'}.get(key)
     
-    mock_element.find_elements.return_value = [block1, block2]
+    # Мокаем find_elements для блокированных
+    mock_element.find_elements.side_effect = lambda **kwargs: [block1, block2] if kwargs.get('by') == 'type' and kwargs.get('value') == 'block' else []
+    social_panel = SocialPanel(mock_element, MagicMock())
     
     blocked = social_panel.get_blocked_players()
     assert len(blocked) == 2
@@ -144,8 +148,8 @@ def test_is_friend_online(social_panel, mock_element):
 def test_wait_for_friend_online(social_panel, mock_element):
     """Test waiting for friend to come online"""
     friend = MagicMock()
-    friend.get_property.side_effect = lambda key: {'name': 'Player1', 'online': True}.get(key)
-    
-    mock_element.find_elements.return_value = [friend]
-    
+    friend.get_property.side_effect = lambda key: {'name': 'Player1', 'online': True, 'status': 'online'}.get(key)
+    mock_element.find_elements.side_effect = lambda **kwargs: [friend] if kwargs.get('by') == 'type' and kwargs.get('value') == 'friend' else []
+    # Мокаем метод ожидания
+    social_panel._session.wait_for_condition = lambda *a, **kw: True
     assert social_panel.wait_for_friend_online('Player1', timeout=1.0) is True

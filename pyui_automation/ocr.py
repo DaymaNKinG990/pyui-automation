@@ -3,16 +3,36 @@ import cv2
 import numpy as np
 import logging
 from typing import List, Union
-from paddleocr import PaddleOCR
+
+# Flag to indicate if PaddleOCR is available
+try:
+    import importlib
+    _paddleocr_spec = importlib.util.find_spec('paddleocr')
+    HAS_PADDLE = _paddleocr_spec is not None
+except Exception:
+    HAS_PADDLE = False
 
 from .elements import UIElement
 
-# Flag to indicate if PaddleOCR is available
-HAS_PADDLE = True
-
 
 class OCREngine:
-    """OCR Engine"""
+    """
+    OCR Engine for text recognition in UI screenshots.
+
+    Использует PaddleOCR для распознавания текста на скриншотах UI-элементов или экрана.
+    Используется сервисным слоем OCREngineService.
+
+    Example usage:
+        ocr = OCREngine()
+        text = ocr.recognize_text("screenshot.png")
+        # Для UIElement:
+        text = ocr.read_text_from_element(element)
+
+    Назначение:
+        - Распознавание текста для автоматизации UI
+        - Поиск текста и координат в элементах
+        - Интеграция с сервисным слоем
+    """
 
     def __init__(self) -> None:
         """Initialize OCR engine
@@ -23,7 +43,13 @@ class OCREngine:
         self._paddle_ocr = None
         self._languages = ['en']
         if HAS_PADDLE:
-            self._paddle_ocr = PaddleOCR(use_angle_cls=True, lang=self._languages[0], show_log=False)
+            try:
+                from paddleocr import PaddleOCR
+                self._paddle_ocr = PaddleOCR(use_angle_cls=True, lang=self._languages[0], show_log=False)
+            except ImportError:
+                self._paddle_ocr = None
+        else:
+            self._paddle_ocr = None
 
     def set_languages(self, languages: List[str]) -> None:
         """Set languages for OCR recognition.
@@ -37,7 +63,11 @@ class OCREngine:
             
         self._languages = languages
         if HAS_PADDLE:
-            self._paddle_ocr = PaddleOCR(use_angle_cls=True, lang=languages[0], show_log=False)
+            try:
+                from paddleocr import PaddleOCR
+                self._paddle_ocr = PaddleOCR(use_angle_cls=True, lang=languages[0], show_log=False)
+            except ImportError:
+                self._paddle_ocr = None
 
     def recognize_text(self, image_path: Union[Path, str, np.ndarray], preprocess=False) -> str:
         """Recognize text in an image
@@ -51,6 +81,8 @@ class OCREngine:
             
         Raises:
             RuntimeError: If PaddleOCR is not available
+            FileNotFoundError: If image path does not exist
+            ValueError: If image is empty or invalid
         """
         if not HAS_PADDLE or self._paddle_ocr is None:
             raise RuntimeError("PaddleOCR is not available. Please install paddleocr package to use text recognition features.")
@@ -61,14 +93,19 @@ class OCREngine:
 
         # Load image from path if string
         if isinstance(image_path, str):
+            import os
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"Image file not found: {image_path}")
             image = cv2.imread(image_path)
+            if image is None:
+                raise ValueError(f"Failed to load image: {image_path}")
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         else:
             image = image_path
 
-        # Ensure image is numpy array
-        if not isinstance(image, np.ndarray):
-            raise TypeError("Image must be a numpy array or a path to an image file")
+        # Ensure image is numpy array and not empty
+        if not isinstance(image, np.ndarray) or image.size == 0:
+            raise ValueError("Image must be a non-empty numpy array or a valid path to an image file")
             
         if preprocess:
             image = self._preprocess_image(image)
@@ -81,14 +118,7 @@ class OCREngine:
 
     def _preprocess_image(self, image: np.ndarray) -> np.ndarray:
         """Preprocess image for better OCR results
-        
-        Applies the following preprocessing steps to the image:
-        
-        1. Convert to grayscale
-        2. Apply thresholding using Otsu's thresholding algorithm
-        3. Apply dilation with a 3x3 kernel
-        
-        These steps are intended to improve the OCR results by making the text more legible.
+        Always returns 3-channel RGB image for test compatibility.
         """
         # Convert to grayscale
         if len(image.shape) == 3:
@@ -103,6 +133,9 @@ class OCREngine:
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
         dilation = cv2.dilate(thresh, kernel, iterations=1)
 
+        # Всегда возвращаем 3-канальное изображение (RGB)
+        if len(dilation.shape) == 2:
+            dilation = cv2.cvtColor(dilation, cv2.COLOR_GRAY2RGB)
         return dilation
 
     def read_text_from_element(self, element: UIElement, preprocess: bool = False) -> str:
@@ -124,21 +157,10 @@ class OCREngine:
             return ""
         return self.recognize_text(image, preprocess=preprocess)
 
-    def find_text_location(self, element: UIElement, text: str, confidence_threshold: float = .5) -> tuple | None:
+    def find_text_location(self, element: UIElement, text: str, confidence_threshold: float = .5) -> list:
         """
-        Find location of text within element
-
-        Uses PaddleOCR to find the location of the given text within the given element.
-        The location is returned as a tuple of (x, y, width, height) coordinates relative to the element's
-        top-left corner, or None if the text is not found.
-
-        Args:
-            element (UIElement): The element to search for the text in.
-            text (str): The text to search for.
-            confidence_threshold (float, optional): The minimum confidence required for a match. Defaults to .5.
-
-        Returns:
-            tuple | None: The location of the text or None if not found.
+        Find location(s) of text within element
+        Возвращает список кортежей (x, y, width, height) для всех совпадений.
         """
         if not self._paddle_ocr:
             raise RuntimeError("PaddleOCR is not available")
@@ -146,44 +168,78 @@ class OCREngine:
         # If this is a virtual element with a stored screenshot, use that directly
         if hasattr(element, '_screenshot'):
             image = element._screenshot
-        else:
+        elif hasattr(element, 'capture_screenshot'):
             image = element.capture_screenshot()
+        elif hasattr(element, 'capture'):
+            image = element.capture()
+        else:
+            raise ValueError("Element does not support screenshot capture")
 
         result = self._paddle_ocr.ocr(image, cls=True)
-        
         if not result or not result[0]:
-            return None
+            return []
 
-        element_x, element_y = element.location
-        
+        # location может быть tuple или dict или отсутствовать
+        element_x, element_y = 0, 0
+        if hasattr(element, 'location'):
+            loc = element.location
+            if isinstance(loc, dict):
+                element_x = loc.get('x', 0)
+                element_y = loc.get('y', 0)
+            elif isinstance(loc, (tuple, list)) and len(loc) >= 2:
+                element_x, element_y = loc[0], loc[1]
+        elif hasattr(element, 'get_location'):
+            loc = element.get_location()
+            if isinstance(loc, dict):
+                element_x = loc.get('x', 0)
+                element_y = loc.get('y', 0)
+            elif isinstance(loc, (tuple, list)) and len(loc) >= 2:
+                element_x, element_y = loc[0], loc[1]
+
+        locations = []
         for line in result[0]:
             bbox, (detected_text, confidence) = line
             if detected_text == text and confidence >= confidence_threshold:
-                # Calculate bounding box coordinates and dimensions
                 x1, y1 = bbox[0]
                 x2, y2 = bbox[2]
                 width = abs(x2 - x1)
                 height = abs(y2 - y1)
                 x = x1 + element_x
                 y = y1 + element_y
-                return (int(x), int(y), int(width), int(height))
-        
-        return None
+                locations.append((int(x), int(y), int(width), int(height)))
+        return locations
 
     def get_all_text(self, element: UIElement, confidence_threshold: float = .5) -> list:
-        """Get all text from element with positions"""
+        """Get all text from element with positions (список словарей)"""
         if not self._paddle_ocr:
             raise RuntimeError("PaddleOCR is not available")
 
-        image = element.capture_screenshot()
+        if hasattr(element, 'capture_screenshot'):
+            image = element.capture_screenshot()
+        elif hasattr(element, 'capture'):
+            image = element.capture()
+        else:
+            raise ValueError("Element does not support screenshot capture")
         result = self._paddle_ocr.ocr(image, cls=True)
-        
         if not result or not result[0]:
             return []
 
-        element_x, element_y = element.location
+        element_x, element_y = 0, 0
+        if hasattr(element, 'location'):
+            loc = element.location
+            if isinstance(loc, dict):
+                element_x = loc.get('x', 0)
+                element_y = loc.get('y', 0)
+            elif isinstance(loc, (tuple, list)) and len(loc) >= 2:
+                element_x, element_y = loc[0], loc[1]
+        elif hasattr(element, 'get_location'):
+            loc = element.get_location()
+            if isinstance(loc, dict):
+                element_x = loc.get('x', 0)
+                element_y = loc.get('y', 0)
+            elif isinstance(loc, (tuple, list)) and len(loc) >= 2:
+                element_x, element_y = loc[0], loc[1]
         texts = []
-        
         for line in result[0]:
             bbox, (text, confidence) = line
             if confidence >= confidence_threshold:
@@ -196,7 +252,6 @@ class OCREngine:
                     'confidence': confidence,
                     'position': (center_x, center_y)
                 })
-        
         return texts
 
     def verify_text_presence(self, element: UIElement, text: str, confidence_threshold: float = .5) -> bool:

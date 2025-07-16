@@ -1,5 +1,8 @@
-from typing import Optional, Any, Tuple, List
+from typing import Optional, Any, Tuple, List, TYPE_CHECKING, Dict
 from ..elements.base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class MinimapMarker(UIElement):

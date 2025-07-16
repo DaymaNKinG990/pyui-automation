@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import cv2
 import numpy as np
+import uuid
 
 
 def retry(attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)) -> Callable:
@@ -18,12 +19,14 @@ def retry(attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,
     Returns:
         Callable: A decorator that applies the retry logic to the function.
     """
+    if attempts <= 0:
+        raise ValueError("attempts must be > 0")
     def decorator(func: Callable) -> Callable:
         def wrapper(*args, **kwargs) -> Any:
             for attempt in range(attempts):
                 try:
                     return func(*args, **kwargs)
-                except exceptions as e:
+                except exceptions:
                     if attempt == attempts - 1:
                         raise
                     time.sleep(delay)
@@ -54,8 +57,11 @@ def get_temp_path(suffix: str = '') -> Path:
     Returns:
         Path: A Path object representing the temporary file path, with a unique name.
     """
+    if not isinstance(suffix, str):
+        raise TypeError("suffix must be a string")
     temp_dir = Path(tempfile.gettempdir())
-    return temp_dir / f"pyui_automation_{time.time()}{suffix}"
+    unique = uuid.uuid4().hex
+    return temp_dir / f"pyui_automation_{time.time()}_{unique}{suffix}"
 
 def save_image(image: np.ndarray, filepath: str) -> None:
     """
@@ -96,4 +102,15 @@ def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) 
     """
     if img1.shape != img2.shape:
         return False
-    return cv2.matchTemplate(img1, img2, cv2.TM_CCOEFF_NORMED)[0][0] >= threshold
+    # Convert images to grayscale
+    if len(img1.shape) == 3:
+        img1_gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+        img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+    else:
+        img1_gray = img1
+        img2_gray = img2
+    # Calculate normalized mean absolute difference
+    diff = img1_gray.astype(float) - img2_gray.astype(float)
+    mse = np.mean(np.abs(diff))
+    similarity = 1.0 - (mse / 255.0)
+    return bool(similarity >= threshold)

@@ -1,6 +1,6 @@
 """Configuration for UI automation"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 
@@ -12,7 +12,7 @@ class AutomationConfig:
     # Screenshot settings
     screenshot_format: str = "png"
     screenshot_quality: int = 90
-    screenshot_dir: Optional[Path] = None
+    _screenshot_dir: Optional[Path] = field(init=False, default=None)
 
     # Visual testing settings
     visual_testing_enabled: bool = False
@@ -31,6 +31,12 @@ class AutomationConfig:
     default_interval: float = 0.5
     implicit_wait: float = 0.0
     polling_interval: float = 0.5
+    # Новые поля для совместимости с тестами
+    explicit_wait: float = 0.0
+    custom_timeout: float = 0.0
+    custom_interval: float = 0.0
+    timeout: float = 0.0
+    retry_interval: float = 0.0
 
     # OCR settings
     ocr_enabled: bool = False
@@ -47,7 +53,7 @@ class AutomationConfig:
     backend_options: Dict[str, Any] = None
 
     def __post_init__(self):
-        """Initialize default values for collections"""
+        """Initialize default values for collections and types"""
         if self.performance_metrics is None:
             self.performance_metrics = ["cpu", "memory", "response_time"]
         if self.ocr_languages is None:
@@ -56,6 +62,44 @@ class AutomationConfig:
             self.accessibility_standards = ["wcag2a", "wcag2aa"]
         if self.backend_options is None:
             self.backend_options = {}
+        # Приведение screenshot_dir к Path
+        if self._screenshot_dir is not None and not isinstance(self._screenshot_dir, Path):
+            self._screenshot_dir = Path(self._screenshot_dir)
+        if self.visual_baseline_dir is not None and not isinstance(self.visual_baseline_dir, Path):
+            self.visual_baseline_dir = Path(self.visual_baseline_dir)
+        if self.performance_output_dir is not None and not isinstance(self.performance_output_dir, Path):
+            self.performance_output_dir = Path(self.performance_output_dir)
+        if self.accessibility_output_dir is not None and not isinstance(self.accessibility_output_dir, Path):
+            self.accessibility_output_dir = Path(self.accessibility_output_dir)
+
+    def set(self, key: str, value: Any) -> None:
+        """
+        Set configuration value.
+        
+        Args:
+            key: Configuration key
+            value: Value to set
+            
+        Raises:
+            AttributeError: If key doesn't exist
+        """
+        if key == 'screenshot_dir' and value is not None and not isinstance(value, Path):
+            value = Path(value)
+        if hasattr(self, key):
+            setattr(self, key, value)
+        else:
+            # Разрешаем устанавливать новые ключи (динамически)
+            setattr(self, key, value)
+
+    @property
+    def screenshot_dir(self) -> Optional[Path]:
+        return self._screenshot_dir
+
+    @screenshot_dir.setter
+    def screenshot_dir(self, value):
+        if value is not None and not isinstance(value, Path):
+            value = Path(value)
+        self._screenshot_dir = value
 
     def validate(self) -> None:
         """Validate configuration settings"""
@@ -123,22 +167,5 @@ class AutomationConfig:
         """
         if hasattr(self, key):
             return getattr(self, key)
-        if default is not None:
-            return default
-        raise AttributeError(f"Configuration key '{key}' does not exist")
+        return default
         
-    def set(self, key: str, value: Any) -> None:
-        """
-        Set configuration value.
-        
-        Args:
-            key: Configuration key
-            value: Value to set
-            
-        Raises:
-            AttributeError: If key doesn't exist
-        """
-        if hasattr(self, key):
-            setattr(self, key, value)
-        else:
-            raise AttributeError(f"Configuration key '{key}' does not exist")

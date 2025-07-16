@@ -1,4 +1,3 @@
-import sys
 import platform
 from typing import Optional, Tuple
 import numpy as np
@@ -64,27 +63,26 @@ class GameBackend(BaseBackend):
             print(f"Failed to capture screen: {e}")
             return None
             
-    def find_element(self, template: Image.Image, threshold: float = 0.8) -> Optional[Tuple[int, int]]:
+    def find_element(self, template: Image.Image, threshold: float = 0.8, region=None) -> Optional[Tuple[int, int]]:
         """Find an element in the game window using template matching."""
-        screen = self.capture_screen()
+        try:
+            screen = self.capture_screen() if region is None else pyautogui.screenshot(region=region)
+        except Exception:
+            return None
         if screen is None:
             return None
-            
-        # Convert images to numpy arrays
         screen_np = np.array(screen)
         template_np = np.array(template)
-        
-        # Convert to grayscale for better matching
         screen_gray = cv2.cvtColor(screen_np, cv2.COLOR_RGB2GRAY)
         template_gray = cv2.cvtColor(template_np, cv2.COLOR_RGB2GRAY)
-        
-        # Perform template matching
         result = cv2.matchTemplate(screen_gray, template_gray, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        
         if max_val >= threshold:
             x, y = max_loc
-            if self.region:
+            if region:
+                x += region[0]
+                y += region[1]
+            elif self.region:
                 x += self.region[0]
                 y += self.region[1]
             return (x, y)

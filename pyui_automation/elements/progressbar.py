@@ -1,5 +1,8 @@
-from typing import Optional, Any, Union
+from typing import Optional, Any, TYPE_CHECKING
 from .base import UIElement
+
+if TYPE_CHECKING:
+    from ..core.session import AutomationSession
 
 
 class ProgressBar(UIElement):

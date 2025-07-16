@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from pyui_automation.elements.table import Table, TableCell
 
 
@@ -115,11 +115,72 @@ def test_get_cell_by_text(table, mock_table_element):
     """Test getting cell by text."""
     cell = table.get_cell_by_text('Cell Text')
     assert isinstance(cell, TableCell)
-    mock_table_element.find_element.assert_called_once()
+    mock_table_element.find_elements.assert_called_once_with(by='text', value='Cell Text')
 
 
 def test_get_cell_by_text_not_found(table, mock_table_element):
     """Test getting cell by text when not found."""
     mock_table_element.find_element.return_value = None
+    mock_table_element.find_elements.return_value = []
     cell = table.get_cell_by_text('Nonexistent')
     assert cell is None
+
+
+def test_get_cell_negative_indices(table, mock_table_element):
+    cell = table.get_cell(-1, -1)
+    assert cell is None
+
+def test_get_column_header_valid(table, mock_table_element):
+    header = MagicMock()
+    header.get_property.return_value = "HeaderText"
+    mock_table_element.find_element.return_value = header
+    result = table.get_column_header(0)
+    assert result == "HeaderText"
+    mock_table_element.find_element.assert_called_with(by="type", value="columnheader", index=0)
+
+def test_get_column_header_invalid_index(table, mock_table_element):
+    result = table.get_column_header(10)
+    assert result is None
+
+def test_get_column_header_not_found(table, mock_table_element):
+    mock_table_element.find_element.return_value = None
+    result = table.get_column_header(0)
+    assert result is None
+
+def test_select_cell_valid(table, mock_table_element):
+    cell = MagicMock()
+    table.get_cell = MagicMock(return_value=cell)
+    table.select_cell(1, 2)
+    cell.select.assert_called_once()
+
+def test_select_cell_invalid(table, mock_table_element):
+    table.get_cell = MagicMock(return_value=None)
+    with pytest.raises(ValueError):
+        table.select_cell(1, 2)
+
+def test_select_cells_by_text_no_matches(table, mock_table_element):
+    table.get_cells_by_text = MagicMock(return_value=[])
+    # Не должно быть исключения, просто ничего не происходит
+    table.select_cells_by_text("not found")
+
+def test_wait_until_cell_value_success(table, mock_session):
+    cell = MagicMock()
+    cell.text = "target"
+    table.get_cell = MagicMock(return_value=cell)
+    mock_session.wait_for_condition = MagicMock(return_value=True)
+    result = table.wait_until_cell_value(1, 2, "target", timeout=1)
+    assert result is True
+
+def test_wait_until_cell_value_not_found(table, mock_session):
+    table.get_cell = MagicMock(return_value=None)
+    mock_session.wait_for_condition = MagicMock(return_value=False)
+    result = table.wait_until_cell_value(1, 2, "target", timeout=1)
+    assert result is False
+
+def test_wait_until_cell_value_wrong_value(table, mock_session):
+    cell = MagicMock()
+    cell.text = "not_target"
+    table.get_cell = MagicMock(return_value=cell)
+    mock_session.wait_for_condition = MagicMock(return_value=False)
+    result = table.wait_until_cell_value(1, 2, "target", timeout=1)
+    assert result is False

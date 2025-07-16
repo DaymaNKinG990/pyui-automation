@@ -1,80 +1,98 @@
-# PyUI Automation
+# pyui-automation
 
-A powerful Python library for UI automation and game testing, providing a high-level API for interacting with UI elements across different platforms.
-
-## Features
-
-- Cross-platform support (Windows, Linux, MacOS)
-- Game UI automation capabilities
-- Rich set of UI element interactions
-- Visual element detection and OCR support
-- Performance optimization tools
-- Extensive test coverage
-
-## Project Structure
-
-```
-pyui_automation/
-├── docs/                    # Documentation
-├── pyui_automation/         # Main package
-│   ├── backends/           # Platform-specific implementations
-│   ├── core/              # Core functionality
-│   ├── elements/          # UI element definitions
-│   ├── game_elements/     # Game-specific UI elements
-│   ├── input/            # Input device handling
-│   └── utils/            # Utility functions
-└── tests/                # Test suite
-    └── test_game_elements/ # Game UI element tests
-```
-
-## Test Coverage
-
-Current test coverage: 42%
-
-Key components coverage:
-- Core functionality: 89%
-- UI Elements: 72%
-- Game Elements: 40%
-- Input handling: 72%
-- Performance tools: 84%
-- OCR functionality: 71%
-
-## Documentation
-
-Detailed documentation is available in the [docs](./docs) directory:
-
-- [Getting Started](./docs/getting_started.md)
-- [API Reference](./docs/api_reference.md)
-- [Game UI Automation](./docs/game_ui.md)
-- [Contributing Guide](./docs/contributing.md)
-
-## Installation
-
-```bash
-pip install pyui-automation
-```
+A cross-platform library for desktop/Qt UI automation with a service architecture, support for Qt-locators, visual testing, accessibility, performance, and OCR. Supports automation of Notepad++ and other Windows applications.
 
 ## Quick Start
-
 ```python
-from pyui_automation import Session
-from pyui_automation.game_elements import HealthBar, SkillBar
+from pyui_automation.core import AutomationSession
+from pyui_automation.core.factory import BackendFactory
 
-# Create automation session
-session = Session()
+# Create an automation session for Windows
+backend = BackendFactory.create_backend('windows')
+session = AutomationSession(backend)
 
-# Interact with game UI elements
-health_bar = HealthBar(session)
-current_health = health_bar.current_value
-
-skill_bar = SkillBar(session)
-skill_bar.use_skill(1)  # Use first skill
+# Find and interact with an element
+el = session.find_element_by_object_name("loginButton")
+el.click()
+el.type_text("admin")
 ```
 
-## Contributing
+## Example: Notepad++ Automation
+```python
+from pyui_automation.core import AutomationSession
+from pyui_automation.application import Application
+from pyui_automation.core.factory import BackendFactory
 
-We welcome contributions! Please see our [Contributing Guide](./docs/contributing.md) for details.
+backend = BackendFactory.create_backend('windows')
+session = AutomationSession(backend)
 
-## License
+# Launch Notepad++
+app = Application.launch(r"D:/Programs/Notepad++/notepad++.exe")
+window = app.wait_for_window("Notepad++")
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+# Interact with the main window
+main = session.find_element_by_object_name("Notepad++")
+main.type_text("Hello, world!")
+```
+
+## Visual Testing
+```python
+session.init_visual_testing(baseline_dir="visual_baseline/")
+session.capture_visual_baseline("main_window")
+result = session.compare_visual("main_window")
+if not result["match"]:
+    session.generate_visual_report("main_window", result["differences"], "reports/")
+```
+
+## Performance
+```python
+session.start_performance_monitoring(interval=1.0)
+# ... actions ...
+metrics = session.get_performance_metrics()
+```
+
+## Accessibility
+```python
+violations = session.check_accessibility()
+session.generate_accessibility_report("reports/accessibility.html")
+```
+
+## OCR
+```python
+text = session.ocr.read_text_from_element(element)
+```
+
+## Windows Launch Notes
+- For Windows UI Automation, tests and scripts must be run with administrator rights.
+- Make sure the path to the application executable is correct (use .exe, not a .lnk shortcut).
+
+## Architecture
+- AutomationSession (facade) → services (Backend, Input, Visual, Performance, Accessibility, OCR, Application).
+- Each service implements only its own responsibility.
+- All platform interactions go through the backend.
+
+## DI and Extensibility
+```python
+from pyui_automation.di import container
+class MyCustomBackend:
+    ...
+container.register('BackendService', MyCustomBackend)
+backend = container.resolve('BackendService')
+```
+
+## Testing
+- All services are easy to mock.
+- Test coverage: unit, integration, edge-case for visual and accessibility.
+- To run tests use:
+```
+uv run pytest tests --cov=.
+```
+
+## Documentation
+- [docs/getting_started.md](docs/getting_started.md)
+- [docs/api_reference.md](docs/api_reference.md)
+- [docs/advanced_topics.md](docs/advanced_topics.md)
+- [docs/core_concepts.md](docs/core_concepts.md)
+- [docs/ui_elements.md](docs/ui_elements.md)
+- [docs/automation_features.md](docs/automation_features.md)
+- [docs/game_automation.md](docs/game_automation.md)

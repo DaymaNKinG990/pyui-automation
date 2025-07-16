@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.3
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty type checker
+        entry: ty
+        language: system
+        types: [python]
+        args: ["check"]
+      - id: pyrefly
+        name: pyrefly static analyzer
+        entry: pyrefly
+        language: system
+        types: [python]
+        args: ["check"] 

@@ -147,3 +147,14 @@ def test_wait_until_contains(text_element, mock_session):
         assert condition_func()
     with patch.object(text_element, 'text', 'Different Text'):
         assert not condition_func()
+
+def test_text_setter(text_element):
+    """Test setting text property directly (setter)."""
+    text_element.text = 'Setter Text'
+    assert text_element.text == 'Setter Text'
+
+def test_text_deleter(text_element):
+    """Test deleting text property (deleter)."""
+    text_element.text = 'To be deleted'
+    del text_element.text
+    assert text_element.text == ''
