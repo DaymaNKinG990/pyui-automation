@@ -2,7 +2,7 @@
 
 import time
 from typing import Tuple, Optional, Any
-from ..backends.base import BaseBackend
+from ..core.interfaces.iinput_backend import IInputBackend
 
 
 class Mouse:
@@ -20,13 +20,15 @@ class Mouse:
         mouse.right_click()
     """
 
-    def __init__(self, backend: BaseBackend):
+    def __init__(self, backend: IInputBackend):
         """
         Initialize mouse input handler.
 
         Args:
             backend: Platform-specific backend to use
         """
+        if backend is None:
+            raise ValueError("Backend cannot be None")
         self._backend = backend
 
     def move(self, x: int, y: int) -> bool:
@@ -74,7 +76,7 @@ class Mouse:
             raise ValueError("Button must be a string")
         if button not in ["left", "right", "middle"]:
             raise ValueError("Invalid button type. Must be 'left', 'right', or 'middle'")
-        return self._backend.click_mouse()
+        return self._backend.click_mouse(button)
 
     def double_click(self, x: Optional[int] = None, y: Optional[int] = None, button: str = "left") -> bool:
         """
@@ -140,18 +142,18 @@ class Mouse:
         time.sleep(0.1)
 
         # Press button
-        if not self._backend.mouse_down():
+        if not self._backend.mouse_down(button):
             return False
         time.sleep(0.1)
 
         # Move to end position
         if not self.move(end_x, end_y):
-            self._backend.mouse_up()  # Release button if move fails
+            self._backend.mouse_up(button)  # Release button if move fails
             return False
         time.sleep(0.1)
 
         # Release button
-        self._backend.mouse_up()
+        self._backend.mouse_up(button)
         return True
 
     def move_to(self, element: Any) -> bool:

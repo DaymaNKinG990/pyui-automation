@@ -1,5 +1,5 @@
 import pytest
-from pyui_automation.exceptions import (
+from pyui_automation.core.exceptions import (
     AutomationError,
     ElementNotFoundError,
     ElementStateError,
@@ -7,11 +7,11 @@ from pyui_automation.exceptions import (
     BackendError,
     ConfigurationError,
     ValidationError,
-    OCRError,
     VisualError,
+    OCRError,
     InputError,
     WindowError,
-    WaitTimeout
+    WaitTimeout,
 )
 
 
@@ -38,8 +38,9 @@ def test_element_state_error():
 
 def test_timeout_error():
     """Test timeout error"""
-    with pytest.raises(TimeoutError) as exc:
-        raise TimeoutError("Operation timed out after 30s")
+    from pyui_automation.core.exceptions import TimeoutError as AutomationTimeoutError
+    with pytest.raises(AutomationTimeoutError) as exc:
+        raise AutomationTimeoutError("Operation timed out after 30s")
     assert str(exc.value) == "Operation timed out after 30s"
     assert isinstance(exc.value, AutomationError)
 

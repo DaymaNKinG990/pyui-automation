@@ -4,6 +4,14 @@ from unittest.mock import MagicMock
 from pyui_automation.core.config import AutomationConfig
 from pyui_automation.core.session import AutomationSession
 
+# Mock locator for tests
+class MockLocator:
+    """Mock locator for tests"""
+    def find_element(self, *args, **kwargs):
+        return MagicMock()
+    
+    def find_elements(self, *args, **kwargs):
+        return [MagicMock()]
 
 @pytest.fixture
 def config():
@@ -18,7 +26,7 @@ def mock_backend():
 @pytest.fixture
 def ui_automation(mock_backend):
     """Создаем экземпляр AutomationSession с мок бэкендом"""
-    return AutomationSession(backend=mock_backend)
+    return AutomationSession(backend=mock_backend, locator=MockLocator())
 
 def test_default_values(ui_automation):
     """Test default configuration values"""
@@ -113,10 +121,6 @@ def test_validate_invalid_values(config):
     with pytest.raises(ValueError):
         config.validate()
     config.ocr_languages = ['eng']
-    config.accessibility_standards = ['invalid']
-    with pytest.raises(ValueError):
-        config.validate()
-    config.accessibility_standards = ['wcag2a']
     config.backend_type = 'invalid'
     with pytest.raises(ValueError):
         config.validate()

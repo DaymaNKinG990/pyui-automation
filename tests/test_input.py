@@ -382,7 +382,7 @@ def test_keyboard_type_text_empty(mock_backend):
 def test_keyboard_type_text_invalid_type(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError):
-        keyboard.type_text(123)
+        keyboard.type_text("123")
 
 def test_keyboard_type_text_backend_false(mock_backend):
     mock_backend.type_text.return_value = False
@@ -396,7 +396,7 @@ def test_keyboard_press_key_empty(mock_backend):
 def test_keyboard_press_key_invalid_type(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError):
-        keyboard.press_key(123)
+        keyboard.press_key("123")
 
 def test_keyboard_press_key_backend_false(mock_backend):
     mock_backend.press_key.return_value = False
@@ -410,7 +410,7 @@ def test_keyboard_release_key_empty(mock_backend):
 def test_keyboard_release_key_invalid_type(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError):
-        keyboard.release_key(123)
+        keyboard.release_key("123")
 
 def test_keyboard_release_key_backend_false(mock_backend):
     mock_backend.release_key.return_value = False
@@ -424,7 +424,7 @@ def test_keyboard_press_keys_empty(mock_backend):
 def test_keyboard_press_keys_invalid_type(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError):
-        keyboard.press_keys("a", 1)
+        keyboard.press_keys("a", "1")
 
 def test_keyboard_press_keys_backend_false(mock_backend):
     mock_backend.press_keys.return_value = False
@@ -438,7 +438,7 @@ def test_keyboard_release_keys_empty(mock_backend):
 def test_keyboard_release_keys_invalid_type(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError):
-        keyboard.release_keys("a", 1)
+        keyboard.release_keys("a", "1")
 
 def test_keyboard_release_keys_backend_false(mock_backend):
     mock_backend.release_keys.return_value = False
@@ -452,7 +452,7 @@ def test_keyboard_send_keys_empty(mock_backend):
 def test_keyboard_send_keys_invalid_type(mock_backend):
     keyboard = Keyboard(mock_backend)
     with pytest.raises(ValueError):
-        keyboard.send_keys(123)
+        keyboard.send_keys("123")
 
 def test_keyboard_send_keys_backend_false(mock_backend):
     mock_backend.send_keys.return_value = False

@@ -68,20 +68,20 @@ def test_compare_images():
     """Test image comparison"""
     img1 = np.zeros((100, 100, 3), dtype=np.uint8)
     img2 = np.zeros((100, 100, 3), dtype=np.uint8)
-    img3 = np.ones((100, 100, 3), dtype=np.uint8) * 255
+    img3 = np.full((100, 100, 3), 255, dtype=np.uint8)
     
     # Test identical images
-    assert compare_images(img1, img2)
+    assert compare_images(img1.astype(np.uint8), img2.astype(np.uint8))
     # Test different images
-    assert compare_images(img1, img3) is False
+    assert compare_images(img1.astype(np.uint8), img3.astype(np.uint8)) is False
     # Test different sizes
-    assert not compare_images(img1, np.zeros((50, 50, 3)))
+    assert not compare_images(img1.astype(np.uint8), np.zeros((50, 50, 3), dtype=np.uint8).astype(np.uint8))
     # Test different thresholds
     img4 = img1.copy()
     img4[0:10, 0:10] = 255  # Маленькая разница
-    assert compare_images(img1, img4, threshold=0.9)
+    assert compare_images(img1.astype(np.uint8), img4.astype(np.uint8), threshold=0.9)
     img4[0:50, 0:50] = 255  # Большая разница
-    assert not compare_images(img1, img4, threshold=0.99)
+    assert not compare_images(img1.astype(np.uint8), img4.astype(np.uint8), threshold=0.99)
 
 def test_find_template():
     """Test template matching (корректный шаблон, устойчивый тест)"""
@@ -91,13 +91,13 @@ def test_find_template():
     # Вырезаем шаблон из этого же изображения
     template = image[30:50, 30:50].copy()
     # Поиск с низким порогом
-    locations = find_template(image, template, threshold=0.8)
+    locations = find_template(image.astype(np.uint8), template.astype(np.uint8), threshold=0.8)
     # Проверяем, что среди найденных есть ожидаемая позиция (левый верхний угол)
     found = any(abs(x - 10) <= 2 and abs(y - 10) <= 2 for x, y, _ in locations)
     assert found, f"Expected match at (10,10), got: {[ (x,y) for x,y,_ in locations ]}"
     # Множественные совпадения: вставим шаблон в другое место
     image[60:80, 60:80] = template
-    locations = find_template(image, template, threshold=0.8)
+    locations = find_template(image.astype(np.uint8), template.astype(np.uint8), threshold=0.8)
     # Проверяем, что есть хотя бы одна позиция в диапазоне (60±10, 60±10)
     found2 = any(60 <= x <= 80 and 60 <= y <= 80 for x, y, _ in locations)
     assert found2, f"Expected at least one match near (70,70), got: {[ (x,y) for x,y,_ in locations ]}"

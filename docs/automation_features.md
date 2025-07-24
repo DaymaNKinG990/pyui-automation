@@ -14,6 +14,9 @@ session = AutomationSession(backend)
 
 # Снимок экрана через backend
 screenshot = session.backend.capture_screenshot()
+
+# Сохранение скриншота
+session.utils.save_image(screenshot, "screenshot.png")
 ```
 
 ### Визуальное сравнение
@@ -32,7 +35,7 @@ text = session.ocr.read_text_from_element(element)
 
 ### Сравнение изображений
 ```python
-from pyui_automation.core.utils.image import compare_images
+from pyui_automation.utils import compare_images
 similarity = compare_images(image1, image2)
 ```
 
@@ -60,6 +63,8 @@ keyboard.release_key("ctrl")
 
 ## Управление окнами
 ```python
+from pyui_automation.application import Application
+
 app = Application.launch(r"D:/Programs/Notepad++/notepad++.exe")
 window = app.wait_for_window("Notepad++")
 window_handle = session.backend.get_window_handle("Notepad++")

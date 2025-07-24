@@ -4,7 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
-from pyui_automation.optimization import OptimizationManager
+from pyui_automation.core.optimization import OptimizationManager
 
 
 @pytest.fixture

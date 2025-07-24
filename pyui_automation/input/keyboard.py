@@ -1,6 +1,6 @@
 """Keyboard input handling"""
 
-from ..backends.base import BaseBackend
+from ..core.interfaces.iinput_backend import IInputBackend
 
 
 class Keyboard:
@@ -17,13 +17,15 @@ class Keyboard:
         keyboard.release("ctrl")
     """
     
-    def __init__(self, backend: BaseBackend) -> None:
+    def __init__(self, backend: IInputBackend) -> None:
         """
         Initialize keyboard input handler
         
         Args:
             backend: Platform-specific backend to use for keyboard input
         """
+        if backend is None:
+            raise ValueError("Backend cannot be None")
         self._backend = backend
 
     def type_text(self, text: str, interval: float = 0.0) -> bool:

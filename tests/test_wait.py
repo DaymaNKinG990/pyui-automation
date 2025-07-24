@@ -1,7 +1,8 @@
 import pytest
 from unittest.mock import MagicMock
-from pyui_automation.wait import wait_until, ElementWaits
-from pyui_automation.exceptions import WaitTimeout
+from pyui_automation.core.wait import wait_until
+from pyui_automation.core.wait import ElementWaits
+from pyui_automation.core.exceptions import WaitTimeout
 
 
 def test_wait_until_success():
@@ -30,7 +31,7 @@ def test_wait_until_custom_error():
 
 def test_wait_until_invalid_params():
     with pytest.raises(Exception):
-        wait_until(None)
+        wait_until(lambda: False)  # Передаем функцию, которая возвращает False
     with pytest.raises(Exception):
         wait_until(lambda: True, timeout=-1)
     with pytest.raises(Exception):

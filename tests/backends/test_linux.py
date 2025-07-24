@@ -141,51 +141,6 @@ def test_cleanup(backend, mock_display_instance):
     backend.__del__()
     mock_display_instance.close.assert_called_once()
 
-def test_check_accessibility_all_ok(monkeypatch):
-    backend = LinuxBackend()
-    element = MagicMock()
-    element.get_role.return_value = "button"
-    element.get_name.return_value = "Test"
-    issues = backend.check_accessibility(element)
-    assert issues == {}
-
-def test_check_accessibility_missing_role(monkeypatch):
-    backend = LinuxBackend()
-    element = MagicMock()
-    del element.get_role
-    element.get_name.return_value = "Test"
-    issues = backend.check_accessibility(element)
-    assert str(element) in issues
-    assert "role" in issues[str(element)] or "role" in str(issues[str(element)]) or "missing" in str(issues[str(element)])
-
-def test_check_accessibility_missing_name(monkeypatch):
-    backend = LinuxBackend()
-    element = MagicMock()
-    element.get_role.return_value = "button"
-    element.get_name.return_value = None
-    issues = backend.check_accessibility(element)
-    assert str(element) in issues
-    assert "name" in issues[str(element)] or "label" in str(issues[str(element)])
-
-def test_check_accessibility_window_missing_title(monkeypatch):
-    backend = LinuxBackend()
-    # Проверка для окна без имени
-    window = MagicMock()
-    window.get_wm_name.return_value = None
-    window.get_attributes.return_value = MagicMock(map_state=1)
-    backend.display.screen.return_value.root.query_tree.return_value.children = [window]
-    issues = backend.check_accessibility(None)
-    assert str(window) in issues
-    assert "Window missing title" in issues[str(window)]
-
-def test_check_accessibility_error(monkeypatch):
-    backend = LinuxBackend()
-    # Передаём объект без нужных методов
-    class Dummy: pass
-    dummy = Dummy()
-    issues = backend.check_accessibility(dummy)
-    assert str(dummy) in issues
-
 def test_capture_screenshot(backend, mock_window, monkeypatch):
     monkeypatch.setattr(backend.display.screen().root, 'get_geometry', lambda: MagicMock(width=10, height=10))
     class DummyRaw:

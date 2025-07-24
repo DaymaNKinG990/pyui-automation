@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Type, Union
+from typing import Any, Callable, Optional, Type, Union, List
 import re
 
 
@@ -64,71 +64,76 @@ def validate_number_range(
         return False
     return True
 
+
 def validate_regex(value: str, pattern: str) -> bool:
     """
-    Validate string matches regex pattern
-
+    Validate that a string matches a regular expression pattern.
+    
     Args:
-        value: The string to be checked
-        pattern: The regex pattern to match
-
+        value: The string to validate
+        pattern: The regex pattern to match against
+        
     Returns:
-        bool: True if the string matches the regex pattern, False otherwise
+        bool: True if the string matches the pattern, False otherwise
     """
     try:
         return bool(re.match(pattern, value))
     except re.error:
         return False
 
+
 def validate_callable(value: Any) -> bool:
     """
-    Validate value is callable
-
+    Validate that a value is callable.
+    
     Args:
-        value: The value to be checked
-
+        value: The value to check
+        
     Returns:
         bool: True if the value is callable, False otherwise
     """
     return callable(value)
 
+
 def validate_iterable(value: Any) -> bool:
     """
-    Validate value is iterable
-
+    Validate that a value is iterable.
+    
     Args:
-        value: The value to be checked
-
+        value: The value to check
+        
     Returns:
         bool: True if the value is iterable, False otherwise
     """
     try:
         iter(value)
-        return True
+        return True  # Strings are iterable too
     except TypeError:
         return False
 
-def validate_all(validators: list[Callable[[Any], bool]], value: Any) -> bool:
+
+def validate_all(validators: List[Callable[[Any], bool]], value: Any) -> bool:
     """
-    Run multiple validators on value.
-
+    Validate that a value passes all validators.
+    
     Args:
-        validators: A list of validators to run on the value.
-        value: The value to be validated.
-
+        validators: List of validator functions
+        value: The value to validate
+        
     Returns:
         bool: True if all validators pass, False otherwise
     """
     return all(validator(value) for validator in validators)
 
-def validate_any(validators: list[Callable[[Any], bool]], value: Any) -> bool:
+
+def validate_any(validators: List[Callable[[Any], bool]], value: Any) -> bool:
     """
-    Run multiple validators on value, pass if any pass
-
+    Validate that a value passes at least one validator.
+    
     Args:
-        validators: A list of validators to run on the value.
-        value: The value to be validated.
-
+        validators: List of validator functions
+        value: The value to validate
+        
     Returns:
         bool: True if any validator passes, False otherwise
     """

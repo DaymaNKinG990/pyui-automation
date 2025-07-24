@@ -37,6 +37,9 @@ dependencies = [
     "pytest-asyncio>=0.24.0",
     "ty>=0.0.1a14",
     "pyrefly>=0.24.2",
+    "pre-commit>=3.5.0",
+    "pyright>=1.1.403",
+    "pywin32>=310",
 ]
 readme = "README.md"
 keywords = [
@@ -67,7 +70,6 @@ classifiers = [
     "Operating System :: MacOS :: MacOS X"
 ]
 urls = { "Bug Tracker" = "https://github.com/DaymaNKinG990/pyui_automation/issues", "Documentation" = "https://github.com/DaymaNKinG990/pyui_automation#readme", "Source Code" = "https://github.com/DaymaNKinG990/pyui_automation" }
-scripts = { "pyui-automation" = "pyui_automation.cli:main" }
 
 [build-system]
 requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]

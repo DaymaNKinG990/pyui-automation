@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
-from pyui_automation.core.utils import retry, ensure_dir, get_temp_path, save_image, load_image, compare_images
+from pathlib import Path
+from pyui_automation.utils import retry, ensure_dir, get_temp_path, save_image, load_image, compare_images
 
 def test_retry_success_on_first_try():
     calls = []
@@ -51,40 +52,40 @@ def test_get_temp_path_with_suffix():
     assert p.suffix == '.txt'
 
 def test_save_and_load_image(tmp_path):
-    arr = np.ones((10, 10, 3), dtype=np.uint8) * 255
+    arr = np.full((10, 10, 3), 255, dtype=np.uint8)
     f = tmp_path / 'img.png'
-    save_image(arr, str(f))
-    loaded = load_image(str(f))
+    save_image(arr.astype(np.uint8), f)
+    loaded = load_image(f)
     assert loaded is not None
     assert loaded.shape[0] == 10
 
 def test_load_image_nonexistent():
-    assert load_image('nonexistent_file.png') is None
+    assert load_image(Path('nonexistent_file.png')) is None
 
 def test_compare_images_equal():
-    arr = np.ones((5, 5, 3), dtype=np.uint8) * 100
-    assert compare_images(arr, arr.copy(), threshold=0.9) is True
+    arr = np.full((5, 5, 3), 100, dtype=np.uint8)
+    assert compare_images(arr.astype(np.uint8), arr.copy().astype(np.uint8), threshold=0.9) is True
 
 def test_compare_images_different_shape():
     arr1 = np.ones((5, 5, 3), dtype=np.uint8)
     arr2 = np.ones((6, 5, 3), dtype=np.uint8)
-    assert compare_images(arr1, arr2) is False
+    assert compare_images(arr1.astype(np.uint8), arr2.astype(np.uint8)) is False
 
 def test_compare_images_below_threshold():
     arr1 = np.zeros((5, 5, 3), dtype=np.uint8)
-    arr2 = np.ones((5, 5, 3), dtype=np.uint8) * 255
-    assert compare_images(arr1, arr2, threshold=0.99) is False 
+    arr2 = np.full((5, 5, 3), 255, dtype=np.uint8)
+    assert compare_images(arr1.astype(np.uint8), arr2.astype(np.uint8), threshold=0.99) is False
 
 def test_save_image_invalid_type(tmp_path):
     with pytest.raises(Exception):
-        save_image('not_an_array', str(tmp_path / 'img.png'))
+        save_image(np.array([1, 2, 3]), tmp_path / 'img.png')
 
 def test_compare_images_invalid_type():
     arr = np.ones((5, 5, 3), dtype=np.uint8)
     with pytest.raises(Exception):
-        compare_images(arr, 'not_an_array')
+        compare_images(arr.astype(np.uint8), np.array([1, 2, 3]))
     with pytest.raises(Exception):
-        compare_images('not_an_array', arr)
+        compare_images(np.array([1, 2, 3]), arr.astype(np.uint8))
 
 def test_retry_invalid_attempts():
     with pytest.raises(Exception):
@@ -95,8 +96,8 @@ def test_retry_invalid_attempts():
 
 def test_ensure_dir_invalid_type():
     with pytest.raises(Exception):
-        ensure_dir('not_a_path')
+        ensure_dir(Path('not_a_path'))
 
 def test_get_temp_path_invalid_suffix():
     with pytest.raises(Exception):
-        get_temp_path(123) 
+        get_temp_path('123') 

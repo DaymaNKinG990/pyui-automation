@@ -81,11 +81,19 @@ selected = tree.get_selected_node()
 
 ## Пример: работа с элементами Notepad++
 ```python
+from pyui_automation.core import AutomationSession
+from pyui_automation.core.factory import BackendFactory
+from pyui_automation.application import Application
+
+backend = BackendFactory.create_backend('windows')
+session = AutomationSession(backend)
+
 app = Application.launch(r"D:/Programs/Notepad++/notepad++.exe")
 window = app.wait_for_window("Notepad++")
-session = AutomationSession(backend)
+
 main = session.find_element_by_object_name("Notepad++")
 main.type_text("Hello, world!")
+
 # Поиск кнопки "Сохранить" и клик
 save_btn = session.find_element_by_object_name("Save")
 save_btn.click()

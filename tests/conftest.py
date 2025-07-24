@@ -16,15 +16,22 @@ import numpy as np
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+# Mock locator for tests
+class MockLocator:
+    """Mock locator for tests"""
+    def find_element(self, *args, **kwargs):
+        return MagicMock()
+    
+    def find_elements(self, *args, **kwargs):
+        return [MagicMock()]
+
 # Добавляем корневую директорию в PYTHONPATH
 project_root = str(Path(__file__).parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from pyui_automation.accessibility import AccessibilityChecker
-from pyui_automation.application import Application
-from pyui_automation.performance import PerformanceMonitor
-from pyui_automation.core import AutomationSession
+from pyui_automation.core import Application, AutomationSession
+from pyui_automation.core.services.performance_monitor import PerformanceMonitor
 
 from .data.element_data import (
     DEFAULT_ELEMENT_DATA,
@@ -119,9 +126,9 @@ def mock_element_with_current():
     
     # Set up attributes and properties
     def get_attribute(name):
-        return DEFAULT_ELEMENT_DATA['attributes'].get(name)
+        return DEFAULT_ELEMENT_DATA['attributes'].get(name) if isinstance(DEFAULT_ELEMENT_DATA['attributes'], dict) else None
     def get_property(name):
-        return DEFAULT_ELEMENT_DATA['properties'].get(name)
+        return DEFAULT_ELEMENT_DATA['properties'].get(name) if isinstance(DEFAULT_ELEMENT_DATA['properties'], dict) else None
     
     element.get_attribute.side_effect = get_attribute
     element.get_property.side_effect = get_property
@@ -141,9 +148,9 @@ def mock_element_with_get():
     
     # Set up attributes and properties
     def get_attribute(name):
-        return ALTERNATE_ELEMENT_DATA['attributes'].get(name)
+        return ALTERNATE_ELEMENT_DATA['attributes'].get(name) if isinstance(ALTERNATE_ELEMENT_DATA['attributes'], dict) else None
     def get_property(name):
-        return ALTERNATE_ELEMENT_DATA['properties'].get(name)
+        return ALTERNATE_ELEMENT_DATA['properties'].get(name) if isinstance(ALTERNATE_ELEMENT_DATA['properties'], dict) else None
     
     element.get_attribute.side_effect = get_attribute
     element.get_property.side_effect = get_property
@@ -159,7 +166,7 @@ def mock_backend(mock_element_with_current):
     backend.get_active_window.return_value = mock_element_with_current
     backend.capture_element.return_value = np.zeros(
         (SCREENSHOT_DATA['height'], SCREENSHOT_DATA['width'], SCREENSHOT_DATA['channels']), 
-        dtype=SCREENSHOT_DATA['dtype']
+        dtype=np.uint8
     )
     backend.get_window_handles.return_value = [WINDOW_DATA['handle']]
     backend.get_main_window.return_value = mock_element_with_current
@@ -170,7 +177,7 @@ def mock_backend(mock_element_with_current):
 @pytest.fixture
 def ui_automation(mock_backend):
     """Create UIAutomation instance with mocked backend"""
-    automation = AutomationSession(backend=mock_backend)
+    automation = AutomationSession(backend=mock_backend, locator=MockLocator())
     return automation
 
 @pytest.fixture
@@ -192,13 +199,10 @@ def mock_application(mock_process):
     """Create a mock application for testing"""
     app = MagicMock(spec=Application)
     app.process = mock_process
-    app.path = Path(PROCESS_DATA['executable'])
+    app.path = Path(str(PROCESS_DATA['executable']))
     return app
 
-@pytest.fixture
-def accessibility_checker(ui_automation):
-    """Create AccessibilityChecker instance"""
-    return AccessibilityChecker(ui_automation)
+
 
 @pytest.fixture
 def mock_performance_data():

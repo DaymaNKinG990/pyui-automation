@@ -1,10 +1,10 @@
 from pathlib import Path
 import pytest
 from unittest.mock import MagicMock, patch
-from pyui_automation.application import Application
+from pyui_automation import Application
 import psutil
 import comtypes.gen.UIAutomationClient as UIAutomationClient
-from pyui_automation.services.application_impl import ApplicationServiceImpl
+
 
 
 @pytest.fixture
@@ -131,22 +131,9 @@ def test_get_cpu_usage(mock_application):
     assert cpu_usage == 5.0
 
 def test_get_memory_usage(mock_application):
-    """Test getting memory usage"""
+    mock_application._process.memory_info.return_value = MagicMock(rss=1024)
     memory_usage = mock_application.get_memory_usage()
     assert memory_usage == 1
-
-def test_application_service_impl_delegation():
-    app_manager = MagicMock()
-    service = ApplicationServiceImpl(app_manager)
-    # launch_application
-    service.launch_application('path', ['arg'], 'cwd', {'ENV': '1'})
-    app_manager.launch_application.assert_called_once_with('path', ['arg'], 'cwd', {'ENV': '1'})
-    # attach_to_application
-    service.attach_to_application(123)
-    app_manager.attach_to_application.assert_called_once_with(123)
-    # get_current_application
-    service.get_current_application()
-    app_manager.get_current_application.assert_called_once()
 
 def test_launch_invalid_path():
     """Test error when launching with invalid path"""

@@ -1,7 +1,8 @@
 import shutil
 import tempfile
+import os
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Union
 
 
 def ensure_dir(path: Path) -> Path:
@@ -20,18 +21,6 @@ def ensure_dir(path: Path) -> Path:
 def get_temp_dir() -> Path:
     """Get temporary directory"""
     return Path(tempfile.gettempdir())
-
-def get_temp_file(suffix: str = '') -> Path:
-    """
-    Get temporary file path
-
-    Args:
-        suffix (str): Optional suffix for the file name
-
-    Returns:
-        Path: A Path object representing the temporary file path
-    """
-    return Path(tempfile.mktemp(suffix=suffix))
 
 def safe_remove(path: Path) -> bool:
     """
@@ -54,83 +43,149 @@ def safe_remove(path: Path) -> bool:
     except Exception:
         return False
 
-def list_files(directory: Path, pattern: str = '*') -> List[Path]:
-    """
-    List files in directory matching pattern.
 
+def get_temp_file(suffix: str = "", prefix: str = "tmp") -> Path:
+    """
+    Get a temporary file path.
+    
     Args:
-        directory (Path): The directory to list files from.
-        pattern (str): The glob pattern to use for matching files.
-
+        suffix: File suffix/extension
+        prefix: File prefix
+        
     Returns:
-        List[Path]: A list of Path objects representing the matching files.
+        Path to temporary file
     """
-    return list(directory.glob(pattern))
+    fd, path = tempfile.mkstemp(suffix=suffix, prefix=prefix)
+    os.close(fd)  # Close the file descriptor
+    return Path(path)
 
-def copy_file(src: Path, dst: Path, overwrite: bool = False) -> bool:
+
+def copy_file(src: Union[str, Path], dst: Union[str, Path], overwrite: bool = True) -> bool:
     """
-    Copy file from source to destination with optional overwrite.
-
+    Copy file from source to destination.
+    
     Args:
-        src (Path): The path to the source file.
-        dst (Path): The path to the destination file.
-        overwrite (bool): Whether to overwrite the destination file if it exists. Defaults to False.
-
+        src: Source file path
+        dst: Destination file path
+        overwrite: Whether to overwrite existing file
+        
     Returns:
-        bool: True if the file was copied successfully, False otherwise.
+        True if successful, False otherwise
     """
     try:
-        if dst.exists() and not overwrite:
+        src_path = Path(src)
+        dst_path = Path(dst)
+        
+        if not src_path.exists():
             return False
-        shutil.copy2(src, dst)
+            
+        if dst_path.exists() and not overwrite:
+            return False
+            
+        # Ensure destination directory exists
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        shutil.copy2(src_path, dst_path)
         return True
+        
     except Exception:
         return False
 
-def move_file(src: Path, dst: Path, overwrite: bool = False) -> bool:
+
+def move_file(src: Union[str, Path], dst: Union[str, Path], overwrite: bool = True) -> bool:
     """
-    Move file from source to destination with optional overwrite.
-
+    Move file from source to destination.
+    
     Args:
-        src (Path): The path to the source file.
-        dst (Path): The path to the destination file.
-        overwrite (bool): Whether to overwrite the destination file if it exists. Defaults to False.
-
+        src: Source file path
+        dst: Destination file path
+        overwrite: Whether to overwrite existing file
+        
     Returns:
-        bool: True if the file was moved successfully, False otherwise.
+        True if successful, False otherwise
     """
     try:
-        if dst.exists() and not overwrite:
+        src_path = Path(src)
+        dst_path = Path(dst)
+        
+        if not src_path.exists():
             return False
-        shutil.move(src, dst)
+            
+        if dst_path.exists() and not overwrite:
+            return False
+            
+        # Ensure destination directory exists
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        shutil.move(str(src_path), str(dst_path))
         return True
+        
     except Exception:
         return False
 
-def get_file_size(path: Path) -> Optional[int]:
+
+def get_file_size(path: Union[str, Path]) -> Optional[int]:
     """
     Get file size in bytes.
-
+    
     Args:
-        path (Path): The path to the file.
-
+        path: File path
+        
     Returns:
-        Optional[int]: The size of the file in bytes, or None if the file does not exist.
+        File size in bytes or None if file doesn't exist
     """
     try:
-        return path.stat().st_size
+        file_path = Path(path)
+        if file_path.exists() and file_path.is_file():
+            return file_path.stat().st_size
+        return None
     except Exception:
         return None
 
-def is_file_empty(path: Path) -> bool:
+
+def is_file_empty(path: Union[str, Path]) -> bool:
     """
     Check if file is empty.
-
+    
     Args:
-        path (Path): The path to the file to check.
-
+        path: File path
+        
     Returns:
-        bool: True if the file is empty, False otherwise.
+        True if file is empty or doesn't exist, False otherwise
     """
-    size = get_file_size(path)
-    return size == 0 if size is not None else True
+    try:
+        file_path = Path(path)
+        if not file_path.exists():
+            return True
+        if file_path.is_file():
+            return file_path.stat().st_size == 0
+        return True
+    except Exception:
+        return True
+
+
+def list_files(directory: Union[str, Path], pattern: str = "*") -> List[Path]:
+    """
+    List files in directory matching pattern.
+    
+    Args:
+        directory: Directory path
+        pattern: Glob pattern to match files
+        
+    Returns:
+        List of file paths
+    """
+    try:
+        dir_path = Path(directory)
+        if not dir_path.exists() or not dir_path.is_dir():
+            return []
+            
+        files = []
+        for file_path in dir_path.glob(pattern):
+            if file_path.is_file():
+                files.append(file_path)
+                
+        return files
+        
+    except Exception:
+        return []

@@ -1,5 +1,6 @@
 """Configuration for UI automation"""
 
+# Python libraries
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
 from pathlib import Path
@@ -22,7 +23,7 @@ class AutomationConfig:
 
     # Performance settings
     performance_enabled: bool = False
-    performance_metrics: List[str] = None
+    performance_metrics: Optional[List[str]] = None
     performance_interval: float = 1.0
     performance_output_dir: Optional[Path] = None
 
@@ -40,17 +41,14 @@ class AutomationConfig:
 
     # OCR settings
     ocr_enabled: bool = False
-    ocr_languages: List[str] = None
+    ocr_languages: Optional[List[str]] = None
     ocr_confidence: float = 0.7
 
-    # Accessibility settings
-    accessibility_enabled: bool = False
-    accessibility_standards: List[str] = None
-    accessibility_output_dir: Optional[Path] = None
+
 
     # Backend settings
     backend_type: str = "windows"
-    backend_options: Dict[str, Any] = None
+    backend_options: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         """Initialize default values for collections and types"""
@@ -58,8 +56,6 @@ class AutomationConfig:
             self.performance_metrics = ["cpu", "memory", "response_time"]
         if self.ocr_languages is None:
             self.ocr_languages = ["eng"]
-        if self.accessibility_standards is None:
-            self.accessibility_standards = ["wcag2a", "wcag2aa"]
         if self.backend_options is None:
             self.backend_options = {}
         # Приведение screenshot_dir к Path
@@ -69,8 +65,6 @@ class AutomationConfig:
             self.visual_baseline_dir = Path(self.visual_baseline_dir)
         if self.performance_output_dir is not None and not isinstance(self.performance_output_dir, Path):
             self.performance_output_dir = Path(self.performance_output_dir)
-        if self.accessibility_output_dir is not None and not isinstance(self.accessibility_output_dir, Path):
-            self.accessibility_output_dir = Path(self.accessibility_output_dir)
 
     def set(self, key: str, value: Any) -> None:
         """
@@ -133,19 +127,18 @@ class AutomationConfig:
             raise ValueError(f"Invalid visual algorithm. Must be one of: {valid_visual_algorithms}")
 
         valid_performance_metrics = ["cpu", "memory", "io", "gpu", "network", "response_time"]
-        for metric in self.performance_metrics:
-            if metric not in valid_performance_metrics:
-                raise ValueError(f"Invalid performance metric. Must be one of: {valid_performance_metrics}")
+        if self.performance_metrics:
+            for metric in self.performance_metrics:
+                if metric not in valid_performance_metrics:
+                    raise ValueError(f"Invalid performance metric. Must be one of: {valid_performance_metrics}")
 
         valid_ocr_languages = ["eng", "fra", "deu", "spa", "ita"]
-        for lang in self.ocr_languages:
-            if lang not in valid_ocr_languages:
-                raise ValueError(f"Invalid OCR language. Must be one of: {valid_ocr_languages}")
+        if self.ocr_languages:
+            for lang in self.ocr_languages:
+                if lang not in valid_ocr_languages:
+                    raise ValueError(f"Invalid OCR language. Must be one of: {valid_ocr_languages}")
 
-        valid_accessibility_standards = ["wcag2.1", "wcag2.2", "section508", "wcag2a", "wcag2aa"]
-        for standard in self.accessibility_standards:
-            if standard not in valid_accessibility_standards:
-                raise ValueError(f"Invalid accessibility standard. Must be one of: {valid_accessibility_standards}")
+
 
         valid_backend_types = ["windows", "linux", "macos", "web"]
         if self.backend_type not in valid_backend_types:

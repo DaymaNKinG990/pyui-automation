@@ -56,7 +56,8 @@ def test_validate_iterable():
 
 def test_validate_all():
     """Test multiple validators (all must pass)"""
-    validators = [
+    from typing import Callable
+    validators: list[Callable] = [
         lambda x: isinstance(x, str),
         lambda x: len(x) > 3,
         lambda x: x.startswith('test')
@@ -68,7 +69,8 @@ def test_validate_all():
 
 def test_validate_any():
     """Test multiple validators (any must pass)"""
-    validators = [
+    from typing import Callable
+    validators: list[Callable] = [
         lambda x: isinstance(x, int),
         lambda x: isinstance(x, str)
     ]

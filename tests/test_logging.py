@@ -3,7 +3,8 @@ import logging
 import sys
 from pathlib import Path
 import tempfile
-from pyui_automation.logging import AutomationLogger, logger
+from pyui_automation.core.logging import AutomationLogger
+from pyui_automation.core.log_manager import get_logger
 
 
 @pytest.fixture
@@ -121,8 +122,9 @@ def test_duplicate_handler_prevention(logger_instance):
 
 def test_global_logger_instance():
     """Test global logger instance"""
+    logger = get_logger('test')
     assert isinstance(logger, AutomationLogger)
-    assert logger._logger.name == 'pyui_automation'
+    assert logger._logger.name == 'test'
     assert logger._logger.level == logging.DEBUG
 
 def test_handler_formatter(logger_instance):

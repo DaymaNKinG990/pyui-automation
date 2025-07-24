@@ -1,7 +1,7 @@
 import platform
 from typing import Optional
 
-from .base import BaseBackend
+from .base_backend import BaseBackend
 from .windows import WindowsBackend
 from .linux import LinuxBackend
 from .macos import MacOSBackend

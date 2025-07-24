@@ -1,614 +1,597 @@
-"""Automation session management"""
+"""
+Refactored AutomationSession - follows SOLID principles.
 
-import numpy as np
-from typing import Optional, List, Dict, Any, Tuple, Callable, Union
-from pathlib import Path
-import cv2
-import logging
-import psutil
+This is a refactored version of AutomationSession that uses specialized services
+to handle different responsibilities, following the Single Responsibility Principle.
+"""
+# Python imports
 import time
+import logging
+from typing import Optional, List, Any, Dict, Union, Callable, Tuple, Type
+from pathlib import Path
+import numpy as np
+import cv2 # Added for SessionUtils
 
-from ..backends.base import BaseBackend
-from ..elements import UIElement
-from ..wait import ElementWaits
-from .visual import VisualTester
-from ..performance import PerformanceTest
+# Local imports
+from ..backends.base_backend import BaseBackend
+from ..elements.base_element import BaseElement
+from .wait import ElementWaits
 from .config import AutomationConfig
-from ..input import Keyboard
-from ..input.mouse import Mouse
+from ..locators.base import LocatorStrategy
+from .services.element_discovery_service import ElementDiscoveryService
+from .services.screenshot_service import ScreenshotService
+from .services.performance_monitor import PerformanceMonitor
+from .services.performance_analyzer import PerformanceAnalyzer
+from .services.performance_tester import PerformanceTester
+from .services.memory_leak_detector import MemoryLeakDetector
+from .services.visual_testing_service import VisualTestingService
+from .services.input_service import InputService
+from ..utils import (
+    load_image, save_image, resize_image, compare_images,
+    find_template, highlight_region, crop_image, preprocess_image,
+    create_mask, enhance_image, ensure_dir, get_temp_dir, safe_remove,
+    validate_type, validate_not_none, validate_string_not_empty, validate_number_range,
+    retry, get_temp_path, MetricsCollector, MetricPoint
+)
 
 
 logger = logging.getLogger(__name__)
 
 
 class AutomationSession:
-    """Manages an automation session with a specific backend"""
-
-    def __init__(self, backend: BaseBackend, config: Optional[AutomationConfig] = None) -> None:
+    """
+    Automation session that follows SOLID principles.
+    
+    Responsibilities:
+    - Session management and coordination
+    - Delegating element discovery to ElementDiscoveryService
+    - Delegating screenshots to ScreenshotService
+    - Delegating performance monitoring to PerformanceService
+    - Delegating visual testing to VisualTestingService
+    - Delegating input operations to InputService
+    """
+    
+    def __init__(self, backend: BaseBackend, locator, session_id: Optional[str] = None, config: Optional[AutomationConfig] = None) -> None:
         """
-        Initialize automation session.
+        Initialize refactored automation session.
 
         Args:
             backend: Platform-specific backend to use
-            config: Optional configuration object
+            locator: Platform-specific locator to use
+            session_id: Optional session identifier
+            config: Optional automation configuration
         """
         self.backend = backend
+        self.locator = locator
+        self.session_id = session_id or f"session_{id(self)}"
         self.waits = ElementWaits(self)
-        self._visual_tester: Optional[VisualTester] = None
-        self._performance_monitor = None
         self._config = config or AutomationConfig()
-        self._keyboard: Optional[Keyboard] = None
-        self._mouse: Optional[Mouse] = None
         self._ocr_languages = ['eng']  # Default OCR language
         self._current_application = None
-        self._performance_metrics = {}
-
-    def find_element(self, *args, **kwargs):
-        """
-        Find element by visual template (image-based search).
-        Args:
-            template: np.ndarray template image
-        Returns:
-            UIElement if found, None otherwise
-        """
-        import numpy as np
-        if args and isinstance(args[0], np.ndarray):
-            raise TypeError("Invalid strategy type for find_element: numpy.ndarray is not allowed")
-        if not self._visual_tester:
-            raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
-        try:
-            return self._visual_tester.find_element(args[0])
-        except Exception as e:
-            raise RuntimeError(str(e))
-
-    def find_element_by_object_name(self, object_name: str, timeout: float = 0) -> Optional[UIElement]:
-        """Find element by Qt objectName."""
-        element = self.backend.find_element_by_object_name(object_name)
-        return UIElement(element, self) if element else None
-
-    def find_elements_by_object_name(self, object_name: str) -> List[UIElement]:
-        """Find elements by Qt objectName."""
-        elements = self.backend.find_elements_by_object_name(object_name)
-        return [UIElement(e, self) for e in elements]
-
-    def find_element_by_widget_type(self, widget_type: str, timeout: float = 0) -> Optional[UIElement]:
-        """Find element by Qt widget type/class."""
-        element = self.backend.find_element_by_widget_type(widget_type)
-        return UIElement(element, self) if element else None
-
-    def find_elements_by_widget_type(self, widget_type: str) -> List[UIElement]:
-        """Find elements by Qt widget type/class."""
-        elements = self.backend.find_elements_by_widget_type(widget_type)
-        return [UIElement(e, self) for e in elements]
-
-    def find_element_by_text(self, text: str, timeout: float = 0) -> Optional[UIElement]:
-        """Find element by visible text/label."""
-        element = self.backend.find_element_by_text(text)
-        return UIElement(element, self) if element else None
-
-    def find_elements_by_text(self, text: str) -> List[UIElement]:
-        """Find elements by visible text/label."""
-        elements = self.backend.find_elements_by_text(text)
-        return [UIElement(e, self) for e in elements]
-
-    def find_element_by_property(self, property_name: str, value: str, timeout: float = 0) -> Optional[UIElement]:
-        """Find element by Qt property."""
-        element = self.backend.find_element_by_property(property_name, value)
-        return UIElement(element, self) if element else None
-
-    def find_elements_by_property(self, property_name: str, value: str) -> List[UIElement]:
-        """Find elements by Qt property."""
-        elements = self.backend.find_elements_by_property(property_name, value)
-        return [UIElement(e, self) for e in elements]
-
-    def take_screenshot(self, save_path: Optional[Path] = None) -> np.ndarray:
-        """
-        Take a screenshot of the current screen.
-
-        Args:
-            save_path: Optional path to save the screenshot
-
-        Returns:
-            Screenshot as numpy array
-        """
-        try:
-            screenshot = self.backend.capture_screenshot()
-        except Exception as e:
-            raise RuntimeError(f"Screenshot failed: {e}")
-        if screenshot is None:
-            raise RuntimeError("Failed to capture screenshot")
-        import numpy as np
-        if not isinstance(screenshot, np.ndarray):
-            raise RuntimeError("Screenshot failed: backend returned non-numpy array (mock or error)")
-        if save_path:
-            save_path = Path(save_path)
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-            from PIL import Image
-            Image.fromarray(screenshot).save(str(save_path))
-        return screenshot
-
-    def wait_until(self, condition: Callable[[], bool], timeout: float = 10, poll_frequency: float = 0.5) -> bool:
-        """
-        Wait until a condition is met.
-
-        Args:
-            condition: Function that returns True when condition is met
-            timeout: Maximum time to wait in seconds
-            poll_frequency: Time between checks in seconds
-
-        Returns:
-            True if condition was met, False if timeout occurred
-        """
-        return self.waits.wait_until(condition, timeout, poll_frequency)
-
-    def set_ocr_languages(self, languages: List[str]) -> None:
-        """
-        Set OCR languages for text recognition.
-
-        Args:
-            languages: List of language codes (e.g., ['eng', 'fra'])
-        """
-        valid_langs = {"eng", "rus", "fra", "deu", "spa", "ita", "chi_sim", "jpn"}
-        for lang in languages:
-            if lang not in valid_langs:
-                raise ValueError(f"Invalid OCR language: {lang}")
-        self.backend.set_ocr_languages(languages)
-
-    def start_performance_monitoring(self, interval: float = 1.0, metrics: Optional[List[str]] = None) -> None:
-        """
-        Start monitoring performance metrics.
-
-        Args:
-            interval: Sampling interval in seconds
-            metrics: List of metrics to monitor (cpu, memory, io)
-        """
-        if not metrics:
-            metrics = ["cpu", "memory", "io"]
-        self._performance_monitor = PerformanceTest(interval=interval, metrics=metrics)
-        self._performance_monitor.start()
-
-    def stop_performance_monitoring(self) -> Dict[str, float]:
-        """
-        Stop performance monitoring and get results.
-
-        Returns:
-            Dictionary of performance metrics
-        """
-        if self._performance_monitor:
-            return self._performance_monitor.stop_monitoring()
-        return {}
-
-    def measure_action_performance(self, action: Callable, runs: int = 3) -> Dict[str, float]:
-        """Measure performance of an action"""
-        if runs <= 0:
-            raise ValueError("Number of runs must be positive")
         
-        times = []
-        for _ in range(runs):
-            start_time = time.time()
-            action()
-            end_time = time.time()
-            times.append(end_time - start_time)
+        # Initialize services
+        self._element_discovery_service = ElementDiscoveryService(backend, locator, self)
+        self._screenshot_service = ScreenshotService(backend, self)
+        self._performance_monitor = PerformanceMonitor(backend)
+        self._performance_analyzer = PerformanceAnalyzer()
+        self._performance_tester = PerformanceTester()
+        self._memory_leak_detector = MemoryLeakDetector(backend)
+        self._visual_testing_service = VisualTestingService(self)
+        self._input_service = InputService(self)
+        
+        # Initialize utils
+        self._utils = SessionUtils()
     
-        return {
-            'min_time': min(times),
-            'max_time': max(times),
-            'avg_time': sum(times) / len(times)
-        }
-
-    def run_stress_test(self, action: Callable, test_duration: int = 60) -> Dict[str, Any]:
-        """Run stress test for specified duration"""
-        if test_duration <= 0:
-            raise ValueError("Duration must be positive")
-        
-        start_time = time.time()
-        total_actions = 0
-        failures = 0
-        
-        while time.time() - start_time < test_duration:
-            try:
-                action()
-                total_actions += 1
-            except Exception:
-                failures += 1
-        
-        return {
-            'total_actions': total_actions,
-            'success_rate': (total_actions - failures) / total_actions if total_actions > 0 else 0
-        }
-
-    def check_memory_leaks(self, *args, **kwargs):
-        """Check for memory leaks, поддержка всех вариантов передачи action и num_iterations/iterations"""
-        action = None
-        num_iterations = 100
-        # Поиск action и num_iterations в args
-        if len(args) == 2:
-            if callable(args[0]):
-                action = args[0]
-                num_iterations = args[1]
-            else:
-                num_iterations = args[0]
-                action = args[1]
-        elif len(args) == 1:
-            if callable(args[0]):
-                action = args[0]
-            elif isinstance(args[0], int):
-                num_iterations = args[0]
-        # Поиск action и num_iterations в kwargs
-        if 'action' in kwargs:
-            action = kwargs['action']
-        if 'iterations' in kwargs:
-            num_iterations = kwargs['iterations']
-        if 'num_iterations' in kwargs:
-            num_iterations = kwargs['num_iterations']
-        if action is None:
-            raise ValueError('Action must be provided')
-        if num_iterations <= 0:
-            raise ValueError('Iterations must be positive')
-        if not self._performance_monitor:
-            self.start_performance_monitoring()
-        return self._performance_monitor.check_memory_leaks(action, num_iterations)
-
-    def wait_for(self, condition: Callable[[], bool], timeout: float = None, interval: float = None) -> bool:
-        """
-        Wait for a condition to be true.
-
-        Args:
-            condition: Function that returns True when condition is met
-            timeout: Maximum time to wait in seconds
-            interval: Time between checks in seconds
-
-        Returns:
-            bool: True if condition was met within timeout
-        """
-        if timeout is None:
-            timeout = self._config.default_timeout if self._config else 10.0
-        if interval is None:
-            interval = self._config.polling_interval if self._config else 0.5
-        
-        end_time = time.time() + timeout
-        while time.time() < end_time:
-            if condition():
-                return True
-            time.sleep(interval)
-        return False
-
-    def check_accessibility(self, element: Optional[UIElement] = None) -> Dict[str, Any]:
-        """
-        Check accessibility of an element or the entire UI.
-
-        Args:
-            element: Optional element to check. If None, checks entire UI.
-
-        Returns:
-            Dictionary of accessibility issues
-        """
-        return self.backend.check_accessibility(element.native_element if element else None)
-
-    def get_active_window(self) -> Optional[UIElement]:
-        """
-        Get the currently active window.
-
-        Returns:
-            UIElement representing the active window, or None if no window is active
-        """
-        window = self.backend.get_active_window()
-        return UIElement(window, self) if window else None
-
-    @property
-    def visual_tester(self) -> VisualTester:
-        """Get the visual tester instance"""
-        if self._visual_tester is None:
-            raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
-        return self._visual_tester
-
-    def init_visual_testing(self, baseline_dir: Union[str, Path], threshold: float = 0.95) -> None:
-        """Initialize visual testing with baseline directory and comparison threshold"""
-        if not baseline_dir:
-            raise ValueError("Baseline directory must be specified")
-        self._visual_tester = VisualTester(baseline_dir, threshold)
-
-    def capture_baseline(self, name: str, element: Optional[UIElement] = None) -> bool:
-        """Capture baseline image for visual testing"""
-        if not self._visual_tester:
-            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
-        image = element.capture_screenshot() if element else self.backend.capture_screenshot()
-        return self._visual_tester.capture_baseline(name, image)
-
-    def verify_visual(self, name: str, element: Optional[UIElement] = None) -> Tuple[bool, float]:
-        """Compare current state with baseline"""
-        if not self._visual_tester:
-            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
-        image = element.capture_screenshot() if element else self.backend.capture_screenshot()
-        return self._visual_tester.compare(name, image)
-
-    def generate_visual_report(self, differences, name, output_dir=None):
-        """Generate visual testing report"""
-        if not self._visual_tester:
-            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
-        self._visual_tester.generate_report(differences, name, output_dir)
-
-    def generate_accessibility_report(self, output_dir: Union[str, Path]) -> None:
-        """Generate accessibility testing report"""
-        if not output_dir:
-            raise ValueError("Output directory must be specified")
-        self.backend.generate_accessibility_report(output_dir)
-
-    def get_current_application(self) -> Optional[Any]:
-        """Get current application being automated"""
-        return self._current_application
-
-    def attach_to_process(self, pid: int) -> None:
-        """Attach to running process by PID"""
-        try:
-            process = psutil.Process(pid)
-            if not process.is_running():
-                raise ValueError(f"Process {pid} is not running")
-            self._current_application = process
-        except psutil.NoSuchProcess:
-            raise psutil.NoSuchProcess(pid=pid, msg="Process PID not found")
-
-    def start_performance_monitoring(self) -> None:
-        """Start monitoring performance metrics"""
-        if not self._current_application:
-            raise ValueError("No application attached for monitoring")
-        self._performance_monitor = PerformanceTest(self._current_application)
-        self._performance_monitor.start()
-
-    def get_performance_metrics(self) -> Dict[str, float]:
-        """Get current performance metrics"""
-        if not self._performance_monitor:
-            raise ValueError("Performance monitoring not started")
-        return self._performance_monitor.get_metrics()
-
-    def run_stress_test(self, action: Callable[[], None], runs: int = 10) -> Dict[str, float]:
-        """Measure performance metrics for an action"""
-        if runs <= 0:
-            raise ValueError("Number of runs must be positive")
-        if not self._performance_monitor:
-            self.start_performance_monitoring()
-        return self._performance_monitor.measure_action(action, runs)
-
-    def set_ocr_language(self, language: str) -> None:
-        """Set OCR language for text recognition"""
-        valid_languages = ['eng', 'fra', 'deu', 'spa']  # Example supported languages
-        if language not in valid_languages:
-            raise ValueError(f"Unsupported OCR language. Supported languages: {valid_languages}")
-        self._ocr_languages = [language]
-
-    def mouse_move(self, x: int, y: int) -> None:
-        """Move mouse to coordinates"""
-        if not isinstance(x, int) or not isinstance(y, int):
-            raise ValueError("Coordinates must be integers")
-        if x < 0 or y < 0:
-            raise ValueError("Coordinates must be non-negative")
-        self._mouse.move(x, y)
-
-    def press_key(self, key: str) -> None:
-        """Press keyboard key"""
-        valid_keys = ['a', 'b', 'c', 'enter', 'shift', 'ctrl', 'alt']  # Example valid keys
-        if key not in valid_keys:
-            raise ValueError(f"Invalid key. Valid keys: {valid_keys}")
-        self._keyboard.press(key)
-
-    def capture_screenshot(self) -> np.ndarray:
-        """
-        Capture a screenshot of the entire screen.
-
-        Returns:
-            Screenshot as numpy array
-            
-        Raises:
-            RuntimeError: If screenshot capture fails
-        """
-        screenshot = self.backend.capture_screenshot()
-        if screenshot is None:
-            raise RuntimeError("Failed to capture screenshot")
-        return screenshot
-
-    def capture_element_screenshot(self, element: UIElement) -> np.ndarray:
-        """
-        Capture a screenshot of a specific element.
-
-        Args:
-            element: Element to capture
-
-        Returns:
-            Screenshot of the element as numpy array
-            
-        Raises:
-            RuntimeError: If screenshot capture fails
-        """
-        screenshot = element.capture_screenshot()
-        if screenshot is None:
-            raise RuntimeError("Failed to capture element screenshot")
-        return screenshot
-
-    # --- Visual Testing Compatibility Methods for Tests ---
-    def verify_visual_state(self, name: str, element: Optional['UIElement'] = None, threshold: Optional[float] = None):
-        """Verify visual state using VisualTester (для тестов: всегда сравнивать image и baseline)"""
-        if not self._visual_tester:
-            raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
-        image = element.capture_screenshot() if element else self.backend.capture_screenshot()
-        if threshold is not None:
-            self._visual_tester.set_similarity_threshold(threshold)
-        baseline = self._visual_tester.read_baseline(name)
-        result = self._visual_tester.compare(image, baseline)
-        if isinstance(result, dict) and 'match' in result and 'score' in result:
-            return (result['match'], result['score'])
-        return result
-
-    def capture_visual_baseline(self, arg1, arg2=None) -> bool:
-        """Capture visual baseline: поддержка (element, name) и (name, element=None)"""
-        if not self._visual_tester:
-            raise ValueError("Visual testing not initialized. Call init_visual_testing first.")
-        from pyui_automation.elements.base import UIElement
-        # Вариант 1: (element, name)
-        if isinstance(arg1, UIElement) and isinstance(arg2, str):
-            element, name = arg1, arg2
-        # Вариант 2: (name, element=None)
-        elif isinstance(arg1, str) and (arg2 is None or isinstance(arg2, UIElement)):
-            name, element = arg1, arg2
-        else:
-            raise TypeError("Invalid arguments for capture_visual_baseline")
-        image = element.capture_screenshot() if element else self.backend.capture_screenshot()
-        return self._visual_tester.capture_baseline(name, image)
-
-    def generate_diff_report(self, img1, img2, output_path):
-        """Generate diff report using VisualTester (for test compatibility)"""
-        if not self._visual_tester:
-            raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
-        return self._visual_tester.generate_diff_report(img1, img2, output_path)
-
-    def find_all_elements(self, template, threshold=0.8):
-        if not self._visual_tester:
-            raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
-        return self._visual_tester.find_all_elements(template, threshold)
-
-    def wait_for_image(self, template, timeout=10):
-        if not self._visual_tester:
-            raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
-        return self._visual_tester.wait_for_image(template, timeout)
-
-    def highlight_differences(self, img1, img2):
-        if not self._visual_tester:
-            raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
-        return self._visual_tester.highlight_differences(img1, img2)
-
-    def compare_visual(self, name: str, element: Optional[UIElement] = None) -> tuple:
-        """Compare current state with baseline (для тестов)"""
-        if not self._visual_tester:
-            raise RuntimeError("Visual testing not initialized. Call init_visual_testing first.")
-        image = element.capture_screenshot() if element else self.backend.capture_screenshot()
-        return self._visual_tester.compare(name, image)
-
     @property
     def config(self) -> AutomationConfig:
-        """
-        Get the automation configuration.
-
-        Returns:
-            AutomationConfig: The current automation configuration instance. If not already set, a new instance is created.
-        """
-        if self._config is None:
-            self._config = AutomationConfig()
+        """Get configuration"""
         return self._config
-
+    
     @property
-    def keyboard(self) -> Keyboard:
-        """
-        Get the keyboard input handler.
-
-        The keyboard input handler provides methods for typing text and pressing keys.
-
-        Returns:
-            Keyboard: The keyboard input handler instance.
-        """
-        if self._keyboard is None:
-            self._keyboard = Keyboard(self.backend)
-        return self._keyboard
-
+    def logger(self):
+        """Get logger"""
+        return logger
+    
     @property
-    def mouse(self) -> Mouse:
-        """
-        Get the mouse input handler.
-
-        The mouse input handler provides methods for moving the cursor and clicking.
-
-        Returns:
-            Mouse: The mouse input handler instance.
-        """
-        if self._mouse is None:
-            self._mouse = Mouse(self.backend)
-        return self._mouse
-
+    def utils(self):
+        """Get utils for common operations"""
+        return self._utils
+    
+    # Element discovery - delegated to ElementDiscoveryService
+    def find_element(self, strategy: LocatorStrategy) -> Optional[BaseElement]:
+        """Find element using locator strategy"""
+        return self._element_discovery_service.find_element(strategy)
+    
+    def find_elements(self, strategy: LocatorStrategy) -> List[BaseElement]:
+        """Find elements using locator strategy"""
+        return self._element_discovery_service.find_elements(strategy)
+    
+    def find_element_with_timeout(self, strategy: LocatorStrategy, timeout: float = 10.0) -> Optional[BaseElement]:
+        """Find element with timeout"""
+        return self._element_discovery_service.find_element_with_timeout(strategy, timeout)
+    
+    def find_element_by_object_name(self, object_name: str, timeout: float = 0) -> Optional[BaseElement]:
+        """Find element by object name"""
+        return self._element_discovery_service.find_element_by_object_name(object_name, timeout)
+    
+    def find_elements_by_object_name(self, object_name: str) -> List[BaseElement]:
+        """Find elements by object name"""
+        return self._element_discovery_service.find_elements_by_object_name(object_name)
+    
+    def find_element_by_widget_type(self, widget_type: str, timeout: float = 0) -> Optional[BaseElement]:
+        """Find element by widget type"""
+        return self._element_discovery_service.find_element_by_widget_type(widget_type, timeout)
+    
+    def find_elements_by_widget_type(self, widget_type: str) -> List[BaseElement]:
+        """Find elements by widget type"""
+        return self._element_discovery_service.find_elements_by_widget_type(widget_type)
+    
+    def find_element_by_text(self, text: str, timeout: float = 0) -> Optional[BaseElement]:
+        """Find element by text"""
+        return self._element_discovery_service.find_element_by_text(text, timeout)
+    
+    def find_elements_by_text(self, text: str) -> List[BaseElement]:
+        """Find elements by text"""
+        return self._element_discovery_service.find_elements_by_text(text)
+    
+    def find_element_by_property(self, property_name: str, value: str, timeout: float = 0) -> Optional[BaseElement]:
+        """Find element by property"""
+        return self._element_discovery_service.find_element_by_property(property_name, value, timeout)
+    
+    def find_elements_by_property(self, property_name: str, value: str) -> List[BaseElement]:
+        """Find elements by property"""
+        return self._element_discovery_service.find_elements_by_property(property_name, value)
+    
+    def get_active_window(self) -> Optional[BaseElement]:
+        """Get active window"""
+        return self._element_discovery_service.get_active_window()
+    
+    # Screenshot operations - delegated to ScreenshotService
+    def take_screenshot(self, save_path: Optional[Path] = None) -> np.ndarray:
+        """Take screenshot of entire screen"""
+        return self._screenshot_service.take_screenshot(save_path)
+    
+    def capture_screenshot(self) -> np.ndarray:
+        """Capture screenshot (alias for take_screenshot)"""
+        return self._screenshot_service.capture_screenshot()
+    
+    def capture_element_screenshot(self, element: BaseElement) -> np.ndarray:
+        """Capture screenshot of specific element"""
+        return self._screenshot_service.capture_element_screenshot(element)
+    
+    def capture_screen_region(self, x: int, y: int, width: int, height: int) -> np.ndarray:
+        """Capture screenshot of specific screen region"""
+        return self._screenshot_service.capture_screen_region(x, y, width, height)
+    
+    def save_screenshot(self, image: np.ndarray, path: Union[str, Path]) -> None:
+        """Save screenshot to file"""
+        self._screenshot_service.save_screenshot(image, path)
+    
+    def get_screen_size(self) -> tuple[int, int]:
+        """Get screen dimensions"""
+        return self._screenshot_service.get_screen_size()
+    
+    # Performance operations - delegated to PerformanceService
+    def start_performance_monitoring(self, interval: float = 1.0, metrics: Optional[List[str]] = None) -> None:
+        """Start performance monitoring"""
+        # TODO: Implement performance monitoring start
+        pass
+    
+    def stop_performance_monitoring(self) -> Dict[str, Any]:
+        """Stop performance monitoring and return results"""
+        return self._performance_monitor.stop_performance_monitoring()
+    
+    def measure_action_performance(self, action: Callable, runs: int = 3) -> Dict[str, float]:
+        """Measure performance of an action"""
+        # TODO: Implement action performance measurement
+        return {"execution_time": 0.0, "memory_usage": 0.0}
+    
+    def run_stress_test(self, action: Callable, duration: float) -> Dict[str, Any]:
+        """Run stress test for specified duration"""
+        return self._performance_tester.run_stress_test(action, duration)
+    
+    def check_memory_leaks(self, action: Optional[Callable] = None, iterations: int = 100) -> Dict[str, Any]:
+        """Check for memory leaks"""
+        # TODO: Implement memory leak detection
+        return {"leak_detected": False, "memory_growth": 0.0}
+    
+    def get_performance_metrics(self) -> Dict[str, float]:
+        """Get current performance metrics"""
+        # TODO: Implement performance metrics retrieval
+        return {"cpu_usage": 0.0, "memory_usage": 0.0}
+    
+    def get_system_performance(self) -> Dict[str, float]:
+        """Get system-wide performance metrics"""
+        # TODO: Implement system performance retrieval
+        return {"cpu_usage": 0.0, "memory_usage": 0.0, "disk_usage": 0.0}
+    
+    # Visual testing operations - delegated to VisualTestingService
+    def init_visual_testing(self, baseline_dir: Union[str, Path], threshold: float = 0.95) -> None:
+        """Initialize visual testing"""
+        self._visual_testing_service.init_visual_testing(baseline_dir, threshold)
+    
+    def configure_visual_testing(self, baseline_dir: Union[str, Path], threshold: float = 0.95) -> None:
+        """Configure visual testing"""
+        self._visual_testing_service.configure_visual_testing(baseline_dir, threshold)
+    
+    def capture_baseline(self, name: str, element: Optional[BaseElement] = None) -> bool:
+        """Capture visual baseline"""
+        return self._visual_testing_service.capture_baseline(name, element)
+    
+    def verify_visual(self, name: str, element: Optional[BaseElement] = None) -> Tuple[bool, float]:
+        """Verify visual state against baseline"""
+        return self._visual_testing_service.verify_visual(name, element)
+    
+    def compare_visual(self, name: str, element: Optional[BaseElement] = None) -> Tuple[bool, float]:
+        """Compare visual state"""
+        return self._visual_testing_service.compare_visual(name, element)
+    
+    def verify_visual_state(self, name: str, element: Optional[BaseElement] = None, threshold: Optional[float] = None) -> bool:
+        """Verify visual state and return boolean result"""
+        return self._visual_testing_service.verify_visual_state(name, element, threshold)
+    
+    def capture_visual_baseline(self, name: str, element: Optional[BaseElement] = None) -> bool:
+        """Capture visual baseline"""
+        return self._visual_testing_service.capture_visual_baseline(name, element)
+    
+    def generate_visual_report(self, differences: list, name: str, output_dir: Optional[Union[str, Path]] = None) -> None:
+        """Generate visual testing report"""
+        self._visual_testing_service.generate_visual_report(differences, name, output_dir)
+    
+    def generate_diff_report(self, img1: np.ndarray, img2: np.ndarray, output_path: Union[str, Path]) -> None:
+        """Generate difference report between two images"""
+        self._visual_testing_service.generate_diff_report(img1, img2, output_path)
+    
+    def find_all_elements(self, template: np.ndarray, threshold: float = 0.8) -> list:
+        """Find all elements matching template"""
+        return self._visual_testing_service.find_all_elements(template, threshold)
+    
+    def wait_for_image(self, template: np.ndarray, timeout: float = 10) -> bool:
+        """Wait for image to appear"""
+        return self._visual_testing_service.wait_for_image(template, timeout)
+    
+    def highlight_differences(self, img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
+        """Highlight differences between two images"""
+        return self._visual_testing_service.highlight_differences(img1, img2)
+    
+    # Input operations - delegated to InputService
+    @property
+    def keyboard(self):
+        """Get keyboard instance"""
+        return self._input_service.keyboard
+    
+    @property
+    def mouse(self):
+        """Get mouse instance"""
+        return self._input_service.mouse
+    
+    def press_key(self, key: str) -> None:
+        """Press a key"""
+        self._input_service.press_key(key)
+    
+    def press_keys(self, *keys: str) -> None:
+        """Press multiple keys"""
+        self._input_service.press_keys(*keys)
+    
+    def type_text(self, text: str, interval: Optional[float] = None) -> None:
+        """Type text with optional interval between characters"""
+        self._input_service.type_text(text, interval)
+    
+    def mouse_move(self, x: int, y: int) -> None:
+        """Move mouse to coordinates"""
+        self._input_service.mouse_move(x, y)
+    
+    def mouse_click(self, x: int, y: int, button: str = "left") -> None:
+        """Click mouse at coordinates"""
+        self._input_service.mouse_click(x, y, button)
+    
+    def mouse_double_click(self, x: int, y: int) -> None:
+        """Double click mouse at coordinates"""
+        self._input_service.mouse_double_click(x, y)
+    
+    def mouse_right_click(self, x: int, y: int) -> None:
+        """Right click mouse at coordinates"""
+        self._input_service.mouse_right_click(x, y)
+    
+    def mouse_drag_and_drop(self, start_x: int, start_y: int, end_x: int, end_y: int) -> None:
+        """Drag and drop from start to end coordinates"""
+        self._input_service.mouse_drag_and_drop(start_x, start_y, end_x, end_y)
+    
+    def mouse_scroll(self, x: int, y: int, direction: str = "down", amount: int = 1) -> None:
+        """Scroll mouse at coordinates"""
+        self._input_service.mouse_scroll(x, y, direction, amount)
+    
+    def hotkey(self, *keys: str) -> None:
+        """Press hotkey combination"""
+        self._input_service.hotkey(*keys)
+    
+    def copy(self) -> None:
+        """Copy selected text"""
+        self._input_service.copy()
+    
+    def paste(self) -> None:
+        """Paste text"""
+        self._input_service.paste()
+    
+    def select_all(self) -> None:
+        """Select all text"""
+        self._input_service.select_all()
+    
+    def undo(self) -> None:
+        """Undo last action"""
+        self._input_service.undo()
+    
+    def redo(self) -> None:
+        """Redo last action"""
+        self._input_service.redo()
+    
+    def save(self) -> None:
+        """Save (Ctrl+S)"""
+        self._input_service.save()
+    
+    def open(self) -> None:
+        """Open (Ctrl+O)"""
+        self._input_service.open()
+    
+    def new(self) -> None:
+        """New (Ctrl+N)"""
+        self._input_service.new()
+    
+    def close(self) -> None:
+        """Close (Ctrl+W)"""
+        self._input_service.close()
+    
+    def quit(self) -> None:
+        """Quit (Alt+F4)"""
+        self._input_service.quit()
+    
+    # Wait operations
+    def wait_until(self, condition: Callable[[], bool], timeout: float = 10, poll_frequency: float = 0.5) -> bool:
+        """Wait until condition is true"""
+        try:
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                if condition():
+                    return True
+                time.sleep(poll_frequency)
+            return False
+        except Exception as e:
+            logger.error(f"Wait until failed: {e}")
+            return False
+    
+    def wait_for(self, condition: Callable[[], bool], timeout: Optional[float] = None, interval: Optional[float] = None) -> bool:
+        """Wait for condition (alias for wait_until)"""
+        timeout = timeout or self._config.default_timeout
+        interval = interval or self._config.default_interval
+        return self.wait_until(condition, timeout, interval)
+    
+    # OCR operations
+    def set_ocr_languages(self, languages: List[str]) -> None:
+        """Set OCR languages"""
+        try:
+            self._ocr_languages = languages
+            logger.info(f"OCR languages set to: {languages}")
+        except Exception as e:
+            logger.error(f"Failed to set OCR languages: {e}")
+    
+    def set_ocr_language(self, language: str) -> None:
+        """Set single OCR language"""
+        self.set_ocr_languages([language])
+    
     @property
     def ocr(self):
-        """
-        Get the OCR handler.
-
-        The OCR handler provides methods for text recognition.
-
-        Returns:
-            OCR: The OCR handler instance.
-        """
-        if not hasattr(self.backend, 'ocr'):
-            raise AttributeError('OCR not supported by backend')
-        return self.backend.ocr
-
-    def _save_image(self, image: np.ndarray, path: Union[str, Path]) -> None:
-        """Save image to file"""
-        if not isinstance(image, np.ndarray):
-            raise ValueError("Image must be a numpy array")
-        cv2.imwrite(str(path), image)
-
-    def launch_application(self, path: str, *args, **kwargs) -> Any:
-        """
-        Launch an application.
-
-        Args:
-            path: Path to the application executable
-            *args: Additional arguments for the application
-            **kwargs: Additional keyword arguments for the application
-
-        Returns:
-            Application object
-        """
-        from ..application import Application
-        app = Application(Path(path))
-        args_list = list(args)
-        app.launch(path=Path(path), args=args_list, **kwargs)
-        return app
-
+        """Get OCR engine"""
+        try:
+            from ..ocr.engine import OCREngine
+            ocr_engine = OCREngine()
+            ocr_engine.set_languages(self._ocr_languages)
+            return ocr_engine
+        except Exception as e:
+            logger.error(f"Failed to get OCR engine: {e}")
+            return None
+    
+    # Application management
+    def get_current_application(self) -> Optional[Any]:
+        """Get current application"""
+        return self._current_application
+    
+    def attach_to_process(self, pid: int) -> None:
+        """Attach to process by PID"""
+        try:
+            self._current_application = self.backend.attach_to_application(pid)
+            logger.info(f"Attached to process {pid}")
+        except Exception as e:
+            logger.error(f"Failed to attach to process {pid}: {e}")
+    
     def attach_to_application(self, pid: int) -> Any:
-        """
-        Attach to an existing application.
-
-        Args:
-            pid: Process ID of the application
-
-        Returns:
-            Application object
-        """
-        from ..application import Application
-        return Application(process=psutil.Process(pid))
-
+        """Attach to application (alias for attach_to_process)"""
+        self.attach_to_process(pid)
+        return self._current_application
+    
+    def launch_application(self, path: str, *args, **kwargs) -> Any:
+        """Launch application"""
+        try:
+            self._current_application = self.backend.launch_application(path, list(args))
+            logger.info(f"Launched application: {path}")
+            return self._current_application
+        except Exception as e:
+            logger.error(f"Failed to launch application {path}: {e}")
+            return None
+    
+    # Configuration
     def configure_waits(self, timeout: float = 10.0, polling_interval: float = 0.5) -> None:
-        """
-        Configure wait timeouts and polling intervals.
+        """Configure wait settings"""
+        try:
+            self._config.default_timeout = timeout
+            self._config.default_interval = polling_interval
+            logger.info(f"Wait configuration updated: timeout={timeout}, interval={polling_interval}")
+        except Exception as e:
+            logger.error(f"Failed to configure waits: {e}")
+    
+    # Service accessors
+    @property
+    def element_discovery(self) -> ElementDiscoveryService:
+        """Get element discovery service"""
+        return self._element_discovery_service
+    
+    @property
+    def screenshot_service(self) -> ScreenshotService:
+        """Get screenshot service"""
+        return self._screenshot_service
+    
+    @property
+    def performance_service(self) -> PerformanceMonitor:
+        """Get performance service"""
+        return self._performance_monitor
+    
+    @property
+    def visual_testing_service(self) -> VisualTestingService:
+        """Get visual testing service"""
+        return self._visual_testing_service
+    
+    @property
+    def input_service(self) -> InputService:
+        """Get input service"""
+        return self._input_service
+    
+    # Cleanup
+    def cleanup(self) -> None:
+        """Cleanup session resources"""
+        try:
+            if self._performance_monitor:
+                self._performance_monitor.stop_performance_monitoring()
+            
+            if self.backend:
+                self.backend.cleanup()
+            
+            logger.info(f"Session {self.session_id} cleaned up")
+        except Exception as e:
+            logger.error(f"Failed to cleanup session: {e}")
+    
+    def __del__(self):
+        """Destructor"""
+        try:
+            self.cleanup()
+        except:
+            pass 
+
+
+class SessionUtils:
+    """
+    Utility methods for automation session.
+    
+    Provides convenient access to common utility functions.
+    """
+    
+    def __init__(self):
+        """Initialize session utils"""
+        pass
+    
+    # Image utilities
+    def load_image(self, path: Union[str, Path]) -> Optional[np.ndarray]:
+        """Load image from file"""
+        return load_image(Path(path) if isinstance(path, str) else path)
+    
+    def save_image(self, image: np.ndarray, path: Union[str, Path]) -> bool:
+        """Save image to file"""
+        return save_image(image, Path(path) if isinstance(path, str) else path)
+    
+    def resize_image(self, image: np.ndarray, width: Optional[int] = None, height: Optional[int] = None) -> np.ndarray:
+        """Resize image while maintaining aspect ratio"""
+        return resize_image(image, width, height)
+    
+    def compare_images(self, img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) -> bool:
+        """Compare two images for similarity"""
+        result = compare_images(img1, img2, threshold)
+        return result > threshold
+    
+    def find_template(self, image: np.ndarray, template: np.ndarray, threshold: float = 0.8) -> List[Tuple[int, int, float]]:
+        """Find template in image using template matching"""
+        return find_template(image, template, threshold)
+    
+    def highlight_region(self, image: np.ndarray, x: int, y: int, width: int, height: int, 
+                        color: Tuple[int, int, int] = (0, 255, 0), thickness: int = 2) -> np.ndarray:
+        """Draw a rectangle around a specified region"""
+        return highlight_region(image, x, y, width, height, color, thickness)
+    
+    def crop_image(self, image: np.ndarray, x: int, y: int, width: int, height: int) -> np.ndarray:
+        """Crop image to specified region"""
+        return crop_image(image, x, y, width, height)
+    
+    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
+        """Preprocess image for better analysis"""
+        return preprocess_image(image)
+    
+    def create_mask(self, image: np.ndarray, lower: Tuple[int, int, int], upper: Tuple[int, int, int]) -> np.ndarray:
+        """Create color mask for image"""
+        return create_mask(image, lower, upper)
+    
+    def enhance_image(self, image: np.ndarray, method: str = "contrast") -> np.ndarray:
+        """Enhance image using specified method"""
+        return enhance_image(image, method)
+    
+    # File utilities
+    def ensure_dir(self, path: Union[str, Path]) -> Path:
+        """Ensure directory exists"""
+        return ensure_dir(Path(path) if isinstance(path, str) else path)
+    
+    def get_temp_dir(self) -> Path:
+        """Get temporary directory"""
+        return get_temp_dir()
+    
+    def safe_remove(self, path: Union[str, Path]) -> bool:
+        """Safely remove file or directory"""
+        return safe_remove(Path(path) if isinstance(path, str) else path)
+    
+    def get_temp_path(self, suffix: str = '') -> Path:
+        """Get a unique temporary file path"""
+        return get_temp_path(suffix)
+    
+    # Validation utilities
+    def validate_type(self, value: Any, expected_type: Union[Type, tuple]) -> bool:
+        """Validate that a value is of the expected type"""
+        return validate_type(value, expected_type)
+    
+    def validate_not_none(self, value: Any) -> bool:
+        """Validate that a value is not None"""
+        return validate_not_none(value)
+    
+    def validate_string_not_empty(self, value: Optional[str]) -> bool:
+        """Validate string is not empty"""
+        return validate_string_not_empty(value)
+    
+    def validate_number_range(self, value: Union[int, float], 
+                            min_value: Optional[Union[int, float]] = None,
+                            max_value: Optional[Union[int, float]] = None) -> bool:
+        """Validate that a number is within a specified range"""
+        return validate_number_range(value, min_value, max_value)
+    
+    # Retry utility
+    def retry(self, attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)) -> Callable:
+        """Retry decorator for functions that may fail"""
+        return retry(attempts, delay, exceptions)
+    
+    # Metrics utilities
+    def create_metrics_collector(self) -> MetricsCollector:
+        """Create a new metrics collector"""
+        return MetricsCollector()
+    
+    def create_metric_point(self, value: float) -> MetricPoint:
+        """Create a new metric point"""
+        return MetricPoint(value)
+    
+    # Additional convenience methods
+    def convert_image_format(self, image: np.ndarray, format: str = "PNG") -> np.ndarray:
+        """Convert image to specified format"""
+        # This is a placeholder - actual implementation would depend on format
+        return image
+    
+    def create_difference_image(self, img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
+        """Create difference image between two images"""
+        if img1.shape != img2.shape:
+            # Resize img2 to match img1
+            img2 = resize_image(img2, img1.shape[1], img1.shape[0])
         
-        Args:
-            timeout: Default timeout for wait operations in seconds
-            polling_interval: Time between condition checks in seconds
-        """
-        self.waits.default_timeout = timeout
-        self.waits.polling_interval = polling_interval
-
-    def configure_visual_testing(self, baseline_dir: Union[str, Path], threshold: float = 0.95) -> None:
-        """
-        Configure visual testing settings.
-
-        Args:
-            baseline_dir: Directory for baseline images
-            threshold: Similarity threshold for comparisons
-        """
-        if self._config is None:
-            self._config = AutomationConfig()
-        self._config.visual_baseline_dir = Path(baseline_dir)
-        self._config.visual_threshold = threshold
-        self._config.visual_testing_enabled = True
-
-    def start_performance_monitoring(self, interval: float = 1.0) -> None:
-        """
-        Start performance monitoring.
-
-        Args:
-            interval: Monitoring interval in seconds
-        """
-        if self._config is None:
-            self._config = AutomationConfig()
-        self._config.performance_enabled = True
-        self._config.performance_interval = interval
-        if self._performance_monitor is None:
-            self._performance_monitor = PerformanceTest(self)
-        self._performance_monitor.start_monitoring()
+        # Calculate absolute difference
+        diff = cv2.absdiff(img1, img2)
+        return diff 

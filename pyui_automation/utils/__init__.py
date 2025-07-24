@@ -1,18 +1,35 @@
+# Core utilities
+from .core import retry, get_temp_path
+
+# Image utilities
 from .image import (
     load_image, save_image, resize_image, compare_images,
-    find_template, highlight_region, crop_image
-)
-from .file import (
-    ensure_dir, get_temp_dir, get_temp_file, safe_remove,
-    list_files, copy_file, move_file, get_file_size, is_file_empty
-)
-from .validation import (
-    validate_type, validate_not_none, validate_string_not_empty,
-    validate_number_range, validate_regex, validate_callable,
-    validate_iterable, validate_all, validate_any
+    find_template, highlight_region, crop_image, preprocess_image,
+    create_mask, enhance_image
 )
 
+# File utilities
+from .file import (
+    ensure_dir, get_temp_dir, safe_remove
+)
+
+# Validation utilities
+from .validation import (
+    validate_type, validate_not_none, validate_string_not_empty,
+    validate_number_range
+)
+
+# Metrics utilities
+from .metrics import MetricsCollector, MetricPoint, metrics
+
+# Logging utilities - moved to core
+
 __all__ = [
+    # Core
+    'retry',
+    'get_temp_path',
+    
+    # Image
     'load_image',
     'save_image',
     'resize_image',
@@ -20,22 +37,23 @@ __all__ = [
     'find_template',
     'highlight_region',
     'crop_image',
+    'preprocess_image',
+    'create_mask',
+    'enhance_image',
+    
+    # File
     'ensure_dir',
     'get_temp_dir',
-    'get_temp_file',
     'safe_remove',
-    'list_files',
-    'copy_file',
-    'move_file',
-    'get_file_size',
-    'is_file_empty',
+    
+    # Validation
     'validate_type',
     'validate_not_none',
     'validate_string_not_empty',
     'validate_number_range',
-    'validate_regex',
-    'validate_callable',
-    'validate_iterable',
-    'validate_all',
-    'validate_any'
+    
+    # Metrics
+    'MetricsCollector',
+    'MetricPoint',
+    'metrics',
 ]

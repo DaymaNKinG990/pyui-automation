@@ -1,10 +1,12 @@
 # Core Concepts
 
 ## Архитектура (актуально)
-- Вся логика вынесена в сервисы (Backend, Input, Visual, Performance, Accessibility, OCR, Application).
-- AutomationSession — основной фасад для управления сессией автоматизации и доступом ко всем возможностям.
-- Для поиска элементов используются Qt-локаторы (objectName, widget, text, property).
-- Взаимодействие с платформой — только через backend.
+- **DIAutomationManager** - главный менеджер с Dependency Injection
+- **AutomationSession** - основной фасад для управления сессией автоматизации
+- **Специализированные сервисы** - каждый сервис имеет одну ответственность (PerformanceMonitor, PerformanceAnalyzer, PerformanceReporter, PerformanceTester, MemoryLeakDetector)
+- **UnifiedOCR** - унифицированный OCR с автоматическим выбором реализации
+- **Система локаторов** - построена на принципах SOLID с интерфейсами
+- **Интерфейсы** - для loose coupling и тестируемости
 - Для Windows UI Automation требуется запуск с правами администратора.
 
 ## AutomationSession (фасад)
@@ -52,11 +54,18 @@ text = session.ocr.read_text_from_element(element)
 
 ## DI и расширяемость
 ```python
-from pyui_automation.di import container
-class MyCustomBackend:
-    ...
-container.register('BackendService', MyCustomBackend)
-backend = container.resolve('BackendService')
+from pyui_automation.core.di_manager import DIAutomationManager
+
+# Создание менеджера с DI
+manager = DIAutomationManager()
+
+# Регистрация кастомных сервисов
+manager.register_service("CustomBackend", MyCustomBackend)
+manager.register_service("CustomOCR", MyCustomOCR)
+
+# Получение сервисов
+backend = manager.get_backend()
+ocr = manager.get_ocr_service()
 ```
 
 ## Особенности Windows

@@ -47,8 +47,9 @@ if not result["match"]:
 
 ## Расширенное OCR
 ```python
-from pyui_automation.ocr import OCREngine
-ocr = OCREngine()
+from pyui_automation.services.ocr import UnifiedOCREngine
+
+ocr = UnifiedOCREngine()
 ocr.set_languages(['en', 'ru'])
 text = ocr.recognize_text(image)
 ```

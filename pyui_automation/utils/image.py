@@ -69,7 +69,7 @@ def resize_image(image: np.ndarray, width: Optional[int] = None, height: Optiona
 
     return cv2.resize(image, (width, height))
 
-def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) -> bool:
+def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) -> float:
     """
     Compare two images for similarity.
 
@@ -79,10 +79,10 @@ def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) 
         threshold (float, optional): The minimum similarity score required for the comparison to return True. Defaults to 0.95.
 
     Returns:
-        bool: True if the images are similar (i.e., the similarity score is greater than or equal to the threshold), False otherwise.
+        float: Similarity score between 0.0 and 1.0, where 1.0 means identical images.
     """
     if img1.shape != img2.shape:
-        return False
+        return 0.0
         
     # Convert images to grayscale
     if len(img1.shape) == 3:
@@ -93,10 +93,35 @@ def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) 
         img2_gray = img2
         
     # Calculate normalized mean absolute difference
-    diff = img1_gray.astype(float) - img2_gray.astype(float)
-    mse = np.mean(np.abs(diff))  # Use mean absolute difference instead of squared error
+    # Convert to float64 and ensure same shape
+    img1_float = img1_gray.astype(np.float64)
+    img2_float = img2_gray.astype(np.float64)
+    
+    # Ensure same shape
+    if img1_float.shape != img2_float.shape:
+        return False
+    
+    # Ensure both arrays have the same dtype and shape for subtraction
+    if img1_float.dtype != img2_float.dtype:
+        img2_float = img2_float.astype(img1_float.dtype)
+    
+    # Ensure both arrays have the same shape
+    if img1_float.shape != img2_float.shape:
+        img2_float = np.resize(img2_float, img1_float.shape)
+    
+    # Ensure both arrays have the same shape for subtraction
+    if img1_float.shape != img2_float.shape:
+        img2_float = np.resize(img2_float, img1_float.shape)
+    
+    # Ensure both arrays have compatible shapes and types for subtraction
+    if img1_float.shape != img2_float.shape:
+        img2_float = np.resize(img2_float, img1_float.shape)
+    
+    # Use numpy's subtract function for better type compatibility
+    diff = np.subtract(img1_float, img2_float)
+    mse = float(np.mean(np.abs(diff).astype(np.float64)))  # Use mean absolute difference instead of squared error
     similarity = 1.0 - (mse / 255.0)  # Normalize by max pixel value
-    return bool(similarity >= threshold)
+    return float(similarity)
 
 def find_template(image: np.ndarray, template: np.ndarray, threshold: float = 0.8) -> List[Match]:
     """
@@ -247,3 +272,90 @@ def crop_image(image: np.ndarray, x: int, y: int, width: int, height: int) -> np
         np.ndarray: The cropped image.
     """
     return image[y:y+height, x:x+width]
+
+def preprocess_image(image: np.ndarray) -> np.ndarray:
+    """
+    Preprocess image for better analysis.
+    
+    Args:
+        image (np.ndarray): Input image
+        
+    Returns:
+        np.ndarray: Preprocessed image
+    """
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image
+    
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # Apply histogram equalization to improve contrast
+    equalized = cv2.equalizeHist(blurred)
+    
+    # Convert back to BGR if original was color
+    if len(image.shape) == 3:
+        equalized = cv2.cvtColor(equalized, cv2.COLOR_GRAY2BGR)
+    
+    return equalized
+
+def create_mask(image: np.ndarray, lower: Tuple[int, int, int], upper: Tuple[int, int, int]) -> np.ndarray:
+    """
+    Create color mask for image.
+    
+    Args:
+        image (np.ndarray): Input image
+        lower (Tuple[int, int, int]): Lower HSV color bounds
+        upper (Tuple[int, int, int]): Upper HSV color bounds
+        
+    Returns:
+        np.ndarray: Binary mask
+    """
+    # Convert to HSV
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    
+    # Create mask
+    mask = cv2.inRange(hsv, np.array(lower), np.array(upper))
+    
+    return mask
+
+def enhance_image(image: np.ndarray, method: str = "contrast") -> np.ndarray:
+    """
+    Enhance image using specified method.
+    
+    Args:
+        image (np.ndarray): Input image
+        method (str): Enhancement method ("contrast", "brightness", "sharpness")
+        
+    Returns:
+        np.ndarray: Enhanced image
+    """
+    if method == "contrast":
+        # Apply CLAHE for contrast enhancement
+        if len(image.shape) == 3:
+            lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+            enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        else:
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(image)
+    
+    elif method == "brightness":
+        # Increase brightness
+        enhanced = cv2.convertScaleAbs(image, alpha=1.2, beta=30)
+    
+    elif method == "sharpness":
+        # Apply sharpening kernel
+        kernel = np.array([[-1, -1, -1],
+                          [-1,  9, -1],
+                          [-1, -1, -1]])
+        enhanced = cv2.filter2D(image, -1, kernel)
+    
+    else:
+        # Default: return original image
+        enhanced = image.copy()
+    
+    return enhanced

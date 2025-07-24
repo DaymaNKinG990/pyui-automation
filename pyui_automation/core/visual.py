@@ -7,6 +7,11 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass
 import time
 
+from ..utils import (
+    compare_images, crop_image,
+    validate_type
+)
+
 
 @dataclass
 class VisualDifference:
@@ -43,21 +48,30 @@ class VisualMatcher:
         Returns:
             Dict containing match status and similarity score
         """
+        # Validate inputs
+        if not validate_type(img1, np.ndarray) or not validate_type(img2, np.ndarray):
+            return {"match": False, "similarity": 0.0, "error": "Invalid image type"}
+            
         if resize and img1.shape != img2.shape:
             img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
 
         if roi:
             x, y, w, h = roi
-            img1 = img1[y:y+h, x:x+w]
-            img2 = img2[y:y+h, x:x+w]
+            img1 = crop_image(img1, x, y, w, h)
+            img2 = crop_image(img2, x, y, w, h)
 
         if img1.shape != img2.shape:
-            return {"match": False, "similarity": 0.0}
+            return {"match": False, "similarity": 0.0, "error": "Image dimensions mismatch"}
         
+        # Use utils compare_images for better accuracy
+        is_similar = compare_images(img1, img2, threshold=self.similarity_threshold)
+        
+        # Calculate similarity manually for detailed score
         diff = cv2.absdiff(img1, img2)
         similarity = 1 - (np.sum(diff) / (img1.shape[0] * img1.shape[1] * img1.shape[2] * 255))
+        
         return {
-            "match": similarity >= self.similarity_threshold,
+            "match": is_similar,
             "similarity": similarity
         }
 
@@ -76,7 +90,7 @@ class VisualMatcher:
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         
         if max_val >= self.similarity_threshold:
-            return max_loc
+            return (int(max_loc[0]), int(max_loc[1]))
         return None
 
     def find_all_elements(self, template: np.ndarray, threshold: float = 0.8) -> List[Dict[str, Any]]:
@@ -285,7 +299,8 @@ class VisualTester:
             diff = cv2.absdiff(img1, img2)
             
             # Calculate mean squared error for each channel
-            mse = np.mean(diff.astype(float) ** 2)
+            diff_float = diff.astype(np.float64)
+            mse = float(np.mean((diff_float ** 2).astype(np.float64)))
             
             # Calculate RMSE and normalize to 0-1 range
             rmse = np.sqrt(mse)
@@ -405,7 +420,11 @@ class VisualTester:
             # Create difference visualization
             diff_image = current.copy()
             diff_mask = diff > 30
-            diff_image[diff_mask.any(axis=2)] = [0, 0, 255]  # Mark differences in red
+            red_color = np.array([0, 0, 255], dtype=diff_image.dtype)
+            # Use proper boolean indexing
+            if len(diff_image.shape) == 3 and diff_image.shape[2] >= 3:
+                mask_2d = diff_mask.any(axis=2)
+                diff_image[mask_2d] = red_color  # Mark differences in red
 
             # Determine match
             is_match = self._evaluate_match(similarity, differences, self.similarity_threshold)
@@ -462,7 +481,8 @@ class VisualTester:
             resized = cv2.resize(gray, (hash_size + 1, hash_size))
             
             # Calculate differences and construct hash
-            diff = resized[:, 1:] > resized[:, :-1]
+            diff_array = resized[:, 1:] > resized[:, :-1]
+            diff = diff_array.astype(np.uint8)
             return diff
 
         except Exception as e:
@@ -526,7 +546,7 @@ class VisualTester:
         
         report_path.write_text("\n".join(html_content))
 
-    def find_element(self, template: np.ndarray) -> Optional[tuple]:
+    def find_element(self, template: np.ndarray) -> Optional[Tuple[int, int]]:
         """Find element in baseline_dir images using template matching (поиск первого совпадения)"""
         # Для тестов: ищем в baseline_dir первый png-файл
         import glob
@@ -538,7 +558,7 @@ class VisualTester:
         res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
         if max_val > 0.8:
-            return max_loc
+            return (int(max_loc[0]), int(max_loc[1]))
         return None
 
     def find_all_elements(self, template: np.ndarray, threshold: float = 0.8):
