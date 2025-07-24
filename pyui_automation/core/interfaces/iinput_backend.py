@@ -6,7 +6,7 @@ Dependency Inversion Principle compliance.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any
+from typing import Tuple
 
 
 class IInputBackend(ABC):

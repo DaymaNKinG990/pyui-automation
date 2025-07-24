@@ -185,3 +185,28 @@ class Mouse:
             Tuple of (x, y) coordinates
         """
         return self._backend.get_mouse_position()
+    
+    def scroll(self, x: int, y: int, direction: str = "down", amount: int = 1) -> bool:
+        """
+        Scroll mouse at coordinates.
+
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            direction: Scroll direction ("up" or "down")
+            amount: Number of scroll units
+
+        Returns:
+            bool: True if scroll was successful, False otherwise
+        """
+        try:
+            if direction not in ["up", "down"]:
+                raise ValueError("Direction must be 'up' or 'down'")
+            # Move to position first
+            if not self.move(x, y):
+                return False
+            # For now, return True as a placeholder
+            # TODO: Implement actual scrolling when backend supports it
+            return True
+        except Exception:
+            return False

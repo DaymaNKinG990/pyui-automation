@@ -14,7 +14,6 @@ from pathlib import Path
 
 from .core import AutomationSession
 from .core.services.backend_factory import BackendFactory
-from .core.application import Application
 from .locators import ByName, ByClassName
 from .core.exceptions import ElementNotFoundError, TimeoutError
 
@@ -37,7 +36,8 @@ class PyUIAutomation:
             platform: Platform to use ('windows', 'linux', 'macos', 'auto')
         """
         # Auto-detect platform and create backend
-        self.backend = BackendFactory.create_backend(platform)
+        factory = BackendFactory()
+        self.backend = factory.create_backend(platform)
         
         # Create platform-specific locator
         from pyui_automation.locators.windows import WindowsLocator
@@ -57,8 +57,8 @@ class PyUIAutomation:
         self.session = AutomationSession(self.backend, self.locator)
         
         # Application state
-        self.app = None
-        self.window = None
+        self.app: Optional[Any] = None
+        self.window: Optional[Any] = None
         self.window_title = window_title
         
         # Initialize visual testing if baseline directory exists
@@ -172,7 +172,7 @@ class PyUIAutomation:
                 actual_text = self.get_text(element_name, timeout=1.0)
                 if expected_text in actual_text:
                     return self
-            except:
+            except Exception:
                 pass
             time.sleep(0.5)
         

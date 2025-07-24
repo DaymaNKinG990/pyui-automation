@@ -5,7 +5,7 @@ This factory creates appropriate specialized element classes based on
 the control type, following the Interface Segregation Principle.
 """
 # Python imports
-from typing import Optional, Any, TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING
 from logging import getLogger
 
 # Local imports
@@ -140,14 +140,14 @@ _element_factory = None
 def get_element_factory() -> ElementFactory:
     """
     Get global element factory instance.
-
+    
     Returns:
-        ElementFactory: The global element factory instance.
+        ElementFactory: Global element factory instance
     """
     global _element_factory
     if _element_factory is None:
         _element_factory = ElementFactory()
-    return _element_factory
+    return cast(ElementFactory, _element_factory)
 
 
 def create_element(native_element: Any, session: 'AutomationSession') -> BaseElement:

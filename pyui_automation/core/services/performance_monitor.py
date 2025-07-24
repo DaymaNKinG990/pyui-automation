@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from ..interfaces.iapplication import IApplication
 from ...utils.core import retry
 from ...utils.validation import validate_number_range
-from ...utils.metrics import MetricsCollector, MetricPoint
+from ...utils.metrics import MetricsCollector
 
 
 @dataclass
@@ -42,11 +42,8 @@ class PerformanceMonitor:
     Uses MetricsCollector for underlying storage and delegates analysis to specialized services.
     """
 
-    def __init__(self, application: IApplication) -> None:
+    def __init__(self, application: Optional[IApplication] = None) -> None:
         """Initialize performance monitor"""
-        if application is None:
-            raise ValueError("Application cannot be None")
-        
         self.application = application
         self._metrics_collector = MetricsCollector()
         self.start_time = time.time()
@@ -192,20 +189,28 @@ class PerformanceMonitor:
     def _get_cpu_usage(self) -> float:
         """Get current CPU usage percentage"""
         try:
+            if self.application is None:
+                return 0.0
             if hasattr(self.application, 'cpu_percent'):
                 return self.application.cpu_percent()
-            else:
+            elif hasattr(self.application, 'process') and self.application.process is not None:
                 return self.application.process.cpu_percent()
+            else:
+                return 0.0
         except Exception:
             return 0.0
 
     def _get_memory_usage(self) -> int:
         """Get current memory usage in bytes"""
         try:
-            if getattr(self.application, 'process', None) is not None:
+            if self.application is None:
+                return 0
+            if getattr(self.application, 'process', None) is not None and self.application.process is not None:
                 memory_info = self.application.process.memory_info()
-            else:
+            elif hasattr(self.application, 'memory_info'):
                 memory_info = self.application.memory_info()
+            else:
+                return 0
 
             rss = getattr(memory_info, 'rss', 0)
             if callable(rss):

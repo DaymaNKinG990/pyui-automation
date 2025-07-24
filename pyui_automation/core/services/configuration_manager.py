@@ -133,7 +133,8 @@ class ConfigurationManager(IConfigurationManager):
                     self._logger.error(f"Unsupported config file format: {file_path.suffix}")
                     return False
             
-            self._config.update(config_data)
+            if isinstance(config_data, dict):
+                self._config.update(config_data)
             self._logger.info(f"Loaded config from: {file_path}")
             return True
             

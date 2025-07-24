@@ -3,9 +3,7 @@ import logging.handlers
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any
-import json
-from datetime import datetime
+from typing import Optional
 
 
 class AutomationLogger:
@@ -159,7 +157,7 @@ def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO) -> N
         level: Logging level.
     """
     if log_dir is None:
-        log_dir = Path(__file__).parent.parent.parent / 'logs'
+        log_dir = str(Path(__file__).parent.parent.parent / 'logs')
     
     os.makedirs(log_dir, exist_ok=True)
     

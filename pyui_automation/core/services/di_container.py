@@ -8,7 +8,7 @@ Responsible for:
 - Configuration injection
 """
 
-from typing import Dict, Any, Type, Optional, Callable, Union
+from typing import Dict, Any, cast, Type, Callable
 from logging import getLogger
 
 
@@ -185,7 +185,7 @@ def get_container() -> DIContainer:
     global _container
     if _container is None:
         _container = DIContainer()
-    return _container
+    return cast(DIContainer, _container)
 
 
 def register_service(service_name: str, service_class: Type, singleton: bool = True) -> None:

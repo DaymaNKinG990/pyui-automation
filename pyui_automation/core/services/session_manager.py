@@ -9,7 +9,7 @@ Responsible for:
 """
 
 import uuid
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, override
 from logging import getLogger
 
 from .session import AutomationSession
@@ -23,7 +23,8 @@ class SessionManager(ISessionManager):
         self._logger = getLogger(__name__)
         self._sessions: Dict[str, AutomationSession] = {}
     
-    def create_session(self, backend: Any, locator: Any, session_id: Optional[str] = None) -> AutomationSession:
+    @override
+    def create_session(self, backend: Any, locator: Any, session_id: Optional[str] = None) -> "AutomationSession":
         """Create a new automation session"""
         try:
             if session_id is None:
@@ -42,7 +43,8 @@ class SessionManager(ISessionManager):
             self._logger.error(f"Failed to create session {session_id}: {e}")
             raise
     
-    def get_session(self, session_id: str) -> Optional[AutomationSession]:
+    @override
+    def get_session(self, session_id: str) -> Optional["AutomationSession"]:
         """Get existing session by ID"""
         try:
             session = self._sessions.get(session_id)
@@ -69,7 +71,8 @@ class SessionManager(ISessionManager):
         except Exception as e:
             self._logger.error(f"Failed to close session {session_id}: {e}")
     
-    def close_all_sessions(self) -> None:
+    @override
+    def cleanup_all_sessions(self) -> None:
         """Close all active sessions"""
         try:
             session_ids = list(self._sessions.keys())
@@ -128,7 +131,7 @@ class SessionManager(ISessionManager):
     def cleanup(self) -> None:
         """Cleanup all sessions"""
         try:
-            self.close_all_sessions()
+            self.cleanup_all_sessions()
             self._logger.info("SessionManager cleanup completed")
         except Exception as e:
             self._logger.error(f"Error during SessionManager cleanup: {e}")
@@ -137,5 +140,5 @@ class SessionManager(ISessionManager):
         """Destructor to ensure cleanup"""
         try:
             self.cleanup()
-        except:
+        except Exception:
             pass 

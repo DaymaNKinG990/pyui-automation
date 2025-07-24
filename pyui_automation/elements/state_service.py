@@ -7,7 +7,7 @@ Responsible for:
 - Managing element state
 """
 # Python imports
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Dict, Any, TYPE_CHECKING
 from logging import getLogger
 
 # Local imports

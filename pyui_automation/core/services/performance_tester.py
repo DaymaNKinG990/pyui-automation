@@ -5,9 +5,8 @@ This service is responsible only for performance testing.
 """
 
 import time
-from typing import Dict, List, Any, Callable, Union, Optional
+from typing import Dict, Any, Callable, Union, Optional
 import numpy as np
-from .performance_monitor import PerformanceMetric
 
 
 class PerformanceTester:
@@ -60,7 +59,7 @@ class PerformanceTester:
             times.append(end_time - start_time)
 
         return {
-            'name': name or action.__name__,
+            'name': name or getattr(action, '__name__', 'unknown'),
             'min_time': min(times),
             'max_time': max(times),
             'avg_time': sum(times) / len(times),
@@ -185,16 +184,25 @@ class PerformanceTester:
 
         # Find fastest and slowest actions
         avg_times = {name: float(result['avg_time']) for name, result in benchmark_results.items()}
-        fastest_action = min(avg_times, key=avg_times.get)
-        slowest_action = max(avg_times, key=avg_times.get)
+        if avg_times:
+            fastest_action = min(avg_times.keys(), key=lambda k: avg_times[k])
+            slowest_action = max(avg_times.keys(), key=lambda k: avg_times[k])
+        else:
+            fastest_action = None
+            slowest_action = None
 
         # Calculate relative performance
-        fastest_time = avg_times[fastest_action]
         relative_performance = {}
-        for name, avg_time in avg_times.items():
-            if fastest_time > 0:
-                relative_performance[name] = avg_time / fastest_time
-            else:
+        if fastest_action is not None and fastest_action in avg_times:
+            fastest_time = avg_times[fastest_action]
+            for name, avg_time in avg_times.items():
+                if fastest_time > 0:
+                    relative_performance[name] = avg_time / fastest_time
+                else:
+                    relative_performance[name] = 1.0
+        else:
+            # Если нет данных, устанавливаем все в 1.0
+            for name in avg_times.keys():
                 relative_performance[name] = 1.0
 
         return {

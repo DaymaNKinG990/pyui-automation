@@ -6,7 +6,7 @@ Interface Segregation Principle compliance.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Dict, Any, Union
 from pathlib import Path
 import numpy as np
 

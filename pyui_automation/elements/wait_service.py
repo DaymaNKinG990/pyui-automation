@@ -38,6 +38,8 @@ class ElementWaitService:
             timeout (Optional[float]): The timeout in seconds.
         """
         timeout = timeout or self._session.config.default_timeout
+        if timeout is None:
+            timeout = 10.0
         start_time = time.time()
         
         while time.time() - start_time < timeout:
@@ -58,6 +60,8 @@ class ElementWaitService:
             timeout (Optional[float]): The timeout in seconds.
         """
         timeout = timeout or self._session.config.default_timeout
+        if timeout is None:
+            timeout = 10.0
         start_time = time.time()
         
         while time.time() - start_time < timeout:
@@ -155,6 +159,8 @@ class ElementWaitService:
             timeout (Optional[float]): The timeout in seconds.
         """
         timeout = timeout or self._session.config.default_timeout
+        if timeout is None:
+            timeout = 10.0
         start_time = time.time()
         
         while time.time() - start_time < timeout:

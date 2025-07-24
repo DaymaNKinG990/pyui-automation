@@ -6,7 +6,6 @@ This module is responsible only for image preprocessing to improve OCR accuracy.
 
 import cv2
 import numpy as np
-from typing import Optional
 from ..utils import validate_type
 
 

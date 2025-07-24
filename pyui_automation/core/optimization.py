@@ -23,6 +23,7 @@ class OptimizationManager:
         self.cache_dir = self._get_cache_dir()
         self.element_cache = {}
         self.cache_lock = threading.Lock()
+        self._optimizations = {}
         self._load_cached_data()
         self._configure_platform_optimizations()
 
@@ -75,7 +76,7 @@ class OptimizationManager:
         enabled to reduce the chance of the automation process being
         interrupted by the system.
         """
-        self.optimizations = {
+        self._optimizations = {
             'use_multiprocessing': multiprocessing.cpu_count() > 1,
             'cache_enabled': True,
             'threading_enabled': True
@@ -90,7 +91,7 @@ class OptimizationManager:
 
     def _configure_windows_optimizations(self):
         """Configure Windows-specific optimizations"""
-        self.optimizations.update({
+        self._optimizations.update({
             'process_priority': True,
             'enable_dpi_awareness': True,
             'use_win32_hooks': True
@@ -98,13 +99,13 @@ class OptimizationManager:
 
     def _configure_macos_optimizations(self):
         """Configure macOS-specific optimizations"""
-        self.optimizations.update({
+        self._optimizations.update({
             'process_priority': True
         })
 
     def _configure_linux_optimizations(self):
         """Configure Linux-specific optimizations"""
-        self.optimizations.update({
+        self._optimizations.update({
             'process_priority': True,
             'enable_x11_integration': True
         })
@@ -181,7 +182,7 @@ class OptimizationManager:
             The value associated with the specified optimization key, or None
             if the key does not exist in the optimizations dictionary.
         """
-        return self.optimizations.get(key)
+        return self._optimizations.get(key)
 
     def set_optimization(self, key: str, value: Any):
         """
@@ -193,7 +194,7 @@ class OptimizationManager:
 
         This method sets the value of the specified optimization setting.
         """
-        self.optimizations[key] = value
+        self._optimizations[key] = value
 
     def optimize_process(self, process_id: Optional[int] = None) -> None:
         """
@@ -204,12 +205,14 @@ class OptimizationManager:
         """
         try:
             import psutil
+            import os
             process_id = process_id if process_id is not None else os.getpid()
             
             if self.platform == 'windows':
                 try:
                     process = psutil.Process(process_id)
-                    process.nice(psutil.HIGH_PRIORITY_CLASS)
+                    if hasattr(psutil, 'HIGH_PRIORITY_CLASS'):
+                        process.nice(psutil.HIGH_PRIORITY_CLASS)
                 except psutil.NoSuchProcess:
                     pass
         except ImportError:
@@ -217,8 +220,11 @@ class OptimizationManager:
 
         if self.platform in ('darwin', 'linux'):
             try:
-                os.nice(-10)  # Set higher priority on Unix-like systems
-            except OSError:
+                import os
+                # Note: os.nice is not available on Windows
+                if hasattr(os, 'nice'):
+                    os.nice(-10)  # type: ignore # Set higher priority on Unix-like systems
+            except (OSError, AttributeError):
                 pass
 
     def configure_platform_optimizations(self, **kwargs) -> None:
@@ -232,8 +238,8 @@ class OptimizationManager:
                      - threading_enabled (bool): Enable/disable threading
         """
         for key, value in kwargs.items():
-            if key in self.optimizations:
-                self.optimizations[key] = value
+            if key in self._optimizations:
+                self._optimizations[key] = value
 
         # Update platform-specific settings
         if self.platform == 'windows':
@@ -253,8 +259,8 @@ class OptimizationManager:
         """
         return {
             'platform': self.platform,
-            'optimizations': self.optimizations,
-            'cache_enabled': self.optimizations.get('cache_enabled', True),
-            'threading_enabled': self.optimizations.get('threading_enabled', True),
-            'use_multiprocessing': self.optimizations.get('use_multiprocessing', False)
+            'optimizations': self._optimizations,
+            'cache_enabled': self._optimizations.get('cache_enabled', True),
+            'threading_enabled': self._optimizations.get('threading_enabled', True),
+            'use_multiprocessing': self._optimizations.get('use_multiprocessing', False)
         }

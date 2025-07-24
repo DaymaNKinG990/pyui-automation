@@ -24,11 +24,12 @@ class VisualTestingService(IVisualTestingService):
     """Service for visual testing operations"""
     
     def __init__(self, session: Any):
+        """Initialize Visual Testing Service"""
         self._session = session
         self._logger = getLogger(__name__)
-        self._visual_tester = None
         self._baseline_dir: Optional[Path] = None
-        self._threshold = 0.95
+        self._threshold: float = 0.95
+        self._visual_tester: Optional[Any] = None
     
     def init_visual_testing(self, baseline_dir: Union[str, Path], threshold: float = 0.95) -> None:
         """Initialize visual testing"""
@@ -36,9 +37,7 @@ class VisualTestingService(IVisualTestingService):
             from .visual import VisualTester
             self._baseline_dir = Path(baseline_dir)
             self._threshold = threshold
-            self._visual_tester = VisualTester(self._session)
-            if self._visual_tester:
-                self._visual_tester.init_visual_testing(baseline_dir, threshold)
+            self._visual_tester = VisualTester(self._baseline_dir)
             self._logger.info(f"Visual testing initialized with baseline dir: {baseline_dir}")
         except Exception as e:
             self._logger.error(f"Failed to initialize visual testing: {e}")
@@ -157,8 +156,10 @@ class VisualTestingService(IVisualTestingService):
         try:
             # This is a simplified implementation
             # In a real scenario, you might want to highlight differences
-            diff_image = np.abs(img1.astype(np.float64) - img2.astype(np.float64))
-            save_image(diff_image.astype(np.uint8), output_path)
+            img1_float = img1.astype(np.float64)
+            img2_float = img2.astype(np.float64)
+            diff_image = np.abs(np.subtract(img1_float, img2_float))
+            save_image(diff_image.astype(np.uint8), Path(output_path))
             self._logger.info(f"Diff report generated: {output_path}")
         except Exception as e:
             self._logger.error(f"Failed to generate diff report: {e}")
@@ -196,7 +197,7 @@ class VisualTestingService(IVisualTestingService):
             if img1_float.shape != img2_float.shape:
                 img2_float = np.resize(img2_float, img1_float.shape)
             
-            diff = np.abs(img1_float - img2_float)
+            diff = np.abs(np.subtract(img1_float, img2_float))
             highlighted = img1.copy()
             # Use boolean indexing for setting values
             diff_mask = diff > 30

@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 import logging
 from pathlib import Path
-from typing import List, Union, Optional, Dict, Any, Tuple
+from typing import List, Union, Optional, Dict, Any, Tuple, TYPE_CHECKING
 
 from ..core.interfaces.iocr_service import IOCRService
 from ..elements.base_element import BaseElement
@@ -17,8 +17,10 @@ from ..utils import (
     load_image, validate_type, validate_not_none, 
     validate_string_not_empty, retry
 )
-from .models import OCRResult, TextLocation
 from .preprocessing import ImagePreprocessor
+
+if TYPE_CHECKING:
+    from paddleocr import PaddleOCR
 
 
 class OCREngine(IOCRService):
@@ -30,7 +32,7 @@ class OCREngine(IOCRService):
     
     def __init__(self) -> None:
         """Initialize OCR engine with PaddleOCR"""
-        self._paddle_ocr = None
+        self._paddle_ocr: Optional['PaddleOCR'] = None
         self._languages = ['en']
         self._preprocessor = ImagePreprocessor()
         

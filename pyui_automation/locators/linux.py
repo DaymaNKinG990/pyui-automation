@@ -143,7 +143,9 @@ class LinuxLocator(BaseLocator):
                     if hasattr(current_element, 'getChildren'):
                         get_children_method = getattr(current_element, 'getChildren')
                         if callable(get_children_method):
-                            children = get_children_method()
+                            children_result = get_children_method()
+                            if isinstance(children_result, (list, tuple)):
+                                children = children_result
                     if 0 <= index < len(children):
                         current_element = children[index]
                     else:

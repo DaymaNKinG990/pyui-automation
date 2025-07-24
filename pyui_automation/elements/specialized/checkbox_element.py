@@ -5,13 +5,11 @@ This element implements only the interfaces needed for checkbox operations,
 following the Interface Segregation Principle.
 """
 
-from typing import Optional, Any, Dict, TYPE_CHECKING
-import numpy as np
+from typing import Any, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...core.session import AutomationSession
 
-from ...core.interfaces import IElementProperties, IElementGeometry, IElementState, IElementInteraction, IElementWait, IElementScreenshot
 from ..base_element import BaseElement
 
 
@@ -47,7 +45,7 @@ class CheckboxElement(BaseElement):
         """Toggle checkbox state"""
         self.click()
     
-    def get_checkbox_state(self) -> bool:
+    def get_checked_state(self) -> bool:
         """Check if checkbox is checked"""
         return self.get_property("IsChecked") or False
     

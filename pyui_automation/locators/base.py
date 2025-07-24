@@ -5,8 +5,8 @@ This module provides the foundation for platform-specific locators
 and defines various search strategies.
 """
 
-from abc import ABC, abstractmethod
-from typing import Optional, List, Any, Union
+from abc import abstractmethod
+from typing import Optional, List, Any
 from dataclasses import dataclass
 import time
 

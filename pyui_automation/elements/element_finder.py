@@ -126,13 +126,13 @@ class ElementFinder:
             
             for child in children:
                 if predicate(child):
-                    self._logger.debug(f"Found child by predicate")
+                    self._logger.debug("Found child by predicate")
                     return child
             
             self._logger.warning("No child found by predicate")
             return None
         except Exception:
-            self._logger.error(f"Failed to find child by predicate")
+            self._logger.error("Failed to find child by predicate")
             return None
     
     def find_children_by_predicate(self, predicate: Callable[[Any], bool]) -> List[Any]:
@@ -154,13 +154,13 @@ class ElementFinder:
             found_children = []
             for child in children:
                 if predicate(child):
-                    self._logger.debug(f"Found child by predicate")
+                    self._logger.debug("Found child by predicate")
                     found_children.append(child)
             
             self._logger.warning("No children found by predicate")
             return found_children
         except Exception:
-            self._logger.error(f"Failed to find children by predicate")
+            self._logger.error("Failed to find children by predicate")
             return []
     
     def find_child_by_text(self, text: str, exact_match: bool = True) -> Optional[Any]:
@@ -345,7 +345,7 @@ class ElementFinder:
                 self._logger.debug(f"Checking if child is enabled: {child}")
                 return hasattr(child, 'is_enabled') and child.is_enabled()
             except Exception:
-                self._logger.error(f"Failed to find enabled children")
+                self._logger.error("Failed to find enabled children")
                 return False
         
         self._logger.debug("Finding enabled children")
@@ -373,7 +373,7 @@ class ElementFinder:
                 self._logger.debug("No children found")
                 return []
         except Exception:
-            self._logger.error(f"Failed to get children")
+            self._logger.error("Failed to get children")
             return []
     
     def _detect_property_type(self, property_name: str) -> type[Property]:

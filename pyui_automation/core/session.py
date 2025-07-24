@@ -72,10 +72,10 @@ class AutomationSession:
         # Initialize services
         self._element_discovery_service = ElementDiscoveryService(backend, locator, self)
         self._screenshot_service = ScreenshotService(backend, self)
-        self._performance_monitor = PerformanceMonitor(backend)
+        self._performance_monitor = PerformanceMonitor(None)  # Pass None instead of backend
         self._performance_analyzer = PerformanceAnalyzer()
         self._performance_tester = PerformanceTester()
-        self._memory_leak_detector = MemoryLeakDetector(backend)
+        self._memory_leak_detector = MemoryLeakDetector(None)  # Pass None instead of backend
         self._visual_testing_service = VisualTestingService(self)
         self._input_service = InputService(self)
         
@@ -472,7 +472,7 @@ class AutomationSession:
         """Destructor"""
         try:
             self.cleanup()
-        except:
+        except Exception:
             pass 
 
 

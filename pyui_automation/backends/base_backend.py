@@ -1,14 +1,15 @@
 # Python libraries
-from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any, Tuple, Union
+from abc import abstractmethod
+from typing import Optional, List, Any, Tuple, Union
 import numpy as np
 from pathlib import Path
 from logging import getLogger
 
 from ..core.interfaces import IBackend
+from ..locators.interfaces import IBackendForLocator
 
 
-class BaseBackend(IBackend):
+class BaseBackend(IBackend, IBackendForLocator):
     """
     Abstract base class for all platform-specific backend implementations.
 
@@ -65,6 +66,11 @@ class BaseBackend(IBackend):
     @abstractmethod
     def get_window_handles(self) -> List[Any]:
         """Get all window handles"""
+        pass
+
+    @abstractmethod
+    def get_window_handle(self, title: Union[str, int]) -> Optional[int]:
+        """Get window handle by title or PID"""
         pass
 
     @abstractmethod
@@ -207,5 +213,5 @@ class BaseBackend(IBackend):
         """Destructor to ensure cleanup"""
         try:
             self.cleanup()
-        except:
+        except Exception:
             pass

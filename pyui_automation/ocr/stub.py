@@ -11,7 +11,7 @@ from pathlib import Path
 
 from ..core.interfaces.iocr_service import IOCRService
 from ..elements.base_element import BaseElement
-from .models import OCRResult, TextLocation
+from .models import OCRResult
 
 
 class StubOCREngine(IOCRService):

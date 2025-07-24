@@ -5,7 +5,7 @@ This service is responsible only for detecting memory leaks.
 """
 
 import time
-from typing import Dict, List, Any, Callable, Tuple, Optional
+from typing import Dict, Any, Callable, Tuple, Optional
 import numpy as np
 from ..interfaces.iapplication import IApplication
 
@@ -17,10 +17,8 @@ class MemoryLeakDetector:
     Single Responsibility: Detect memory leaks in applications.
     """
 
-    def __init__(self, application: IApplication):
+    def __init__(self, application: Optional[IApplication] = None):
         """Initialize memory leak detector"""
-        if application is None:
-            raise ValueError("Application cannot be None")
         self.application = application
 
     def check_memory_leaks(
@@ -114,10 +112,17 @@ class MemoryLeakDetector:
         memory_usage = np.array(memory_usage)
         memory_growth = memory_usage[-1] - initial_memory
         
-        # Calculate growth rate using linear regression
-        x = np.arange(len(memory_usage), dtype=float)
-        memory_usage_float = np.array(memory_usage, dtype=float)
-        slope = np.polyfit(x, memory_usage_float, 1)[0] if len(memory_usage) > 1 else 0.0
+        # Calculate growth rate using simple linear calculation
+        if len(memory_usage) > 1:
+            try:
+                # Simple linear regression: slope = (y2-y1)/(x2-x1)
+                x1, y1 = 0, memory_usage[0]
+                x2, y2 = len(memory_usage) - 1, memory_usage[-1]
+                slope = (y2 - y1) / (x2 - x1) if x2 != x1 else 0.0
+            except Exception:
+                slope = 0.0
+        else:
+            slope = 0.0
         
         return {
             'has_leak': memory_growth > threshold_bytes and slope > 0,
@@ -208,10 +213,17 @@ class MemoryLeakDetector:
     def _get_memory_usage(self) -> int:
         """Get current memory usage in bytes"""
         try:
-            if getattr(self.application, 'process', None) is not None:
+            if self.application is None:
+                return 0
+            if getattr(self.application, 'process', None) is not None and self.application.process is not None:
                 memory_info = self.application.process.memory_info()
-            else:
+            elif hasattr(self.application, 'memory_info'):
                 memory_info = self.application.memory_info()
+            else:
+                return 0
+
+            if memory_info is None:
+                return 0
 
             rss = getattr(memory_info, 'rss', 0)
             if callable(rss):

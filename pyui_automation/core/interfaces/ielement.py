@@ -5,7 +5,6 @@ This interface combines all element capabilities through composition
 of specialized interfaces, following Interface Segregation Principle.
 """
 
-from abc import ABC
 from typing import Any
 
 from .ielement_properties import IElementProperties

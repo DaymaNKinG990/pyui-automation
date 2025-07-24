@@ -5,7 +5,6 @@ This interface combines all backend capabilities through composition
 of specialized interfaces, following Interface Segregation Principle.
 """
 
-from abc import ABC
 from typing import Any
 
 from .ibackend_screen import IBackendScreen

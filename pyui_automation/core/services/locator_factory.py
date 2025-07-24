@@ -7,7 +7,7 @@ Responsible for:
 - Locator registration
 """
 
-from typing import Dict, Type, Any, Optional
+from typing import Dict, Type, Any
 from logging import getLogger
 
 from ...locators.windows import WindowsLocator

@@ -2,7 +2,7 @@
 Visual testing utilities.
 """
 
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple
 import numpy as np
 from pathlib import Path
 

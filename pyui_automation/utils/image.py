@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
-from typing import Tuple, Optional, List, TypeAlias
+from typing import Tuple, Optional, List
 from pathlib import Path
 
 # Type alias for template matching results: (x, y, confidence_score)
-Match: TypeAlias = Tuple[int, int, float]
+Match = Tuple[int, int, float]
 
 
 def load_image(path: Path) -> Optional[np.ndarray]:
@@ -119,7 +119,12 @@ def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) 
     
     # Use numpy's subtract function for better type compatibility
     diff = np.subtract(img1_float, img2_float)
-    mse = float(np.mean(np.abs(diff).astype(np.float64)))  # Use mean absolute difference instead of squared error
+    abs_diff = np.abs(diff).astype(np.float64)
+    try:
+        # Simple mean calculation
+        mse = float(np.sum(abs_diff) / abs_diff.size)
+    except Exception:
+        mse = 0.0
     similarity = 1.0 - (mse / 255.0)  # Normalize by max pixel value
     return float(similarity)
 

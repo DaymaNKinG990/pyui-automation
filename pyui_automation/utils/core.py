@@ -1,9 +1,7 @@
 import time
-from typing import Callable, Any, Optional
+from typing import Callable, Any
 from pathlib import Path
 import tempfile
-import cv2
-import numpy as np
 import uuid
 
 

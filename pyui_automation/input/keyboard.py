@@ -146,3 +146,29 @@ class Keyboard:
         if not keys:
             return True
         return self._backend.send_keys(keys)
+    
+    def hotkey(self, *keys: str) -> bool:
+        """
+        Press a combination of keys simultaneously.
+
+        Args:
+            *keys: The keys to press simultaneously.
+
+        Returns:
+            bool: True if the hotkey was pressed successfully, False otherwise.
+
+        Raises:
+            ValueError: If any of the keys are not strings.
+        """
+        if not keys:
+            return True
+        for key in keys:
+            if not isinstance(key, str):
+                raise ValueError("All keys must be strings")
+        # Fallback implementation using individual key presses
+        for key in keys[:-1]:
+            self.press_key(key)
+        self.press_key(keys[-1])
+        for key in reversed(keys[:-1]):
+            self.release_key(key)
+        return True

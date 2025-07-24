@@ -1,6 +1,6 @@
 # type: ignore
 # Python libraries
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List, Tuple, Union, Any
 import numpy as np
 from PIL import Image
 import platform
@@ -12,7 +12,6 @@ try:
         import objc  # type: ignore
         import Quartz  # type: ignore
         from AppKit import NSWorkspace, NSScreen  # type: ignore
-        from Cocoa import NSApplication, NSWindow, NSRunningApplication  # type: ignore
     else:
         objc = None
         Quartz = None
@@ -178,31 +177,23 @@ class MacOSBackend(BaseBackend):
         except Exception:
             return None
 
-    def get_window_handle(self, pid: Optional[int] = None) -> Optional[int]:
+    def get_window_handle(self, title: Union[str, int]) -> Optional[int]:
         """
-        Get the window handle for a specific process ID.
-
+        Get the window handle for a specific title or PID.
+        
         Args:
-            pid (Optional[int]): The process ID to search for. If None, returns the first visible window handle found.
-
+            title: Window title or process ID
+            
         Returns:
-            Optional[int]: The window handle if found, otherwise None.
+            Window handle or None if not found
         """
         try:
             if NSWorkspace is None or Quartz is None:
                 return None
-            if pid is None:
-                # Get frontmost application's main window
-                app = NSWorkspace.sharedWorkspace().frontmostApplication()  # type: ignore
-                if app:
-                    window_list = Quartz.CGWindowListCopyWindowInfo(  # type: ignore
-                        Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,  # type: ignore
-                        Quartz.kCGNullWindowID  # type: ignore
-                    )
-                    for window in window_list:
-                        if window.get(Quartz.kCGWindowOwnerName, '') == app.localizedName():  # type: ignore
-                            return window.get(Quartz.kCGWindowNumber, 0)  # type: ignore
-            else:
+            
+            # Try to parse as PID first
+            try:
+                pid = int(title)
                 # Find window for specific process ID
                 window_list = Quartz.CGWindowListCopyWindowInfo(  # type: ignore
                     Quartz.kCGWindowListOptionAll,  # type: ignore
@@ -211,7 +202,11 @@ class MacOSBackend(BaseBackend):
                 for window in window_list:
                     if window.get(Quartz.kCGWindowOwnerPID, 0) == pid:  # type: ignore
                         return window.get(Quartz.kCGWindowNumber, 0)  # type: ignore
-            return None
+                return None
+            except ValueError:
+                # If not a PID, treat as title
+                # For now, return None as title-based search is more complex on macOS
+                return None
         except Exception as e:
             print(f"Error getting window handle: {str(e)}")
             return None

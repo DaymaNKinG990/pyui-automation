@@ -7,7 +7,7 @@ Provides controlled logging that can be disabled for library users.
 # Python libraries
 import os
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, cast
 from pathlib import Path
 
 
@@ -203,12 +203,12 @@ def get_log_manager() -> LogManager:
     Get global LogManager instance.
     
     Returns:
-        LogManager singleton instance
+        LogManager: Global log manager instance
     """
     global _log_manager
     if _log_manager is None:
         _log_manager = LogManager()
-    return _log_manager
+    return cast(LogManager, _log_manager)
 
 
 def get_logger(name: str) -> logging.Logger:

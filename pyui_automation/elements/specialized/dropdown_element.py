@@ -6,13 +6,11 @@ following the Interface Segregation Principle.
 """
 
 from typing import Optional, Any, Dict, List, TYPE_CHECKING
-import numpy as np
 import time
 
 if TYPE_CHECKING:
     from ...core.session import AutomationSession
 
-from ...core.interfaces import IElementProperties, IElementGeometry, IElementState, IElementInteraction, IElementWait, IElementSearch, IElementScreenshot
 from ..base_element import BaseElement
 
 

@@ -78,4 +78,9 @@ class IVisualTestingService(ABC):
     @abstractmethod
     def highlight_differences(self, img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
         """Highlight differences between two images"""
+        pass
+    
+    @abstractmethod
+    def compare_images(self, baseline_path: Union[str, Path], current_image: Union[np.ndarray, str, Path]) -> dict:
+        """Compare two images and return comparison results"""
         pass 

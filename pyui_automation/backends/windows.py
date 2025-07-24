@@ -1,25 +1,52 @@
-# Windows API
-import win32gui
-import win32con
-import win32api
-import win32ui
-import win32process
-import win32event
-import win32security
-import ctypes
-import comtypes.client
-try:
-    import comtypes.gen.UIAutomationClient as UIAClient
-except ImportError:
-    comtypes.client.GetModule('UIAutomationCore.dll')
-    import comtypes.gen.UIAutomationClient as UIAClient
+# Windows API - условные импорты для совместимости с pyrefly
+import sys
+from typing import TYPE_CHECKING, Any, Optional, Union, List, Tuple, Dict
+
+if sys.platform == 'win32' or TYPE_CHECKING:
+    try:
+        import win32gui
+        import win32con
+        import win32api
+        import win32ui
+        import win32process
+        import win32event
+        import win32security
+        import ctypes
+        import comtypes.client
+        try:
+            import comtypes.gen.UIAutomationClient as UIAClient
+        except ImportError:
+            comtypes.client.GetModule('UIAutomationCore.dll')
+            import comtypes.gen.UIAutomationClient as UIAClient
+    except ImportError:
+        # Заглушки для случаев, когда модули недоступны
+        win32gui = None
+        win32con = None
+        win32api = None
+        win32ui = None
+        win32process = None
+        win32event = None
+        win32security = None
+        ctypes = None
+        comtypes = None
+        UIAClient = None
+else:
+    # Заглушки для не-Windows платформ
+    win32gui = None
+    win32con = None
+    win32api = None
+    win32ui = None
+    win32process = None
+    win32event = None
+    win32security = None
+    ctypes = None
+    comtypes = None
+    UIAClient = None
 
 # Python libraries
 import time
 import numpy as np
 import os
-from typing import Optional, Any, List, Tuple, Dict, Union
-
 from pathlib import Path
 from logging import getLogger
 
@@ -38,13 +65,13 @@ class WindowsBackend(BaseBackend):
         """Initialize Windows UI Automation"""
         super().__init__()  # Вызываем родительский конструктор
         self.__logger = getLogger(__name__)
-        self.automation = None
-        self._root = None
-        self.value_pattern = None
-        self.invoke_pattern = None
-        self.window_pattern = None
-        self.transform_pattern = None
-        self._current_app = None
+        self.automation: Optional[Any] = None
+        self._root: Optional[Any] = None
+        self.value_pattern: Optional[Any] = None
+        self.invoke_pattern: Optional[Any] = None
+        self.window_pattern: Optional[Any] = None
+        self.transform_pattern: Optional[Any] = None
+        self._current_app: Optional[Any] = None
         # Инициализация будет выполнена в initialize()
 
     @property
@@ -110,7 +137,7 @@ class WindowsBackend(BaseBackend):
             self.__logger.error(msg)
             raise RuntimeError(msg)
 
-    def get_window_handle(self, title: str) -> Optional[int]:
+    def get_window_handle(self, title: Union[str, int]) -> Optional[int]:
         """
         Get the window handle for a specific title.
 
@@ -127,10 +154,10 @@ class WindowsBackend(BaseBackend):
                 # If it's a PID, find window by process
                 for hwnd in self.get_window_handles():
                     try:
-                        _, process_id = win32gui.GetWindowThreadProcessId(hwnd)
+                        _, process_id = win32process.GetWindowThreadProcessId(hwnd)
                         if process_id == pid:
                             return hwnd
-                    except:
+                    except Exception:
                         continue
                 return None
             except ValueError:
@@ -202,7 +229,7 @@ class WindowsBackend(BaseBackend):
             self.__logger.error(f"Error capturing screenshot: {str(e)}")
             return None
 
-    def find_window(self, title: str) -> Optional[UIAClient.IUIAutomationElement]:
+    def find_window(self, title: str) -> Optional[Any]:
         """
         Find a window using its title.
 
@@ -229,12 +256,12 @@ class WindowsBackend(BaseBackend):
             self.__logger.error(f"Error finding window: {str(e)}")
             return None
 
-    def get_window_title(self, window: UIAClient.IUIAutomationElement) -> str:
+    def get_window_title(self, window: Any) -> str:
         """
         Get the title of the specified window.
 
         Args:
-            window (UIAClient.IUIAutomationElement): The window element whose title is to be retrieved.
+            window (Any): The window element whose title is to be retrieved.
 
         Returns:
             str: The title of the window.
@@ -243,7 +270,7 @@ class WindowsBackend(BaseBackend):
         self.__logger.debug(f"Getting window title: {title}")
         return title
 
-    def wait_for_window(self, title: str, timeout: int = 30) -> Optional[UIAClient.IUIAutomationElement]:
+    def wait_for_window(self, title: str, timeout: int = 30) -> Optional[Any]:
         """
         Wait for window with given title to appear
 
@@ -586,6 +613,9 @@ class WindowsBackend(BaseBackend):
                 self.__logger.debug('Invalid region dimensions')
                 return None
 
+            if win32gui is None or win32ui is None or win32con is None:
+                return None
+                
             # Get window handle
             hwnd = win32gui.GetDesktopWindow()
 
@@ -609,10 +639,11 @@ class WindowsBackend(BaseBackend):
             img = img[:, :, :3]  # Convert to RGB
 
             # Clean up
-            win32gui.DeleteObject(saveBitMap.GetHandle())
+            if win32gui is not None:
+                win32gui.DeleteObject(saveBitMap.GetHandle())
+                win32gui.ReleaseDC(hwnd, hwndDC)
             saveDC.DeleteDC()
             mfcDC.DeleteDC()
-            win32gui.ReleaseDC(hwnd, hwndDC)
 
             self.__logger.debug(f"Screen region captured: {img.shape}")
             return img
@@ -640,10 +671,6 @@ class WindowsBackend(BaseBackend):
             self.__logger.error(f"Error getting element pattern: {str(e)}")
             return None
 
-
-
-        self.__logger.debug(f"Text typed into element: {text}")
-
     def cleanup(self) -> None:
         """
         Clean up resources used by the backend
@@ -658,12 +685,13 @@ class WindowsBackend(BaseBackend):
                 self.__logger.error(f"Error releasing COM object: {str(e)}")
             self.automation = None
         try:
-            comtypes.CoUninitialize()
-            self.__logger.debug("COM objects released by CoUninitialize")
+            if comtypes is not None:
+                comtypes.CoUninitialize()
+                self.__logger.debug("COM objects released by CoUninitialize")
         except Exception as e:
             self.__logger.error(f"Error during CoUninitialize: {str(e)}")
 
-    def attach_to_application(self, process_id: int) -> Optional[UIAClient.IUIAutomationElement]:
+    def attach_to_application(self, process_id: int) -> Optional[Any]:
         """
         Attach to an application by process ID.
         
@@ -676,6 +704,9 @@ class WindowsBackend(BaseBackend):
         try:
             self.__logger.debug(f"Attaching to application with process ID: {process_id}")
             
+            if win32gui is None or win32process is None:
+                return None
+                
             # Find window handle by process ID
             def enum_windows_callback(hwnd, windows):
                 if win32gui.IsWindowVisible(hwnd):
@@ -693,6 +724,8 @@ class WindowsBackend(BaseBackend):
             
             # Use the first found window
             hwnd = windows[0]
+            if win32gui is None:
+                return None
             window_title = win32gui.GetWindowText(hwnd)
             self.__logger.debug(f"Found window: {window_title} (handle: {hwnd})")
             
@@ -722,6 +755,8 @@ class WindowsBackend(BaseBackend):
         """
         try:
             if isinstance(window, int):
+                if win32gui is None or win32con is None:
+                    return
                 win32gui.PostMessage(window, win32con.WM_CLOSE, 0, 0)
                 self.__logger.debug(f"Sent close message to window: {window}")
             else:
@@ -819,6 +854,8 @@ class WindowsBackend(BaseBackend):
             True (stub)
         """
         try:
+            if win32api is None:
+                return False
             pos = win32api.GetCursorPos()
             return self.double_click(pos[0], pos[1])
         except Exception as e:
@@ -828,6 +865,8 @@ class WindowsBackend(BaseBackend):
     def double_click(self, x: int, y: int) -> bool:
         """Double click at coordinates"""
         try:
+            if win32api is None or win32con is None:
+                return False
             win32api.SetCursorPos((x, y))
             win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
             win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
@@ -857,6 +896,8 @@ class WindowsBackend(BaseBackend):
             True (stub)
         """
         try:
+            if win32api is None:
+                return False
             pos = win32api.GetCursorPos()
             return self.right_click(pos[0], pos[1])
         except Exception as e:
@@ -866,6 +907,8 @@ class WindowsBackend(BaseBackend):
     def right_click(self, x: int, y: int) -> bool:
         """Right click at coordinates"""
         try:
+            if win32api is None or win32con is None:
+                return False
             win32api.SetCursorPos((x, y))
             win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
             win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
@@ -897,8 +940,10 @@ class WindowsBackend(BaseBackend):
             True (stub)
         """
         try:
-            import win32api
-            import win32con
+            if win32api is None:
+                return False
+            if win32con is None:
+                return False
             
             pos = win32api.GetCursorPos()
             x, y = pos
@@ -930,8 +975,10 @@ class WindowsBackend(BaseBackend):
             True (stub)
         """
         try:
-            import win32api
-            import win32con
+            if win32api is None:
+                return False
+            if win32con is None:
+                return False
             
             pos = win32api.GetCursorPos()
             x, y = pos
@@ -972,7 +1019,8 @@ class WindowsBackend(BaseBackend):
             Mouse position as (x, y)
         """
         try:
-            import win32api
+            if win32api is None:
+                return (0, 0)
             pos = win32api.GetCursorPos()
             return pos
         except Exception as e:
@@ -995,6 +1043,8 @@ class WindowsBackend(BaseBackend):
     def type_text(self, text: str) -> bool:
         """Type text using keyboard"""
         try:
+            if win32api is None or win32con is None:
+                return False
             for char in text:
                 win32api.keybd_event(ord(char), 0, 0, 0)
                 win32api.keybd_event(ord(char), 0, win32con.KEYEVENTF_KEYUP, 0)
@@ -1002,3 +1052,103 @@ class WindowsBackend(BaseBackend):
         except Exception as e:
             self.__logger.error(f"Error in type_text: {str(e)}")
             return False
+
+    def launch_application(self, path: Union[str, Path], args: List[str]) -> None:
+        """
+        Launch application with arguments
+        
+        Args:
+            path: Path to application executable
+            args: Command line arguments
+        """
+        try:
+            import subprocess
+            cmd = [str(path)] + args
+            subprocess.Popen(cmd)
+            self.__logger.info(f"Launched application: {path} with args: {args}")
+        except Exception as e:
+            self.__logger.error(f"Error launching application {path}: {str(e)}")
+            raise
+
+    def close_application(self, application: Any) -> None:
+        """
+        Close application
+        
+        Args:
+            application: Application to close
+        """
+        try:
+            if hasattr(application, 'Close'):
+                application.Close()
+            elif hasattr(application, 'close'):
+                application.close()
+            else:
+                self.__logger.warning("Application object has no close method")
+            self.__logger.info("Application closed")
+        except Exception as e:
+            self.__logger.error(f"Error closing application: {str(e)}")
+            raise
+
+    def get_window_bounds(self, window: Any) -> Tuple[int, int, int, int]:
+        """
+        Get window position and size
+        
+        Args:
+            window: Window object
+            
+        Returns:
+            Tuple of (x, y, width, height)
+        """
+        try:
+            if hasattr(window, 'CurrentBoundingRectangle'):
+                rect = window.CurrentBoundingRectangle
+                return (rect.left, rect.top, rect.width, rect.height)
+            else:
+                self.__logger.warning("Window object has no CurrentBoundingRectangle")
+                return (0, 0, 0, 0)
+        except Exception as e:
+            self.__logger.error(f"Error getting window bounds: {str(e)}")
+            return (0, 0, 0, 0)
+
+    def resize_window(self, window: Any, width: int, height: int) -> None:
+        """
+        Resize window
+        
+        Args:
+            window: Window object
+            width: New width
+            height: New height
+        """
+        try:
+            if hasattr(window, 'SetWindowVisualState') and UIAClient is not None:
+                window.SetWindowVisualState(UIAClient.WindowVisualState_Normal)
+            self.__logger.info(f"Resized window to {width}x{height}")
+        except Exception as e:
+            self.__logger.error(f"Error resizing window: {str(e)}")
+            raise
+
+    def get_application(self) -> Optional[Any]:
+        """
+        Get current application instance
+        
+        Returns:
+            Current application or None
+        """
+        return self._current_app
+
+    def set_window_position(self, window: Any, x: int, y: int) -> None:
+        """
+        Set window position
+        
+        Args:
+            window: Window object
+            x: X coordinate
+            y: Y coordinate
+        """
+        try:
+            if hasattr(window, 'SetWindowVisualState') and UIAClient is not None:
+                window.SetWindowVisualState(UIAClient.WindowVisualState_Normal)
+            self.__logger.info(f"Set window position to ({x}, {y})")
+        except Exception as e:
+            self.__logger.error(f"Error setting window position: {str(e)}")
+            raise

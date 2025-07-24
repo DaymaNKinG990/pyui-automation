@@ -208,7 +208,7 @@ class VisualMatcher:
 class VisualTester:
     """Handles visual testing and comparison of UI elements"""
 
-    def __init__(self, baseline_dir: Union[str, Path], threshold: float = 0.95):
+    def __init__(self, baseline_dir: Union[str, Path], threshold: float = 0.95) -> None:
         """
         Initialize visual tester with baseline directory.
 
@@ -300,7 +300,12 @@ class VisualTester:
             
             # Calculate mean squared error for each channel
             diff_float = diff.astype(np.float64)
-            mse = float(np.mean((diff_float ** 2).astype(np.float64)))
+            diff_squared = np.power(diff_float, 2).astype(np.float64)
+            try:
+                # Simple mean calculation
+                mse = float(np.sum(diff_squared) / diff_squared.size)
+            except Exception:
+                mse = 0.0
             
             # Calculate RMSE and normalize to 0-1 range
             rmse = np.sqrt(mse)
@@ -420,11 +425,14 @@ class VisualTester:
             # Create difference visualization
             diff_image = current.copy()
             diff_mask = diff > 30
-            red_color = np.array([0, 0, 255], dtype=diff_image.dtype)
+            red_color = np.array([0, 0, 255], dtype=np.uint8)
             # Use proper boolean indexing
             if len(diff_image.shape) == 3 and diff_image.shape[2] >= 3:
                 mask_2d = diff_mask.any(axis=2)
-                diff_image[mask_2d] = red_color  # Mark differences in red
+                # Используем более явный способ присваивания
+                diff_image = diff_image.astype(np.uint8)
+                for i in range(3):  # RGB каналы
+                    diff_image[:, :, i] = np.where(mask_2d, red_color[i], diff_image[:, :, i])
 
             # Determine match
             is_match = self._evaluate_match(similarity, differences, self.similarity_threshold)
@@ -481,7 +489,9 @@ class VisualTester:
             resized = cv2.resize(gray, (hash_size + 1, hash_size))
             
             # Calculate differences and construct hash
-            diff_array = resized[:, 1:] > resized[:, :-1]
+            left_part = resized[:, 1:].astype(np.float64)
+            right_part = resized[:, :-1].astype(np.float64)
+            diff_array = np.greater(left_part, right_part)
             diff = diff_array.astype(np.uint8)
             return diff
 

@@ -5,7 +5,7 @@ This service is responsible only for analyzing performance metrics.
 """
 
 import time
-from typing import Dict, List, Any, Callable, Tuple
+from typing import Dict, List, Any, Callable
 import numpy as np
 from dataclasses import dataclass
 from .performance_monitor import PerformanceMetric

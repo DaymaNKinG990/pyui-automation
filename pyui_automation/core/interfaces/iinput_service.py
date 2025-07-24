@@ -112,4 +112,9 @@ class IInputService(ABC):
     @abstractmethod
     def quit(self) -> None:
         """Quit (Alt+F4)"""
+        pass
+    
+    @abstractmethod
+    def send_input(self, input_type: str, **kwargs) -> bool:
+        """Send input of specified type with parameters"""
         pass 

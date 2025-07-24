@@ -4,7 +4,7 @@ import psutil
 import platform
 import logging
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 import os
 
 logger = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ class Application:
         self.path = path
         self._process = process
         self.platform = platform.system().lower()
-        self._window_handle = None
-        self._backend = None
+        self._window_handle: Optional[Any] = None
+        self._backend: Optional[Any] = None
         
         # Initialize platform-specific backend
         if self.platform == 'windows':
@@ -88,8 +88,9 @@ class Application:
         try:
             for proc in psutil.process_iter(['name', 'exe', 'pid']):
                 try:
-                    if proc.info['name'] == app_name or \
-                       (proc.info['exe'] and Path(proc.info['exe']).name == app_name):
+                    proc_info = proc.as_dict(attrs=['name', 'exe'])
+                    if proc_info['name'] == app_name or \
+                       (proc_info['exe'] and Path(proc_info['exe']).name == app_name):
                         existing_process = proc
                         break
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -125,7 +126,7 @@ class Application:
             if process.poll() is not None:
                 # Читаем вывод процесса для диагностики
                 stdout, stderr = process.communicate()
-                raise RuntimeError(f"Process failed to start (exit code: {process.poll()})\nSTDOUT: {stdout.decode(errors='ignore')}\nSTDERR: {stderr.decode(errors='ignore')}")
+                raise RuntimeError(f"Process failed to start (exit code: {process.poll()})\nSTDOUT: {stdout}\nSTDERR: {stderr}")
             
             try:
                 proc = psutil.Process(process.pid)
@@ -185,7 +186,10 @@ class Application:
             # Verify process exists and is running
             if process.poll() is not None:
                 stdout, stderr = process.communicate()
-                raise RuntimeError(f"Process failed to start (exit code: {process.poll()})\nSTDOUT: {stdout.decode(errors='ignore')}\nSTDERR: {stderr.decode(errors='ignore')}")
+                # stdout и stderr уже строки, не нужно декодировать
+                stdout_str = stdout if isinstance(stdout, str) else stdout.decode(errors='ignore') if stdout else ''
+                stderr_str = stderr if isinstance(stderr, str) else stderr.decode(errors='ignore') if stderr else ''
+                raise RuntimeError(f"Process failed to start (exit code: {process.poll()})\nSTDOUT: {stdout_str}\nSTDERR: {stderr_str}")
             
             try:
                 proc = psutil.Process(process.pid)
@@ -233,9 +237,10 @@ class Application:
             # Otherwise, it's from int() conversion - try to attach by name
             for proc in psutil.process_iter(['name', 'exe']):
                 try:
-                    if proc.info['name'] == pid_or_name or \
-                       (proc.info['exe'] and os.path.basename(proc.info['exe']) == pid_or_name):
-                        return cls(path=Path(proc.info['exe']), process=proc)
+                    proc_info = proc.as_dict(attrs=['name', 'exe'])
+                    if proc_info['name'] == pid_or_name or \
+                       (proc_info['exe'] and os.path.basename(proc_info['exe']) == pid_or_name):
+                        return cls(path=Path(proc_info['exe']), process=proc)
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
             raise ValueError(f"No process found with name {pid_or_name}")
@@ -264,8 +269,15 @@ class Application:
 
     def get_memory_usage(self) -> float:
         """Get application memory usage in MB"""
-        if self._process:
-            return self._process.memory_info().rss / (1024 * 1024)
+        if self._process and self._process.is_running():
+            try:
+                if hasattr(self._process, 'memory_info'):
+                    memory_info = self._process.memory_info()
+                    return float(memory_info.rss) / (1024 * 1024)
+                else:
+                    return 0.0
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                return 0.0
         return 0.0
 
     def get_cpu_usage(self) -> float:
@@ -303,7 +315,10 @@ class Application:
             
         start_time = time.time()
         while time.time() - start_time < timeout:
-            window = self._backend.find_window(title)
+            if hasattr(self._backend, 'find_window'):
+                window = self._backend.find_window(title)
+            else:
+                return None
             if window:
                 if hasattr(window, 'CurrentNativeWindowHandle') and not isinstance(window, int):
                     self._window_handle = window.CurrentNativeWindowHandle

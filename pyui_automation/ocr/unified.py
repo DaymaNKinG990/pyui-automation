@@ -12,7 +12,6 @@ from pathlib import Path
 
 from ..core.interfaces.iocr_service import IOCRService
 from ..elements.base_element import BaseElement
-from .models import OCRResult
 
 
 class UnifiedOCREngine(IOCRService):
@@ -42,7 +41,7 @@ class UnifiedOCREngine(IOCRService):
         try:
             from .engine import OCREngine
             return OCREngine()
-        except (ImportError, RuntimeError) as e:
+        except (ImportError, RuntimeError):
             # Fall back to stub implementation
             from .stub import StubOCREngine
             return StubOCREngine()

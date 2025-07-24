@@ -5,17 +5,15 @@ This module provides a singleton automation manager that uses dependency injecti
 to manage all services and their dependencies.
 """
 
-from typing import Optional, Any, Dict, List, Union
-from pathlib import Path
-import logging
+from typing import Any, Optional, List, Dict, cast
 from logging import getLogger
 
 from .services.di_container import get_container, register_service, get_service, set_config
 from .interfaces import (
     IBackendFactory, ILocatorFactory, ISessionManager, IConfigurationManager,
-    IElementDiscoveryService, IScreenshotService, IPerformanceService,
-    IVisualTestingService, IInputService, IBackend, IElement
+    IElementDiscoveryService, IScreenshotService, IVisualTestingService, IInputService, IElement
 )
+from ..locators.interfaces import IBackendForLocator
 from .session import AutomationSession
 from .config import AutomationConfig
 
@@ -35,7 +33,7 @@ class DIAutomationManager:
         """Singleton pattern implementation"""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-        return cls._instance
+        return cls._instance  # type: ignore
     
     def __init__(self) -> None:
         """Initialize DI Automation Manager"""
@@ -84,11 +82,11 @@ class DIAutomationManager:
             register_service('input_service', InputService, singleton=True)
             
             # Register specialized element services
-            from .elements.specialized import (
+            from ..elements.specialized import (
                 ButtonElement, TextElement, CheckboxElement, 
                 DropdownElement, InputElement, WindowElement
             )
-            from .elements.element_factory import ElementFactory
+            from ..elements.element_factory import ElementFactory
             
             register_service('element_factory', ElementFactory, singleton=True)
             register_service('button_element', ButtonElement, singleton=False)
@@ -207,7 +205,10 @@ class DIAutomationManager:
                         set_config(key, value)
             
             # Create session using session manager
-            session = self.session_manager.create_session()
+            backend = self.create_backend()
+            platform = self.backend_factory.get_platform_name()
+            locator = self.locator_factory.create_locator(platform, backend)
+            session = self.session_manager.create_session(backend, locator, None)
             self._current_session = session
             
             self._logger.info("Automation session created successfully")
@@ -225,14 +226,14 @@ class DIAutomationManager:
         """Close current automation session"""
         try:
             if self._current_session:
-                self.session_manager.close_session(self._current_session)
+                self.session_manager.close_session(str(self._current_session.session_id))
                 self._current_session = None
                 self._logger.info("Automation session closed successfully")
         except Exception as e:
             self._logger.error(f"Failed to close session: {e}")
             raise
     
-    def create_backend(self, platform: Optional[str] = None) -> IBackend:
+    def create_backend(self, platform: Optional[str] = None) -> IBackendForLocator:
         """
         Create a backend for the specified platform.
         
@@ -282,7 +283,9 @@ class DIAutomationManager:
             Optional[IElement]: Found element or None
         """
         try:
-            element = self.element_discovery_service.find_element(session, **kwargs)
+            # Extract strategy and other parameters
+            strategy = kwargs.pop('strategy', None)
+            element = self.element_discovery_service.find_element(strategy, **kwargs)
             if element:
                 self._logger.debug(f"Element found: {kwargs}")
             return element
@@ -302,9 +305,12 @@ class DIAutomationManager:
             List[IElement]: List of found elements
         """
         try:
-            elements = self.element_discovery_service.find_elements(session, **kwargs)
+            # Extract strategy and other parameters
+            strategy = kwargs.pop('strategy', None)
+            elements = self.element_discovery_service.find_elements(strategy, **kwargs)
             self._logger.debug(f"Found {len(elements)} elements: {kwargs}")
-            return elements
+            # Convert BaseElement to IElement if needed
+            return [element for element in elements]
         except Exception as e:
             self._logger.error(f"Failed to find elements: {e}")
             raise
@@ -321,7 +327,7 @@ class DIAutomationManager:
             Optional[Any]: Screenshot data or None
         """
         try:
-            screenshot = self.screenshot_service.capture_screenshot(session, region)
+            screenshot = self.screenshot_service.capture_screenshot()
             self._logger.debug("Screenshot captured successfully")
             return screenshot
         except Exception as e:
@@ -360,8 +366,8 @@ class DIAutomationManager:
             Dict[str, Any]: Visual test results
         """
         try:
-            results = self.visual_testing_service.compare_with_baseline(
-                session, baseline_path, current_screenshot
+            results = self.visual_testing_service.compare_images(
+                baseline_path, current_screenshot
             )
             self._logger.debug("Visual test completed")
             return results
@@ -382,7 +388,7 @@ class DIAutomationManager:
             bool: Success status
         """
         try:
-            success = self.input_service.send_input(session, input_type, **kwargs)
+            success = self.input_service.send_input(input_type, **kwargs)
             self._logger.debug(f"Input sent: {input_type}")
             return success
         except Exception as e:
@@ -391,11 +397,11 @@ class DIAutomationManager:
     
     def get_configuration(self) -> Dict[str, Any]:
         """Get current configuration"""
-        return self.configuration_manager.get_configuration()
+        return self.configuration_manager.get_all_config()
     
     def update_configuration(self, config: Dict[str, Any]) -> None:
         """Update configuration"""
-        self.configuration_manager.update_configuration(config)
+        self.configuration_manager.update_config(config)
     
     def get_service_info(self) -> Dict[str, Any]:
         """Get information about registered services"""
@@ -445,7 +451,7 @@ def get_automation_manager() -> DIAutomationManager:
     global _global_manager
     if _global_manager is None:
         _global_manager = DIAutomationManager()
-    return _global_manager
+    return cast(DIAutomationManager, _global_manager)
 
 
 def create_session(config: Optional[AutomationConfig] = None) -> AutomationSession:

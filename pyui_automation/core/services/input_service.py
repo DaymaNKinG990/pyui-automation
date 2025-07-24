@@ -7,9 +7,8 @@ Responsible for:
 - Input coordination
 """
 
-from typing import Optional, List, Any
+from typing import Optional, Any
 from logging import getLogger
-import time
 
 from ...input import Keyboard
 from ...input.mouse import Mouse

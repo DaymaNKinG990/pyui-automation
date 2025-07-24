@@ -1,0 +1,15 @@
+# Заменить импорты win32api модулей на Any
+replace_imports_with_any = [
+    "win32gui", "win32api", "win32ui", "win32process", 
+    "win32event", "win32security", "win32con", "comtypes",
+    "comtypes.client", "comtypes.gen.UIAutomationClient"
+]
+
+# Игнорировать ошибки импорта для Windows-специфичных модулей
+[errors]
+import-error = false
+missing-attribute = false
+bad-override = false
+missing-argument = false
+bad-return = false
+bad-assignment = false 

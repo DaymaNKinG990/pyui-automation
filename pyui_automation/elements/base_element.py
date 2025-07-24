@@ -12,7 +12,7 @@ import numpy as np
 if TYPE_CHECKING:
     from ..core.session import AutomationSession
 
-from .properties import Property, ELEMENT_PROPERTIES, StringProperty, BoolProperty, IntProperty, DictProperty, OptionalStringProperty
+from .properties import ELEMENT_PROPERTIES
 from .element_finder import ElementFinder
 from .interaction_service import ElementInteractionService
 from .wait_service import ElementWaitService

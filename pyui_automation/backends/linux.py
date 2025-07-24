@@ -2,7 +2,7 @@
 # Python libraries
 import sys
 import platform
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List, Tuple, Any, Union
 import numpy as np
 from PIL import Image
 import subprocess
@@ -144,29 +144,36 @@ class LinuxBackend(BaseBackend):
         geom = root.get_geometry()
         return (geom.width, geom.height)
 
-    def get_window_handle(self, pid: Optional[int] = None) -> Optional[int]:
+    def get_window_handle(self, title: Union[str, int]) -> Optional[int]:
         """
-        Get the window handle for a specific process ID.
-
+        Get the window handle for a specific title or PID.
+        
         Args:
-            pid (Optional[int]): The process ID to search for. If None, returns the first visible window handle found.
-
+            title: Window title or process ID
+            
         Returns:
-            Optional[int]: The window handle if found, otherwise None.
+            Window handle or None if not found
         """
-        try:
-            root = self.display.screen().root
-            window_list = root.query_tree().children
-            for window in window_list:
-                if window.get_wm_class() and window.get_attributes().map_state == X.IsViewable:  # type: ignore
-                    if pid is None:
-                        return window.id
-                    window_pid = window.get_full_property(self.display.intern_atom('_NET_WM_PID'), 0)
-                    if window_pid and window_pid.value[0] == pid:
-                        return window.id
+        if isinstance(title, int):
+            # Treat as PID
+            pid = title
+            for window in self.get_window_handles():
+                try:
+                    _, process_id = X.GetProperty(window, X.Atom.WM_PID, X.Atom.CARDINAL)
+                    if process_id and process_id[0] == pid:
+                        return window
+                except Exception:
+                    continue
             return None
-        except Exception as e:
-            print(f"Error getting window handle: {str(e)}")
+        else:
+            # Treat as title
+            for window in self.get_window_handles():
+                try:
+                    name = X.GetProperty(window, X.Atom.WM_NAME, X.Atom.STRING)
+                    if name and title.lower() in name[0].lower():
+                        return window
+                except Exception:
+                    continue
             return None
 
     def get_window_handles(self) -> List[Any]:
@@ -187,7 +194,7 @@ class LinuxBackend(BaseBackend):
                 attrs = window.get_attributes()
                 if attrs is not None and hasattr(attrs, 'map_state') and attrs.map_state == X.IsViewable and not attrs.override_redirect:  # type: ignore
                     window_ids.append(window)
-            except:
+            except Exception:
                 continue
                 
         return window_ids

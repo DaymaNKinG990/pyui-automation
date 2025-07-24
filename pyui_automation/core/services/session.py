@@ -2,11 +2,9 @@
 Session management for UI automation.
 """
 
-from typing import Optional, Dict, Any
-from pathlib import Path
+from typing import Dict, Any
 import logging
 
-from ..interfaces.isession_manager import ISessionManager
 from ..interfaces.iapplication import IApplication
 
 

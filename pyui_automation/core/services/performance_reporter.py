@@ -6,7 +6,7 @@ This service is responsible only for generating performance reports.
 
 import json
 from pathlib import Path
-from typing import Dict, List, Any, Union
+from typing import List, Union
 import matplotlib.pyplot as plt
 import numpy as np
 from .performance_monitor import PerformanceMetric

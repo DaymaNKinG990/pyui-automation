@@ -46,18 +46,15 @@ class BackendFactory(IBackendFactory):
         """Get current platform name"""
         return self.detect_platform()
     
-    @staticmethod
-    def create_backend(platform_name: Optional[str] = None) -> BaseBackend:
-        """Create backend for specified platform (static method)"""
+    def create_backend(self, platform_name: Optional[str] = None) -> BaseBackend:
+        """Create backend for specified platform"""
         try:
-            # Временно создаём экземпляр для доступа к словарям
-            factory = BackendFactory()
             if platform_name is None or platform_name == 'auto':
-                platform_name = factory.detect_platform()
-            if platform_name in factory._custom_backends:
-                backend_class = factory._custom_backends[platform_name]
-            elif platform_name in factory._backends:
-                backend_class = factory._backends[platform_name]
+                platform_name = self.detect_platform()
+            if platform_name in self._custom_backends:
+                backend_class = self._custom_backends[platform_name]
+            elif platform_name in self._backends:
+                backend_class = self._backends[platform_name]
             else:
                 raise RuntimeError(f"Unsupported platform: {platform_name}")
             backend = backend_class()
@@ -65,14 +62,14 @@ class BackendFactory(IBackendFactory):
             backend.initialize()
             return backend
         except Exception as e:
-            print(f"[BackendFactory] Failed to create backend for platform {platform_name}: {e}")
+            self._logger.error(f"Failed to create backend for platform {platform_name}: {e}")
             raise
     
     def register_backend(self, platform_name: str, backend_class: Type[BaseBackend]) -> None:
         """Register custom backend for platform"""
         try:
             if not issubclass(backend_class, BaseBackend):
-                raise ValueError(f"Backend class must inherit from BaseBackend")
+                raise ValueError("Backend class must inherit from BaseBackend")
             
             self._custom_backends[platform_name] = backend_class
             self._logger.info(f"Registered custom backend for platform: {platform_name}")

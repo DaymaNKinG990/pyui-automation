@@ -6,6 +6,7 @@ Dependency Inversion Principle compliance.
 """
 
 from abc import ABC, abstractmethod
+from logging import Logger
 from typing import Optional, List, Any, Protocol
 
 
@@ -13,7 +14,7 @@ class IBackendForLocator(Protocol):
     """Interface for backend functionality needed by locators"""
     
     @property
-    def logger(self):
+    def logger(self) -> Logger:
         """Get logger instance"""
         ...
     
