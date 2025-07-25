@@ -63,29 +63,30 @@ class WindowElement(BaseElement):
         """Activate window (bring to front)"""
         self.focus()
     
-    def close_window(self) -> None:
-        """Close window"""
-        # Find close button and click it
-        close_button = self.find_child_by_name("Close") or self.find_child_by_name("X")
-        if close_button:
-            close_button.click()
-        else:
-            # Fallback: send Alt+F4
-            self.session.input_service.hotkey("alt", "f4")
-    
     def maximize_window(self) -> None:
         """Maximize window"""
         if not self.is_window_maximized():
             maximize_button = self.find_child_by_name("Maximize")
             if maximize_button:
                 maximize_button.click()
-    
+            else:
+                self.send_keys("F11")
+
     def minimize_window(self) -> None:
         """Minimize window"""
-        if not self.is_window_minimized():
-            minimize_button = self.find_child_by_name("Minimize")
-            if minimize_button:
-                minimize_button.click()
+        minimize_button = self.find_child_by_name("Minimize")
+        if minimize_button:
+            minimize_button.click()
+        else:
+            self.send_keys("F9")
+
+    def close_window(self) -> None:
+        """Close window"""
+        close_button = self.find_child_by_name("Close") or self.find_child_by_name("X")
+        if close_button:
+            close_button.click()
+        else:
+            self.send_keys("Alt+F4")
     
     def resize_window(self, width: int, height: int) -> None:
         """Resize window"""

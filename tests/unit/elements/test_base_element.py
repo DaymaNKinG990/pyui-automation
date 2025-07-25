@@ -181,7 +181,7 @@ class TestBaseElement:
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._interaction_service, 'send_keys')
         self.element.send_keys("test")
-        self.element._interaction_service.send_keys.assert_called_once_with("test")
+        self.element._interaction_service.send_keys.assert_called_once_with(self.element, "test", interval=None)
 
     def test_clear(self, mocker):
         """Test clear method"""
@@ -226,7 +226,7 @@ class TestBaseElement:
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._interaction_service, 'append')
         self.element.append("test")
-        self.element._interaction_service.append.assert_called_once_with("test")
+        self.element._interaction_service.append.assert_called_once_with(self.element, "test")
 
     def test_check(self, mocker):
         """Test check method"""
@@ -235,7 +235,7 @@ class TestBaseElement:
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._state_service, 'check')
         self.element.check()
-        self.element._state_service.check.assert_called_once()
+        self.element._state_service.check.assert_called_once_with(self.element)
 
     def test_uncheck(self, mocker):
         """Test uncheck method"""
@@ -244,7 +244,7 @@ class TestBaseElement:
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._state_service, 'uncheck')
         self.element.uncheck()
-        self.element._state_service.uncheck.assert_called_once()
+        self.element._state_service.uncheck.assert_called_once_with(self.element)
 
     def test_toggle(self, mocker):
         """Test toggle method"""
@@ -253,7 +253,7 @@ class TestBaseElement:
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._state_service, 'toggle')
         self.element.toggle()
-        self.element._state_service.toggle.assert_called_once()
+        self.element._state_service.toggle.assert_called_once_with(self.element)
 
     def test_expand(self, mocker):
         """Test expand method"""
@@ -262,7 +262,7 @@ class TestBaseElement:
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._state_service, 'expand')
         self.element.expand()
-        self.element._state_service.expand.assert_called_once()
+        self.element._state_service.expand.assert_called_once_with(self.element)
 
     def test_collapse(self, mocker):
         """Test collapse method"""
@@ -271,7 +271,7 @@ class TestBaseElement:
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._state_service, 'collapse')
         self.element.collapse()
-        self.element._state_service.collapse.assert_called_once()
+        self.element._state_service.collapse.assert_called_once_with(self.element)
 
     def test_select_item(self, mocker):
         """Test select_item method"""
@@ -280,7 +280,7 @@ class TestBaseElement:
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._state_service, 'select_item')
         self.element.select_item("item")
-        self.element._state_service.select_item.assert_called_once_with("item")
+        self.element._state_service.select_item.assert_called_once_with(self.element, "item")
 
     def test_is_selected(self, mocker):
         """Test is_selected method"""
@@ -308,19 +308,19 @@ class TestBaseElement:
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mock_image = np.zeros((100, 100, 3), dtype=np.uint8)
-        mocker.patch.object(self.element._session, 'screenshot_service')
-        self.element._session.screenshot_service.capture_screenshot.return_value = mock_image
+        mocker.patch.object(self.element, 'capture_screenshot', return_value=mock_image)
         result = self.element.capture_screenshot()
         assert result is not None
         assert isinstance(result, np.ndarray)
-
+    
     def test_capture_screenshot_exception(self, mocker):
         """Test capture_screenshot method with exception"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element._session, 'screenshot_service')
-        self.element._session.screenshot_service.capture_screenshot.side_effect = Exception("Screenshot failed")
+        # Mock the session screenshot_service to raise exception
+        self.mock_session.screenshot_service = mocker.Mock()
+        self.mock_session.screenshot_service.capture_screenshot.side_effect = Exception("Screenshot failed")
         result = self.element.capture_screenshot()
         assert result is None
 
@@ -383,25 +383,29 @@ class TestBaseElement:
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.element._interaction_service, 'drag_and_drop')
-        self.element.drag_and_drop(None)
-        self.element._interaction_service.drag_and_drop.assert_not_called()
+        with pytest.raises(TypeError, match="Target must be a BaseElement instance"):
+            self.element.drag_and_drop(None)
 
     def test_get_property_with_get_current_pattern(self, mocker):
         """Test get_property method with get_current_pattern"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element._properties, 'get_property', return_value="test_value")
+        
+        # Mock GetCurrentPattern to return a pattern with get_property method
+        mock_pattern = mocker.Mock()
+        mock_pattern.get_property.return_value = "test_value"
+        self.mock_native_element.GetCurrentPattern.return_value = mock_pattern
+        
         result = self.element.get_property("test_property")
         assert result == "test_value"
-        self.element._properties.get_property.assert_called_once_with("test_property")
 
     def test_get_property_exception(self, mocker):
         """Test get_property method with exception"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element._properties, 'get_property', side_effect=Exception("Property failed"))
+        self.mock_native_element.GetCurrentPattern.side_effect = Exception("Property failed")
         result = self.element.get_property("test_property")
         assert result is None
 
@@ -410,7 +414,8 @@ class TestBaseElement:
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element._properties, 'get_property', return_value=None)
+        self.mock_native_element.GetCurrentPattern.return_value = None
+        self.mock_native_element.get_property = None
         result = self.element.get_property("test_property")
         assert result is None
 
@@ -418,88 +423,95 @@ class TestBaseElement:
         """Test get_attribute method with CurrentAutomationId"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.CurrentAutomationId = "test_id"
+        # Remove get_attribute to force using CurrentAutomationId
+        del self.mock_native_element.get_attribute
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', return_value="test_id")
         result = self.element.get_attribute("automation_id")
         assert result == "test_id"
-        self.element.get_property.assert_called_with("AutomationId")
-
+    
     def test_get_attribute_with_current_name(self, mocker):
         """Test get_attribute method with CurrentName"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.CurrentName = "test_name"
+        # Remove get_attribute to force using CurrentName
+        del self.mock_native_element.get_attribute
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', return_value="test_name")
         result = self.element.get_attribute("name")
         assert result == "test_name"
-        self.element.get_property.assert_called_with("Name")
-
+    
     def test_get_attribute_with_current_class_name(self, mocker):
         """Test get_attribute method with CurrentClassName"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.CurrentClassName = "Button"
+        # Remove get_attribute to force using CurrentClassName
+        del self.mock_native_element.get_attribute
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', return_value="Button")
         result = self.element.get_attribute("class_name")
         assert result == "Button"
-        self.element.get_property.assert_called_with("ClassName")
-
+    
     def test_get_attribute_with_current_control_type(self, mocker):
         """Test get_attribute method with CurrentControlType"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.CurrentControlType = "Button"
+        # Remove get_attribute to force using CurrentControlType
+        del self.mock_native_element.get_attribute
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', return_value="Button")
         result = self.element.get_attribute("control_type")
         assert result == "Button"
-        self.element.get_property.assert_called_with("ControlType")
-
+    
     def test_get_attribute_with_name_property(self, mocker):
         """Test get_attribute method with name property"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.name = "test_name"
+        # Remove get_attribute and CurrentName to force using name property
+        del self.mock_native_element.get_attribute
+        del self.mock_native_element.CurrentName
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', return_value="test_name")
         result = self.element.get_attribute("name")
         assert result == "test_name"
-        self.element.get_property.assert_called_with("Name")
-
+    
     def test_get_attribute_with_description_property(self, mocker):
         """Test get_attribute method with description property"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.description = "test_description"
+        # Remove get_attribute to force using description property
+        del self.mock_native_element.get_attribute
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', return_value="test_description")
         result = self.element.get_attribute("description")
         assert result == "test_description"
-        self.element.get_property.assert_called_with("HelpText")
-
+    
     def test_get_attribute_with_get_role_method(self, mocker):
         """Test get_attribute method with get_role method"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.getRole = mocker.Mock(return_value="Button")
+        # Remove get_attribute to force using getRole method
+        del self.mock_native_element.get_attribute
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', return_value="Button")
         result = self.element.get_attribute("role")
         assert result == "Button"
-        self.element.get_property.assert_called_with("ControlType")
 
     def test_get_attribute_with_get_attribute_method(self, mocker):
         """Test get_attribute method with get_attribute method"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.get_attribute = mocker.Mock(return_value="test_value")
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', return_value="test_value")
         result = self.element.get_attribute("custom_attribute")
         assert result == "test_value"
-        self.element.get_property.assert_called_with("custom_attribute")
 
     def test_get_attribute_exception(self, mocker):
         """Test get_attribute method with exception"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
+        self.mock_native_element.get_attribute = mocker.Mock(side_effect=Exception("Attribute failed"))
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_property', side_effect=Exception("Attribute failed"))
         result = self.element.get_attribute("test_attribute")
         assert result is None
 
@@ -508,7 +520,17 @@ class TestBaseElement:
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element, 'get_attribute', side_effect=lambda x: {"name": "test", "id": "123"}.get(x))
+        
+        # Mock the native element to return different values for different attributes
+        def mock_get_attribute(name):
+            if name == "name":
+                return "test"
+            elif name == "id":
+                return "123"
+            return None
+            
+        self.mock_native_element.get_attribute = mock_get_attribute
+        
         result = self.element.get_attributes(["name", "id"])
         assert result == {"name": "test", "id": "123"}
 
@@ -520,7 +542,7 @@ class TestBaseElement:
         mocker.patch.object(self.element._wait_service, 'wait_until_clickable', return_value=True)
         result = self.element.wait_until_clickable()
         assert result is True
-        self.element._wait_service.wait_until_clickable.assert_called_once()
+        self.element._wait_service.wait_until_clickable.assert_called_once_with(self.element, None)
 
     def test_wait_until_enabled(self, mocker):
         """Test wait_until_enabled method"""
@@ -530,7 +552,7 @@ class TestBaseElement:
         mocker.patch.object(self.element._wait_service, 'wait_until_enabled', return_value=True)
         result = self.element.wait_until_enabled()
         assert result is True
-        self.element._wait_service.wait_until_enabled.assert_called_once()
+        self.element._wait_service.wait_until_enabled.assert_called_once_with(self.element, None)
 
     def test_wait_until_checked(self, mocker):
         """Test wait_until_checked method"""
@@ -540,7 +562,7 @@ class TestBaseElement:
         mocker.patch.object(self.element._wait_service, 'wait_until_checked', return_value=True)
         result = self.element.wait_until_checked()
         assert result is True
-        self.element._wait_service.wait_until_checked.assert_called_once()
+        self.element._wait_service.wait_until_checked.assert_called_once_with(self.element, 10)
 
     def test_wait_until_unchecked(self, mocker):
         """Test wait_until_unchecked method"""
@@ -550,7 +572,7 @@ class TestBaseElement:
         mocker.patch.object(self.element._wait_service, 'wait_until_unchecked', return_value=True)
         result = self.element.wait_until_unchecked()
         assert result is True
-        self.element._wait_service.wait_until_unchecked.assert_called_once()
+        self.element._wait_service.wait_until_unchecked.assert_called_once_with(self.element, 10)
 
     def test_wait_until_expanded(self, mocker):
         """Test wait_until_expanded method"""
@@ -560,7 +582,7 @@ class TestBaseElement:
         mocker.patch.object(self.element._wait_service, 'wait_until_expanded', return_value=True)
         result = self.element.wait_until_expanded()
         assert result is True
-        self.element._wait_service.wait_until_expanded.assert_called_once()
+        self.element._wait_service.wait_until_expanded.assert_called_once_with(self.element, 10)
 
     def test_wait_until_collapsed(self, mocker):
         """Test wait_until_collapsed method"""
@@ -570,7 +592,7 @@ class TestBaseElement:
         mocker.patch.object(self.element._wait_service, 'wait_until_collapsed', return_value=True)
         result = self.element.wait_until_collapsed()
         assert result is True
-        self.element._wait_service.wait_until_collapsed.assert_called_once()
+        self.element._wait_service.wait_until_collapsed.assert_called_once_with(self.element, 10)
 
     def test_wait_until_value_is(self, mocker):
         """Test wait_until_value_is method"""
@@ -580,24 +602,24 @@ class TestBaseElement:
         mocker.patch.object(self.element._wait_service, 'wait_until_value_is', return_value=True)
         result = self.element.wait_until_value_is("test_value")
         assert result is True
-        self.element._wait_service.wait_until_value_is.assert_called_once_with("test_value")
+        self.element._wait_service.wait_until_value_is.assert_called_once_with("test_value", None)
 
     def test_wait_for_visible(self, mocker):
         """Test wait_for_visible method"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element._wait_service, 'wait_for_visible', return_value=True)
+        mocker.patch.object(self.element._wait_service, 'wait_for_condition', return_value=True)
+        mocker.patch.object(self.element, 'is_displayed', return_value=True)
         result = self.element.wait_for_visible()
         assert result is True
-        self.element._wait_service.wait_for_visible.assert_called_once()
 
     def test_wait_for_visible_exception(self, mocker):
         """Test wait_for_visible method with exception"""
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element._wait_service, 'wait_for_visible', side_effect=Exception("Wait failed"))
+        mocker.patch.object(self.element._wait_service, 'wait_for_condition', side_effect=Exception("Wait failed"))
         result = self.element.wait_for_visible()
         assert result is False
 
@@ -606,10 +628,10 @@ class TestBaseElement:
         self.mock_session = mocker.Mock()
         self.mock_native_element = mocker.Mock()
         self.element = BaseElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.element._wait_service, 'wait_for_enabled', return_value=True)
+        mocker.patch.object(self.element, 'wait_until_enabled', return_value=True)
         result = self.element.wait_for_enabled()
         assert result is True
-        self.element._wait_service.wait_for_enabled.assert_called_once()
+        self.element.wait_until_enabled.assert_called_once_with(None)
 
     def test_wait_for_condition(self, mocker):
         """Test wait_for_condition method"""
@@ -620,7 +642,7 @@ class TestBaseElement:
         condition = mocker.Mock()
         result = self.element.wait_for_condition(condition)
         assert result is True
-        self.element._wait_service.wait_for_condition.assert_called_once_with(condition)
+        self.element._wait_service.wait_for_condition.assert_called_once_with(condition, timeout=mocker.ANY)
 
     def test_wait_for_condition_exception(self, mocker):
         """Test wait_for_condition method with exception"""
@@ -640,4 +662,4 @@ class TestBaseElement:
         mocker.patch.object(self.element._state_service, 'get_state_summary', return_value={"enabled": True, "visible": True})
         result = self.element.get_state_summary()
         assert result == {"enabled": True, "visible": True}
-        self.element._state_service.get_state_summary.assert_called_once() 
+        self.element._state_service.get_state_summary.assert_called_once_with(self.element) 

@@ -18,6 +18,7 @@ class AutomationSession:
         self.backend = application
         self.locator = config.get("locator")
         self.logger = logging.getLogger(f"session.{session_id}")
+        self.is_closed = False
         
     def get_session_id(self) -> str:
         """Get the session ID."""
@@ -35,3 +36,7 @@ class AutomationSession:
         """Cleanup session resources."""
         self.logger.info(f"Cleaning up session: {self.session_id}")
         # Add cleanup logic here if needed 
+        
+    def close(self):
+        """Close session"""
+        self.is_closed = True 

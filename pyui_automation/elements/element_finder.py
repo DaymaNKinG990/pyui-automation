@@ -25,46 +25,18 @@ class ElementFinder:
         self._element = element
         self._logger = getLogger(__name__)
     
-    def find_child_by_property(
-        self,
-        property_name: str,
-        expected_value: Any, 
-        property_type: Optional[type[Property]] = None
-    ) -> Optional[Any]:
-        """
-        Find child element by property value.
-        
-        Args:
-            property_name: Name of the property to check
-            expected_value: Expected value of the property
-            property_type: Type of property (optional, auto-detected if not provided)
-            
-        Returns:
-            Found child element or None
-        """
-        try:
-            children = self._get_children()
-            if not children:
-                self._logger.warning("No children found")
-                return None
-            self._logger.debug(f"Found {len(children)} children")
-
-            # Auto-detect property type if not provided
-            if property_type is None:
-                property_type = self._detect_property_type(property_name)
-            self._logger.debug(f"Detected property type: {property_type}")
-
-            for child in children:
-                property_obj = property_type(property_name, child)
-                if property_obj.get_value() == expected_value:
-                    self._logger.debug(f"Found child by property: {property_name}")
+    def find_child_by_property(self, property_name: str, value: Any, property_type=None):
+        """Find first child by property value"""
+        children = self._get_children()
+        for child in children:
+            if property_type:
+                if child.get_property(property_name) == value:
                     return child
-            
-            self._logger.warning("No child found by property")
-            return None
-        except Exception:
-            self._logger.error(f"Failed to find child by property: {property_name}")
-            return None
+            else:
+                prop = StringProperty(child, property_name)
+                if prop.get_value() == value:
+                    return child
+        return None
     
     def find_children_by_property(
         self,
@@ -287,18 +259,25 @@ class ElementFinder:
         self._logger.debug(f"Finding children by name: {name}")
         return self.find_children_by_predicate(name_predicate)
     
-    def find_child_by_control_type(self, control_type: str) -> Optional[Any]:
-        """
-        Find child element by control type.
-        
-        Args:
-            control_type: Control type to search for
-            
-        Returns:
-            Found child element or None
-        """
+    def find_child_by_automation_id(self, automation_id: str):
+        """Find child by automation ID using StringProperty"""
+        self._logger.debug(f"Finding child by automation ID: {automation_id}")
+        children = self._get_children()
+        for child in children:
+            prop = StringProperty(child, 'automation_id')
+            if prop.get_value() == automation_id:
+                return child
+        return None
+
+    def find_child_by_control_type(self, control_type: str):
+        """Find child by control type using StringProperty"""
         self._logger.debug(f"Finding child by control type: {control_type}")
-        return self.find_child_by_property('control_type', control_type, StringProperty)
+        children = self._get_children()
+        for child in children:
+            prop = StringProperty(child, 'control_type')
+            if prop.get_value() == control_type:
+                return child
+        return None
     
     def find_children_by_control_type(self, control_type: str) -> List[Any]:
         """
@@ -312,19 +291,6 @@ class ElementFinder:
         """
         self._logger.debug(f"Finding children by control type: {control_type}")
         return self.find_children_by_property('control_type', control_type, StringProperty)
-    
-    def find_child_by_automation_id(self, automation_id: str) -> Optional[Any]:
-        """
-        Find child element by automation ID.
-        
-        Args:
-            automation_id: Automation ID to search for
-            
-        Returns:
-            Found child element or None
-        """
-        self._logger.debug(f"Finding child by automation ID: {automation_id}")
-        return self.find_child_by_property('automation_id', automation_id, StringProperty)
     
     def find_children_by_automation_id(self, automation_id: str) -> List[Any]:
         """

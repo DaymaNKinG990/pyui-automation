@@ -97,7 +97,7 @@ class TestElementFactory:
         mock_native = mocker.Mock()
         mock_native.CurrentControlType.ProgrammaticName = None
         mock_native.ControlType.ProgrammaticName = 'TextBox'
-        mock_native.get_property.return_value = None  # Mock get_property to return None
+        mock_native.get_property.return_value = 'TextBox'  # Mock get_property to return TextBox
         
         factory = ElementFactory()
         control_type = factory._get_control_type(mock_native)

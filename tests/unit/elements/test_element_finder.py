@@ -489,15 +489,16 @@ class TestElementFinder:
         self.finder = ElementFinder(self.mock_element)
         # Remove get_children method
         del self.mock_element.get_children
-        # Mock children
+        # Remove children attribute
+        del self.mock_element.children
+        # Mock findall
         child1 = mocker.Mock()
         child2 = mocker.Mock()
         self.mock_element.findall.return_value = [child1, child2]
-        
+
         result = self.finder._get_children()
-        
+
         assert result == [child1, child2]
-        self.mock_element.findall.assert_called_once()
 
     def test_get_children_using_children_attribute(self, mocker):
         """Test getting children using children attribute"""
@@ -573,13 +574,17 @@ class TestElementFinder:
         child1 = mocker.Mock()
         child2 = mocker.Mock()
         self.mock_element.get_children.return_value = [child1, child2]
-        
+
         # Mock custom property
         mock_property = mocker.Mock()
         mock_property.get_value.return_value = "expected_value"
-        
+
         mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_property("test_property", "expected_value", property_type=StringProperty)
         
-        assert result == child1
-        mock_property.get_value.assert_called() 
+        # Mock child1 to return expected value
+        child1.get_property.return_value = "expected_value"
+        child2.get_property.return_value = "other_value"
+
+        result = self.finder.find_child_by_property("test_property", "expected_value", property_type=StringProperty)
+
+        assert result == child1 

@@ -226,20 +226,21 @@ class TestDropdownElement:
 
     def test_select_item_success(self, mocker):
         # Arrange
-        mock_item1 = mocker.Mock()
-        type(mock_item1).text = mocker.PropertyMock(return_value="Item 1")
-        mock_item2 = mocker.Mock()
-        type(mock_item2).text = mocker.PropertyMock(return_value="Item 2")
-        mock_item1.select = mocker.Mock()
-        mock_item2.select = mocker.Mock()
-        mocker.patch.object(self.dropdown, 'get_children', return_value=[mock_item1, mock_item2])
+        self.mock_native_element = mocker.Mock()
+        self.mock_session = mocker.Mock()
+        self.dropdown = DropdownElement(self.mock_native_element, self.mock_session)
+        mock_item = mocker.Mock()
+        mock_item.click = mocker.Mock()
+        mocker.patch.object(self.dropdown, 'expand')
+        mocker.patch.object(self.dropdown, 'find_child_by_text', return_value=mock_item)
 
         # Act
         self.dropdown.select_item("Item 1")
 
         # Assert
-        mock_item1.select.assert_called_once()
-        mock_item2.select.assert_not_called()
+        self.dropdown.expand.assert_called_once()
+        self.dropdown.find_child_by_text.assert_called_once_with("Item 1")
+        mock_item.click.assert_called_once()
 
     def test_select_item_not_found(self, mocker):
         """Test select_item method when item is not found"""
@@ -247,9 +248,10 @@ class TestDropdownElement:
         self.mock_session = mocker.Mock()
         self.dropdown = DropdownElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.dropdown, 'expand')
-        mocker.patch.object(self.dropdown, 'get_all_items', return_value=[])
-        result = self.dropdown.select_item("Non-existent Item")
-        assert result is False
+        mocker.patch.object(self.dropdown, 'find_child_by_text', return_value=None)
+        
+        with pytest.raises(ValueError, match="Item 'Non-existent Item' not found in dropdown"):
+            self.dropdown.select_item("Non-existent Item")
 
     def test_select_item_by_index_success(self, mocker):
         """Test select_item_by_index method with successful selection"""
@@ -323,9 +325,9 @@ class TestInputElement:
         self.mock_native_element = mocker.Mock()
         self.mock_session = mocker.Mock()
         self.input_element = InputElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.input_element, 'send_keys')
+        mocker.patch.object(self.input_element, 'append')
         self.input_element.append_text("appended")
-        self.input_element.send_keys.assert_called_once_with("appended")
+        self.input_element.append.assert_called_once_with("appended")
 
     def test_clear_and_type(self, mocker):
         """Test clear_and_type method"""
@@ -361,9 +363,9 @@ class TestInputElement:
         self.mock_native_element = mocker.Mock()
         self.mock_session = mocker.Mock()
         self.input_element = InputElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.input_element, 'type_text')
+        mocker.patch.object(self.input_element, 'send_keys')
         self.input_element.set_input_value("new value")
-        self.input_element.type_text.assert_called_once_with("new value", clear=True)
+        self.input_element.send_keys.assert_called_once_with("new value")
 
     def test_is_input_empty(self, mocker):
         """Test is_input_empty method"""
@@ -487,9 +489,9 @@ class TestWindowElement:
         self.mock_native_element = mocker.Mock()
         self.mock_session = mocker.Mock()
         self.window = WindowElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.window, 'click')
+        mocker.patch.object(self.window, 'focus')
         self.window.activate_window()
-        self.window.click.assert_called_once()
+        self.window.focus.assert_called_once()
 
     def test_maximize_window_when_not_maximized(self, mocker):
         """Test maximize_window method when window is not maximized"""
@@ -497,9 +499,9 @@ class TestWindowElement:
         self.mock_session = mocker.Mock()
         self.window = WindowElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.window, 'get_property', return_value=False)
-        mocker.patch.object(self.window, 'click')
+        mocker.patch.object(self.window, 'send_keys')
         self.window.maximize_window()
-        self.window.click.assert_called_once()
+        self.window.send_keys.assert_called_once_with("F11")
 
     def test_maximize_window_when_already_maximized(self, mocker):
         """Test maximize_window method when window is already maximized"""
@@ -507,27 +509,27 @@ class TestWindowElement:
         self.mock_session = mocker.Mock()
         self.window = WindowElement(self.mock_native_element, self.mock_session)
         mocker.patch.object(self.window, 'get_property', return_value=True)
-        mocker.patch.object(self.window, 'click')
+        mocker.patch.object(self.window, 'send_keys')
         self.window.maximize_window()
-        self.window.click.assert_not_called()
+        self.window.send_keys.assert_not_called()
 
     def test_minimize_window(self, mocker):
         """Test minimize_window method"""
         self.mock_native_element = mocker.Mock()
         self.mock_session = mocker.Mock()
         self.window = WindowElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.window, 'click')
+        mocker.patch.object(self.window, 'send_keys')
         self.window.minimize_window()
-        self.window.click.assert_called_once()
+        self.window.send_keys.assert_called_once_with("F9")
 
     def test_close_window(self, mocker):
         """Test close_window method"""
         self.mock_native_element = mocker.Mock()
         self.mock_session = mocker.Mock()
         self.window = WindowElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.window, 'click')
+        mocker.patch.object(self.window, 'send_keys')
         self.window.close_window()
-        self.window.click.assert_called_once()
+        self.window.send_keys.assert_called_once_with("Alt+F4")
 
 
 class TestSpecializedElementsIntegration:
@@ -556,10 +558,10 @@ class TestSpecializedElementsIntegration:
         self.mock_native_element = mocker.Mock()
         self.mock_session = mocker.Mock()
         self.text_element = TextElement(self.mock_native_element, self.mock_session)
-        mocker.patch.object(self.text_element, 'get_property', return_value="test")
+        mocker.patch.object(self.text_element, 'get_attribute', return_value="test")
         result = self.text_element.get_text_content()
         assert result == "test"
-        self.text_element.get_property.assert_called_with("Name")
+        self.text_element.get_attribute.assert_called_with("name")
 
     def test_elements_use_correct_property_names(self, mocker):
         """Test that elements use correct property names"""

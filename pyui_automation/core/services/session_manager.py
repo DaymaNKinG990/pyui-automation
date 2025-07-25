@@ -62,6 +62,7 @@ class SessionManager(ISessionManager):
         try:
             if session_id in self._sessions:
                 session = self._sessions[session_id]
+                session.close()  # Устанавливаем is_closed = True
                 if hasattr(session, 'cleanup'):
                     session.cleanup()
                 del self._sessions[session_id]

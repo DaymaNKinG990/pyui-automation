@@ -81,6 +81,7 @@ class AutomationSession:
         
         # Initialize utils
         self._utils = SessionUtils()
+        self.is_closed = False
     
     @property
     def config(self) -> AutomationConfig:
@@ -474,6 +475,10 @@ class AutomationSession:
             self.cleanup()
         except Exception:
             pass 
+
+    def close(self):
+        """Close session"""
+        self.is_closed = True
 
 
 class SessionUtils:
