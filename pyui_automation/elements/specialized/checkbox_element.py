@@ -33,12 +33,12 @@ class CheckboxElement(BaseElement):
     # Checkbox-specific methods
     def check(self) -> None:
         """Check the checkbox"""
-        if not self.is_checked:
+        if not self.get_checked_state():
             self.click()
     
     def uncheck(self) -> None:
         """Uncheck the checkbox"""
-        if self.is_checked:
+        if self.get_checked_state():
             self.click()
     
     def toggle(self) -> None:
@@ -60,7 +60,7 @@ class CheckboxElement(BaseElement):
     def get_checkbox_state(self) -> Dict[str, Any]:
         """Get checkbox state summary"""
         return {
-            'checked': self.is_checked,
+            'checked': self.get_checked_state(),
             'enabled': self.is_enabled(),
             'visible': self.visible,
             'location': self.location,

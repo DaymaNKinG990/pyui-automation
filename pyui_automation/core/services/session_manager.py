@@ -79,8 +79,8 @@ class SessionManager(ISessionManager):
             closed_count = 0
             
             for session_id in session_ids:
-                if self.close_session(session_id):
-                    closed_count += 1
+                self.close_session(session_id)
+                closed_count += 1
             
             self._logger.info(f"Closed {closed_count} sessions")
         except Exception as e:

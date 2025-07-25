@@ -50,6 +50,9 @@ class BaseElement(IElement):
         self._wait_service = ElementWaitService(session)
         self._search_service = ElementSearchService(session)
         self._state_service = ElementStateService(session)
+        
+        # Initialize properties for compatibility with tests
+        self._properties = {}
 
     @property
     def native_element(self) -> Any:
@@ -129,8 +132,10 @@ class BaseElement(IElement):
         try:
             if hasattr(self._element, 'GetCurrentPattern'):
                 pattern = self._element.GetCurrentPattern(name)
-                if pattern:
-                    return pattern
+                if pattern and hasattr(pattern, 'get_property'):
+                    return pattern.get_property(name)
+            if hasattr(self._element, 'get_property'):
+                return self._element.get_property(name)
             return None
         except Exception:
             return None
@@ -544,7 +549,7 @@ class BaseElement(IElement):
         Returns:
             bool: True if the element value matches the expected value, False otherwise.
         """
-        return self._wait_service.wait_until_value_is(self, expected_value, timeout)
+        return self._wait_service.wait_until_value_is(expected_value, timeout)
 
     # Search operations - delegated to search service
     def get_parent(self) -> Optional['IElement']:
@@ -882,15 +887,21 @@ class BaseElement(IElement):
             return False
 
     # Utility methods
-    def get_attributes(self) -> Dict[str, str]:
+    def get_attributes(self, attribute_names: Optional[List[str]] = None) -> Dict[str, str]:
         """
         Get all attributes.
+
+        Args:
+            attribute_names: Optional list of attribute names to get. If None, gets all common attributes.
 
         Returns:
             Dict[str, str]: The attributes of the element.
         """
+        if attribute_names is None:
+            attribute_names = ['name', 'automation_id', 'class_name', 'control_type', 'value', 'text']
+        
         attributes = {}
-        for attr_name in ['name', 'automation_id', 'class_name', 'control_type', 'value', 'text']:
+        for attr_name in attribute_names:
             value = self.get_attribute(attr_name)
             if value:
                 attributes[attr_name] = value

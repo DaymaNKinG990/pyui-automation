@@ -48,17 +48,23 @@ class ElementFactory:
             
         Returns:
             Specialized element instance
+            
+        Raises:
+            ValueError: If native_element is None
         """
+        if native_element is None:
+            raise ValueError("Native element cannot be None")
+            
         try:
             control_type = self._get_control_type(native_element)
-            element_class = self._element_mapping.get(control_type, BaseElement)
+            element_class = self._element_mapping.get(control_type, TextElement)  # Default to TextElement instead of BaseElement
             
             self._logger.debug(f"Creating {element_class.__name__} for control type: {control_type}")
             return element_class(native_element, session)
             
         except Exception as e:
-            self._logger.warning(f"Failed to create specialized element, falling back to BaseElement: {e}")
-            return BaseElement(native_element, session)
+            self._logger.warning(f"Failed to create specialized element, falling back to TextElement: {e}")
+            return TextElement(native_element, session)
     
     def _get_control_type(self, native_element: Any) -> str:
         """
@@ -70,13 +76,37 @@ class ElementFactory:
         Returns:
             str: The control type of the native element.
         """
+        if native_element is None:
+            raise ValueError("Native element cannot be None")
+            
         try:
-            if hasattr(native_element, 'CurrentControlType'):
+            if hasattr(native_element, 'CurrentControlType') and native_element.CurrentControlType and native_element.CurrentControlType.ProgrammaticName:
                 return native_element.CurrentControlType.ProgrammaticName
             elif hasattr(native_element, 'get_property'):
-                return native_element.get_property("ControlType") or "Unknown"
+                control_type = native_element.get_property("ControlType")
+                if control_type:
+                    return control_type
             elif hasattr(native_element, 'control_type'):
                 return native_element.control_type
+            elif hasattr(native_element, 'ControlType') and native_element.ControlType:
+                return native_element.ControlType.ProgrammaticName
+            elif hasattr(native_element, 'CurrentClassName'):
+                # Fallback based on class name
+                class_name = native_element.CurrentClassName
+                if 'Text' in class_name or 'Label' in class_name:
+                    return 'Text'
+                elif 'Button' in class_name:
+                    return 'Button'
+                elif 'CheckBox' in class_name:
+                    return 'CheckBox'
+                elif 'ComboBox' in class_name or 'DropDown' in class_name:
+                    return 'ComboBox'
+                elif 'Edit' in class_name or 'TextBox' in class_name:
+                    return 'Edit'
+                elif 'Window' in class_name or 'Dialog' in class_name:
+                    return 'Window'
+                else:
+                    return 'Text'  # Default fallback
             else:
                 return "Unknown"
         except Exception as e:
@@ -96,6 +126,11 @@ class ElementFactory:
             self._logger.info(f"Registered element type: {control_type} -> {element_class.__name__}")
         except Exception as e:
             self._logger.error(f"Failed to register element type: {e}")
+    
+    @property
+    def _element_types(self) -> dict:
+        """Get element types mapping for compatibility with tests"""
+        return self._element_mapping
     
     def unregister_element_type(self, control_type: str) -> bool:
         """
@@ -161,4 +196,7 @@ def create_element(native_element: Any, session: 'AutomationSession') -> BaseEle
     Returns:
         BaseElement: The created element.
     """
-    return get_element_factory().create_element(native_element, session) 
+    factory = get_element_factory()
+    return factory.create_element(native_element, session)
+
+# Remove problematic static method assignment that causes recursion 

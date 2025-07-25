@@ -90,6 +90,7 @@ mask_*.png
 logs/
 temp/
 .cache/
+tst_report_*.html
 
 # Documentation
 _build/

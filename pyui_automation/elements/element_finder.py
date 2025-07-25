@@ -102,7 +102,8 @@ class ElementFinder:
                     self._logger.debug(f"Found child by property: {property_name}")
                     found_children.append(child)
             
-            self._logger.warning("No children found by property")
+            if not found_children:
+                self._logger.warning("No children found by property")
             return found_children
         except Exception:
             self._logger.error(f"Failed to find children by property: {property_name}")
@@ -157,19 +158,21 @@ class ElementFinder:
                     self._logger.debug("Found child by predicate")
                     found_children.append(child)
             
-            self._logger.warning("No children found by predicate")
+            if not found_children:
+                self._logger.warning("No children found by predicate")
             return found_children
         except Exception:
             self._logger.error("Failed to find children by predicate")
             return []
     
-    def find_child_by_text(self, text: str, exact_match: bool = True) -> Optional[Any]:
+    def find_child_by_text(self, text: str, exact_match: bool = True, case_sensitive: bool = True) -> Optional[Any]:
         """
         Find child element by text content.
         
         Args:
             text: Text to search for
             exact_match: If True, requires exact match; if False, uses partial match
+            case_sensitive: If True, case sensitive matching; if False, case insensitive
             
         Returns:
             Found child element or None
@@ -177,12 +180,18 @@ class ElementFinder:
         def text_predicate(child: Any) -> bool:
             try:
                 child_text = StringProperty('text', child).get_value()
-                if exact_match:
-                    self._logger.debug(f"Exact match: {child_text} == {text}")
-                    return child_text == text
+                if not case_sensitive:
+                    child_text = child_text.lower()
+                    text_to_match = text.lower()
                 else:
-                    self._logger.debug(f"Partial match: {text} in {child_text}")
-                    return text.lower() in child_text.lower()
+                    text_to_match = text
+                
+                if exact_match:
+                    self._logger.debug(f"Exact match: {child_text} == {text_to_match}")
+                    return child_text == text_to_match
+                else:
+                    self._logger.debug(f"Partial match: {text_to_match} in {child_text}")
+                    return text_to_match in child_text
             except Exception:
                 self._logger.error(f"Failed to find child by text: {text}")
                 return False
@@ -190,13 +199,14 @@ class ElementFinder:
         self._logger.debug(f"Finding child by text: {text}")
         return self.find_child_by_predicate(text_predicate)
     
-    def find_children_by_text(self, text: str, exact_match: bool = True) -> List[Any]:
+    def find_children_by_text(self, text: str, exact_match: bool = True, case_sensitive: bool = True) -> List[Any]:
         """
         Find all child elements by text content.
         
         Args:
             text: Text to search for
             exact_match: If True, requires exact match; if False, uses partial match
+            case_sensitive: If True, case sensitive matching; if False, case insensitive
             
         Returns:
             List of found child elements
@@ -204,12 +214,18 @@ class ElementFinder:
         def text_predicate(child: Any) -> bool:
             try:
                 child_text = StringProperty('text', child).get_value()
-                if exact_match:
-                    self._logger.debug(f"Exact match: {child_text} == {text}")
-                    return child_text == text
+                if not case_sensitive:
+                    child_text = child_text.lower()
+                    text_to_match = text.lower()
                 else:
-                    self._logger.debug(f"Partial match: {text} in {child_text}")
-                    return text.lower() in child_text.lower()
+                    text_to_match = text
+                
+                if exact_match:
+                    self._logger.debug(f"Exact match: {child_text} == {text_to_match}")
+                    return child_text == text_to_match
+                else:
+                    self._logger.debug(f"Partial match: {text_to_match} in {child_text}")
+                    return text_to_match in child_text
             except Exception:
                 self._logger.error(f"Failed to find children by text: {text}")
                 return False
@@ -365,6 +381,11 @@ class ElementFinder:
             elif hasattr(self._element, 'children'):
                 self._logger.debug("Using children attribute")
                 return self._element.children
+            elif hasattr(self._element, 'findall'):
+                # Generic findall method
+                self._logger.debug("Using findall method")
+                result = self._element.findall()
+                return list(result) if result is not None else []
             elif hasattr(self._element, 'FindAll'):
                 # Windows UIA
                 self._logger.debug("Using FindAll method")

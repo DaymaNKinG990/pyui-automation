@@ -35,12 +35,12 @@ class DropdownElement(BaseElement):
     # Dropdown-specific methods
     def expand(self) -> None:
         """Expand dropdown"""
-        if not self.is_expanded:
+        if not self.get_property("IsExpanded"):
             self.click()
     
     def collapse(self) -> None:
         """Collapse dropdown"""
-        if self.is_expanded:
+        if self.get_property("IsExpanded"):
             self.click()
     
     def toggle_expansion(self) -> None:
@@ -99,7 +99,7 @@ class DropdownElement(BaseElement):
     def get_dropdown_state(self) -> Dict[str, Any]:
         """Get dropdown state summary"""
         return {
-            'expanded': self.is_expanded,
+            'expanded': self.get_property("IsExpanded"),
             'selected_item': self.get_selected_item(),
             'item_count': self.get_item_count(),
             'enabled': self.is_enabled(),

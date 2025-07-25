@@ -25,17 +25,65 @@ class VisualDifference:
 class VisualMatcher:
     """Handles visual matching and comparison of UI elements"""
 
-    def __init__(self, element: Any):
+    def __init__(self, element: Any, similarity_threshold: float = 0.95):
         """
         Initialize visual matcher with a UI element.
 
         Args:
             element: UI element to perform visual matching on
+            similarity_threshold: Threshold for similarity matching (0-1)
         """
         self.element = element
-        self.similarity_threshold = 0.95
+        self.similarity_threshold = similarity_threshold
 
-    def compare_images(self, img1: np.ndarray, img2: np.ndarray, resize: bool = False, roi: Optional[Tuple[int, int, int, int]] = None) -> Dict[str, Any]:
+    def find_element_in_image(self, screen_image: np.ndarray) -> Optional[Tuple[int, int]]:
+        """
+        Find element in screen image using template matching.
+
+        Args:
+            screen_image: Screen image to search in
+
+        Returns:
+            Tuple of (x, y) coordinates if found, None otherwise
+        """
+        element_image = self.element.capture_screenshot()
+        if element_image is None:
+            return None
+            
+        result = cv2.matchTemplate(screen_image, element_image, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        
+        if max_val >= self.similarity_threshold:
+            return (int(max_loc[0]), int(max_loc[1]))
+        return None
+
+    def find_all_elements_in_image(self, screen_image: np.ndarray) -> List[Dict[str, Any]]:
+        """
+        Find all occurrences of element in screen image.
+
+        Args:
+            screen_image: Screen image to search in
+
+        Returns:
+            List of dictionaries containing location and confidence of matches
+        """
+        element_image = self.element.capture_screenshot()
+        if element_image is None:
+            return []
+            
+        result = cv2.matchTemplate(screen_image, element_image, cv2.TM_CCOEFF_NORMED)
+        locations = np.where(result >= self.similarity_threshold)
+        matches = []
+        
+        for pt in zip(*locations[::-1]):
+            matches.append({
+                "location": pt,
+                "confidence": float(result[pt[1], pt[0]])
+            })
+        
+        return matches
+
+    def compare_images(self, img1: np.ndarray, img2: np.ndarray, resize: bool = False, roi: Optional[Tuple[int, int, int, int]] = None) -> float:
         """
         Compare two images and calculate similarity.
 
@@ -46,11 +94,11 @@ class VisualMatcher:
             roi: Region of interest as (x, y, width, height)
 
         Returns:
-            Dict containing match status and similarity score
+            Similarity score between 0 and 1
         """
         # Validate inputs
         if not validate_type(img1, np.ndarray) or not validate_type(img2, np.ndarray):
-            return {"match": False, "similarity": 0.0, "error": "Invalid image type"}
+            return 0.0
             
         if resize and img1.shape != img2.shape:
             img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
@@ -61,19 +109,13 @@ class VisualMatcher:
             img2 = crop_image(img2, x, y, w, h)
 
         if img1.shape != img2.shape:
-            return {"match": False, "similarity": 0.0, "error": "Image dimensions mismatch"}
-        
-        # Use utils compare_images for better accuracy
-        is_similar = compare_images(img1, img2, threshold=self.similarity_threshold)
+            return 0.0
         
         # Calculate similarity manually for detailed score
         diff = cv2.absdiff(img1, img2)
         similarity = 1 - (np.sum(diff) / (img1.shape[0] * img1.shape[1] * img1.shape[2] * 255))
         
-        return {
-            "match": is_similar,
-            "similarity": similarity
-        }
+        return float(similarity)
 
     def find_element(self, template: np.ndarray) -> Optional[Tuple[int, int]]:
         """
@@ -220,6 +262,7 @@ class VisualTester:
         self.baseline_dir.mkdir(parents=True, exist_ok=True)
         self._baseline_cache: Dict[str, np.ndarray] = {}
         self.similarity_threshold = threshold
+        self.threshold = threshold  # Alias for compatibility
 
     def capture_baseline(self, name: str, image: np.ndarray) -> bool:
         """
@@ -590,10 +633,7 @@ class VisualTester:
         diff = cv2.absdiff(img1, img2)
         cv2.imwrite(output_path, diff)
 
-    def verify_visual_state(self, baseline: np.ndarray) -> dict:
-        """Сравнить текущее состояние с baseline (для тестов)"""
-        # Для тестов: используем baseline как оба изображения
-        return self.compare(baseline, baseline)
+
 
     def wait_for_image(self, template: np.ndarray, timeout: float = 10) -> bool:
         """Wait for image to appear in baseline_dir images using template matching"""
@@ -616,3 +656,127 @@ class VisualTester:
         result = img2.copy()
         cv2.drawContours(result, contours, -1, (0, 0, 255), 2)
         return result
+
+    def create_baseline(self, name: str, element: Any) -> bool:
+        """
+        Create a baseline image for an element.
+
+        Args:
+            name: Name of the baseline
+            element: Element to capture baseline for
+
+        Returns:
+            bool: True if baseline was created successfully
+        """
+        try:
+            image = element.capture_screenshot()
+            if image is None:
+                return False
+            return self.capture_baseline(name, image)
+        except Exception:
+            return False
+
+    def verify_visual_state(self, name: str, element: Any) -> bool:
+        """
+        Verify visual state of element against baseline.
+
+        Args:
+            name: Name of the baseline
+            element: Element to verify
+
+        Returns:
+            bool: True if visual state matches baseline
+        """
+        try:
+            current_image = element.capture_screenshot()
+            if current_image is None:
+                return False
+                
+            baseline = self.read_baseline(name)
+            result = self.compare(current_image, baseline)
+            return result['match']
+        except Exception:
+            return False
+
+    def wait_for_image(self, name: str, element: Any, timeout: float = 10) -> bool:
+        """
+        Wait for element to match baseline image.
+
+        Args:
+            name: Name of the baseline
+            element: Element to wait for
+            timeout: Maximum time to wait in seconds
+
+        Returns:
+            bool: True if element matched within timeout
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self.verify_visual_state(name, element):
+                return True
+            time.sleep(0.1)
+        return False
+
+    def generate_visual_report(self, name: str, element: Any) -> Dict[str, Any]:
+        """
+        Generate visual comparison report.
+
+        Args:
+            name: Name of the baseline
+            element: Element to compare
+
+        Returns:
+            Dict containing comparison results
+        """
+        try:
+            current_image = element.capture_screenshot()
+            if current_image is None:
+                return {
+                    'element_name': name,
+                    'similarity': 0.0,
+                    'passed': False,
+                    'error': 'Failed to capture screenshot'
+                }
+                
+            baseline = self.read_baseline(name)
+            result = self.compare(current_image, baseline)
+            
+            return {
+                'element_name': name,
+                'similarity': result['similarity'],
+                'passed': result['match'],
+                'differences': len(result.get('differences', []))
+            }
+        except Exception as e:
+            return {
+                'element_name': name,
+                'similarity': 0.0,
+                'passed': False,
+                'error': str(e)
+            }
+
+    def find_element_in_baseline(self, name: str, element: Any) -> Optional[Tuple[int, int]]:
+        """
+        Find element in baseline image.
+
+        Args:
+            name: Name of the baseline
+            element: Element to find
+
+        Returns:
+            Tuple of (x, y) coordinates if found, None otherwise
+        """
+        try:
+            element_image = element.capture_screenshot()
+            if element_image is None:
+                return None
+                
+            baseline = self.read_baseline(name)
+            result = cv2.matchTemplate(baseline, element_image, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            
+            if max_val >= self.similarity_threshold:
+                return (int(max_loc[0]), int(max_loc[1]))
+            return None
+        except Exception:
+            return None

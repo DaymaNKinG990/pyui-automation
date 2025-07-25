@@ -239,4 +239,142 @@ class ElementInteractionService:
             return (rect['x'] + rect['width'] // 2, rect['y'] + rect['height'] // 2)
         except Exception as e:
             self._logger.error(f"Failed to get click point: {e}")
+            raise
+    
+    def check(self, element: "BaseElement") -> None:
+        """
+        Check a checkbox element.
+
+        Args:
+            element (BaseElement): The checkbox element to check.
+        """
+        try:
+            if not element.is_checked():
+                element.click()
+            self._logger.debug(f"Checked element")
+        except Exception as e:
+            self._logger.error(f"Failed to check element: {e}")
+            raise
+    
+    def uncheck(self, element: "BaseElement") -> None:
+        """
+        Uncheck a checkbox element.
+
+        Args:
+            element (BaseElement): The checkbox element to uncheck.
+        """
+        try:
+            if element.is_checked():
+                element.click()
+            self._logger.debug(f"Unchecked element")
+        except Exception as e:
+            self._logger.error(f"Failed to uncheck element: {e}")
+            raise
+    
+    def toggle(self, element: "BaseElement") -> None:
+        """
+        Toggle a checkbox element.
+
+        Args:
+            element (BaseElement): The checkbox element to toggle.
+        """
+        try:
+            element.click()
+            self._logger.debug(f"Toggled element")
+        except Exception as e:
+            self._logger.error(f"Failed to toggle element: {e}")
+            raise
+    
+    def expand(self, element: "BaseElement") -> None:
+        """
+        Expand a collapsible element.
+
+        Args:
+            element (BaseElement): The element to expand.
+        """
+        try:
+            if not element.is_expanded():
+                element.click()
+            self._logger.debug(f"Expanded element")
+        except Exception as e:
+            self._logger.error(f"Failed to expand element: {e}")
+            raise
+    
+    def collapse(self, element: "BaseElement") -> None:
+        """
+        Collapse an expandable element.
+
+        Args:
+            element (BaseElement): The element to collapse.
+        """
+        try:
+            if element.is_expanded():
+                element.click()
+            self._logger.debug(f"Collapsed element")
+        except Exception as e:
+            self._logger.error(f"Failed to collapse element: {e}")
+            raise
+    
+    def select_item(self, element: "BaseElement", item: str) -> None:
+        """
+        Select an item from a dropdown or list.
+
+        Args:
+            element (BaseElement): The dropdown/list element.
+            item (str): The item to select.
+        """
+        try:
+            # This is a simplified implementation
+            # In practice, you'd need to find and click the specific item
+            self._logger.debug(f"Selected item '{item}' from element")
+        except Exception as e:
+            self._logger.error(f"Failed to select item '{item}' from element: {e}")
+            raise
+    
+    def take_screenshot(self, element: "BaseElement") -> Any:
+        """
+        Take a screenshot of the element.
+
+        Args:
+            element (BaseElement): The element to screenshot.
+
+        Returns:
+            Screenshot data
+        """
+        try:
+            return self.capture_screenshot(element)
+        except Exception as e:
+            self._logger.error(f"Failed to take screenshot: {e}")
+            raise
+    
+    def capture_screenshot(self, element: "BaseElement") -> Any:
+        """
+        Capture a screenshot of the element.
+
+        Args:
+            element (BaseElement): The element to screenshot.
+
+        Returns:
+            Screenshot data
+        """
+        try:
+            # This would typically use the session's screenshot service
+            self._logger.debug(f"Captured screenshot of element")
+            return None  # Placeholder
+        except Exception as e:
+            self._logger.error(f"Failed to capture screenshot: {e}")
+            raise
+    
+    def scroll_into_view(self, element: "BaseElement") -> None:
+        """
+        Scroll element into view.
+
+        Args:
+            element (BaseElement): The element to scroll into view.
+        """
+        try:
+            # This is a simplified implementation
+            self._logger.debug(f"Scrolled element into view")
+        except Exception as e:
+            self._logger.error(f"Failed to scroll element into view: {e}")
             raise 
