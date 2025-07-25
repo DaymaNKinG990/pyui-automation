@@ -249,9 +249,9 @@ class ElementInteractionService:
             element (BaseElement): The checkbox element to check.
         """
         try:
-            if not element.is_checked():
+            if not element.is_checked:
                 element.click()
-            self._logger.debug(f"Checked element")
+            self._logger.debug("Checked element")
         except Exception as e:
             self._logger.error(f"Failed to check element: {e}")
             raise
@@ -264,9 +264,9 @@ class ElementInteractionService:
             element (BaseElement): The checkbox element to uncheck.
         """
         try:
-            if element.is_checked():
+            if element.is_checked:
                 element.click()
-            self._logger.debug(f"Unchecked element")
+            self._logger.debug("Unchecked element")
         except Exception as e:
             self._logger.error(f"Failed to uncheck element: {e}")
             raise
@@ -280,7 +280,7 @@ class ElementInteractionService:
         """
         try:
             element.click()
-            self._logger.debug(f"Toggled element")
+            self._logger.debug("Toggled element")
         except Exception as e:
             self._logger.error(f"Failed to toggle element: {e}")
             raise
@@ -293,9 +293,9 @@ class ElementInteractionService:
             element (BaseElement): The element to expand.
         """
         try:
-            if not element.is_expanded():
+            if not element.is_expanded:
                 element.click()
-            self._logger.debug(f"Expanded element")
+            self._logger.debug("Expanded element")
         except Exception as e:
             self._logger.error(f"Failed to expand element: {e}")
             raise
@@ -308,9 +308,9 @@ class ElementInteractionService:
             element (BaseElement): The element to collapse.
         """
         try:
-            if element.is_expanded():
+            if element.is_expanded:
                 element.click()
-            self._logger.debug(f"Collapsed element")
+            self._logger.debug("Collapsed element")
         except Exception as e:
             self._logger.error(f"Failed to collapse element: {e}")
             raise
@@ -359,7 +359,7 @@ class ElementInteractionService:
         """
         try:
             # This would typically use the session's screenshot service
-            self._logger.debug(f"Captured screenshot of element")
+            self._logger.debug("Captured screenshot of element")
             return None  # Placeholder
         except Exception as e:
             self._logger.error(f"Failed to capture screenshot: {e}")
@@ -374,7 +374,7 @@ class ElementInteractionService:
         """
         try:
             # This is a simplified implementation
-            self._logger.debug(f"Scrolled element into view")
+            self._logger.debug("Scrolled element into view")
         except Exception as e:
             self._logger.error(f"Failed to scroll element into view: {e}")
             raise 

@@ -2,7 +2,6 @@
 Tests for wait functionality
 """
 import pytest
-import time
 
 from pyui_automation.core.wait import wait_until, ElementWaits
 from pyui_automation.core.exceptions import WaitTimeout

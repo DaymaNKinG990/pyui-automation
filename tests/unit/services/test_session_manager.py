@@ -1,8 +1,6 @@
 """
 Tests for session manager
 """
-import pytest
-import time
 
 from pyui_automation.core.services.session_manager import SessionManager
 

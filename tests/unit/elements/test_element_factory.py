@@ -1,7 +1,6 @@
 """
 Tests for ElementFactory class
 """
-import pytest
 
 from pyui_automation.elements.element_factory import (
     ElementFactory, ButtonElement, CheckboxElement, TextElement, 

@@ -1,7 +1,6 @@
 """
 Tests for core exceptions
 """
-import pytest
 
 from pyui_automation.core.exceptions import (
     AutomationError,

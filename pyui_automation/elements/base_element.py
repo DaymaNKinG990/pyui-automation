@@ -535,7 +535,7 @@ class BaseElement(IElement):
 
     def wait_until_value_is(self, expected_value: str, timeout: Optional[float] = None) -> bool:
         """
-        Wait until value is - delegated to wait service.
+        Wait until element value matches expected value.
 
         Args:
             expected_value (str): The expected value.
@@ -544,7 +544,7 @@ class BaseElement(IElement):
         Returns:
             bool: True if the element value matches the expected value, False otherwise.
         """
-        return self._wait_service.wait_until_value_is(expected_value, timeout)
+        return self._wait_service.wait_until_value_is(self, expected_value, timeout)
 
     # Search operations - delegated to search service
     def get_parent(self) -> Optional['IElement']:
@@ -805,14 +805,9 @@ class BaseElement(IElement):
 
     # Screenshot operations
     def capture_screenshot(self) -> Optional[np.ndarray]:
-        """
-        Capture screenshot of this element.
-
-        Returns:
-            Optional[np.ndarray]: Screenshot as numpy array, or None if failed.
-        """
+        """Capture screenshot of the element"""
         try:
-            return self.session.screenshot_service.capture_screenshot(self)
+            return self.session.screenshot_service.capture_element_screenshot(self)
         except Exception:
             return None
 

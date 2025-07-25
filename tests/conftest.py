@@ -3,13 +3,10 @@ Common fixtures for pyui-automation tests
 """
 import pytest
 import numpy as np
-from pathlib import Path
-from unittest.mock import Mock, MagicMock
-from typing import Dict, Any, List
+from unittest.mock import Mock
 
 from pyui_automation.core.interfaces import IBackend, IApplication, ISessionManager
 from pyui_automation.elements.base_element import BaseElement
-from pyui_automation.core.application import Application
 
 
 # pytest-mock provides the mocker fixture automatically

@@ -16,3 +16,13 @@ repos:
         entry: uv run pyrefly check
         language: system
         types: [python]
+      - id: mypy
+        name: mypy type checker
+        entry: uv run mypy
+        language: system
+        types: [python]
+      - id: pyright
+        name: pyright type checker
+        entry: uv run pyright
+        language: system
+        types: [python]

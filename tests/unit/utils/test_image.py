@@ -20,7 +20,7 @@ class TestImageFunctions:
         test_image[50, 50] = [255, 255, 255]  # White pixel in center
         
         image_path = tmp_path / "test_image.png"
-        cv2.imwrite(str(image_path), test_image)
+        cv2.imwrite(str(image_path), np.asarray(test_image, dtype=np.uint8))
         
         loaded_image = load_image(image_path)
         
@@ -50,7 +50,7 @@ class TestImageFunctions:
     
     def test_save_image_failure(self, tmp_path):
         """Test save_image with invalid image"""
-        invalid_image = None
+        invalid_image = np.array([])  # Empty array instead of None
         image_path = tmp_path / "test_image.png"
         
         result = save_image(invalid_image, image_path)
@@ -95,7 +95,7 @@ class TestImageFunctions:
     def test_compare_images_different(self):
         """Test compare_images with different images"""
         image1 = np.zeros((100, 100, 3), dtype=np.uint8)
-        image2 = np.ones((100, 100, 3), dtype=np.uint8) * 255
+        image2 = np.full((100, 100, 3), 255, dtype=np.uint8)
         
         similarity = compare_images(image1, image2)
         
@@ -116,7 +116,7 @@ class TestImageFunctions:
         # Create a larger image
         image = np.zeros((200, 200, 3), dtype=np.uint8)
         # Create a template (smaller image)
-        template = np.ones((50, 50, 3), dtype=np.uint8) * 255
+        template = np.full((50, 50, 3), 255, dtype=np.uint8)
         
         # Place template in the image
         image[75:125, 75:125] = template

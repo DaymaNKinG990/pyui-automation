@@ -13,6 +13,12 @@ from pyui_automation.elements.specialized.window_element import WindowElement
 class TestTextElement:
     """Test TextElement class"""
     
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_native_element = None
+        self.mock_session = None
+        self.text_element = None
+    
     def test_get_text_content(self, mocker):
         """Test get_text_content method"""
         self.mock_native_element = mocker.Mock()
@@ -89,6 +95,12 @@ class TestTextElement:
 class TestCheckboxElement:
     """Test CheckboxElement class"""
     
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_native_element = None
+        self.mock_session = None
+        self.checkbox = None
+    
     def test_get_checked_state(self, mocker):
         """Test get_checked_state method"""
         self.mock_native_element = mocker.Mock()
@@ -160,6 +172,12 @@ class TestCheckboxElement:
 
 class TestDropdownElement:
     """Test DropdownElement class"""
+    
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_native_element = None
+        self.mock_session = None
+        self.dropdown = None
     
     def test_expand_when_not_expanded(self, mocker):
         """Test expand method when dropdown is not expanded"""
@@ -298,6 +316,12 @@ class TestDropdownElement:
 class TestInputElement:
     """Test InputElement class"""
     
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_native_element = None
+        self.mock_session = None
+        self.input_element = None
+    
     def test_type_text_with_clear(self, mocker):
         """Test type_text method with clear=True"""
         self.mock_native_element = mocker.Mock()
@@ -398,6 +422,12 @@ class TestInputElement:
 
 class TestWindowElement:
     """Test WindowElement class"""
+    
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_native_element = None
+        self.mock_session = None
+        self.window = None
     
     def test_get_window_title(self, mocker):
         """Test get_window_title method"""
@@ -533,7 +563,17 @@ class TestWindowElement:
 
 
 class TestSpecializedElementsIntegration:
-    """Integration tests for specialized elements"""
+    """Test integration between specialized elements"""
+    
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_native_element = None
+        self.mock_session = None
+        self.text_element = None
+        self.checkbox = None
+        self.dropdown = None
+        self.input_element = None
+        self.window = None
     
     def test_all_elements_inherit_from_base_element(self, mocker):
         """Test that all specialized elements inherit from BaseElement"""

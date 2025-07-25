@@ -1,13 +1,18 @@
 """
 Tests for ButtonElement
 """
-import pytest
 
 from pyui_automation.elements.specialized.button_element import ButtonElement
 
 
 class TestButtonElement:
     """Test ButtonElement class"""
+    
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_native_element = None
+        self.mock_session = None
+        self.button = None
     
     def test_is_pressed(self, mocker):
         """Test is_pressed method"""

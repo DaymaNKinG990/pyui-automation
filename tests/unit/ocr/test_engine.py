@@ -3,7 +3,6 @@ Tests for OCR engine
 """
 import pytest
 import numpy as np
-from pathlib import Path
 
 from pyui_automation.ocr.engine import OCREngine
 

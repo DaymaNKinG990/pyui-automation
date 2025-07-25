@@ -2,7 +2,6 @@
 Tests for BaseElement class
 """
 import pytest
-from typing import Dict, Any, Optional
 import numpy as np
 
 from pyui_automation.elements.base_element import BaseElement
@@ -10,6 +9,12 @@ from pyui_automation.elements.base_element import BaseElement
 
 class TestBaseElement:
     """Test BaseElement class"""
+    
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_session = None
+        self.mock_native_element = None
+        self.element = None
     
     def test_init(self, mocker):
         """Test BaseElement initialization"""

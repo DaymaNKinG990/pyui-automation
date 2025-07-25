@@ -600,15 +600,19 @@ class VisualTester:
         report_path.write_text("\n".join(html_content))
 
     def find_element(self, template: np.ndarray) -> Optional[Tuple[int, int]]:
-        """Find element in baseline_dir images using template matching (поиск первого совпадения)"""
-        # Для тестов: ищем в baseline_dir первый png-файл
+        """Find element in baseline_dir images using template matching"""
         import glob
         import cv2
         files = list(glob.glob(str(self.baseline_dir / '*.png')))
         if not files:
             return None
         img = cv2.imread(files[0])
-        res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+        if img is None:
+            return None
+        # Явное приведение типов для совместимости с cv2
+        img_array = np.asarray(img, dtype=np.uint8)
+        template_array = np.asarray(template, dtype=np.uint8)
+        res = cv2.matchTemplate(img_array, template_array, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
         if max_val > 0.8:
             return (int(max_loc[0]), int(max_loc[1]))
@@ -623,7 +627,12 @@ class VisualTester:
         if not files:
             return []
         img = cv2.imread(files[0])
-        res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+        if img is None:
+            return []
+        # Явное приведение типов для совместимости с cv2
+        img_array = np.asarray(img, dtype=np.uint8)
+        template_array = np.asarray(template, dtype=np.uint8)
+        res = cv2.matchTemplate(img_array, template_array, cv2.TM_CCOEFF_NORMED)
         loc = np.where(res >= threshold)
         return [{'location': (int(x), int(y)), 'confidence': float(res[y, x])} for y, x in zip(*loc)]
 

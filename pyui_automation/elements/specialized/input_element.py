@@ -31,10 +31,10 @@ class InputElement(BaseElement):
         super().__init__(native_element, session)
     
     # Input-specific methods
-    def type_text(self, text: str, clear_first: bool = True, clear: bool = None) -> None:
+    def type_text(self, text: str, clear_first: bool = True, clear: bool = False) -> None:
         """Type text into input field"""
         # Support both clear_first and clear parameters for backward compatibility
-        should_clear = clear if clear is not None else clear_first
+        should_clear = clear if clear else clear_first
         if should_clear:
             self.clear()
         self.send_keys(text)

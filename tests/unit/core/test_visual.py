@@ -3,7 +3,6 @@ Tests for visual testing functionality
 """
 import pytest
 import numpy as np
-from pathlib import Path
 
 from pyui_automation.core.visual import VisualMatcher, VisualTester, VisualDifference
 
@@ -87,7 +86,7 @@ class TestVisualTester:
         tester = VisualTester(tmp_path)
         
         with pytest.raises(ValueError):
-            tester.capture_baseline("test", None)
+            tester.capture_baseline("test", np.array([]))
     
     def test_read_baseline(self, tmp_path):
         """Test read_baseline method"""

@@ -1,7 +1,6 @@
 """
 Tests for metrics utilities
 """
-import pytest
 import time
 from datetime import datetime
 

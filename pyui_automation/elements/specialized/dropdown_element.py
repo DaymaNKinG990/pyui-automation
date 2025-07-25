@@ -5,7 +5,7 @@ This element implements only the interfaces needed for dropdown operations,
 following the Interface Segregation Principle.
 """
 
-from typing import Optional, Any, Dict, List, TYPE_CHECKING
+from typing import Optional, Any, Dict, TYPE_CHECKING
 import time
 
 if TYPE_CHECKING:

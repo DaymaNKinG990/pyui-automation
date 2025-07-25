@@ -1,8 +1,6 @@
 """
 Tests for ElementFinder class
 """
-import pytest
-from typing import List, Any
 
 from pyui_automation.elements.element_finder import ElementFinder
 from pyui_automation.elements.properties import StringProperty
@@ -10,6 +8,11 @@ from pyui_automation.elements.properties import StringProperty
 
 class TestElementFinder:
     """Test ElementFinder class"""
+    
+    def __init__(self):
+        """Initialize test attributes"""
+        self.mock_element = None
+        self.finder = None
     
     def test_init(self, mocker):
         """Test ElementFinder initialization"""

@@ -3,10 +3,7 @@ Tests for configuration management
 """
 
 import pytest
-import json
-import yaml
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from pyui_automation.core.config import AutomationConfig
 
@@ -205,13 +202,13 @@ class TestConfigIntegration:
             screenshot_format="png",
             screenshot_quality=95,
             visual_testing_enabled=True,
-            visual_baseline_dir="/baseline",
+            visual_baseline_dir=Path("/baseline"),
             visual_threshold=0.98,
             visual_algorithm="ssim",
             performance_enabled=True,
             performance_metrics=["cpu", "memory"],
             performance_interval=2.0,
-            performance_output_dir="/performance",
+            performance_output_dir=Path("/performance"),
             default_timeout=30.0,
             default_interval=1.0,
             implicit_wait=2.0,
@@ -233,6 +230,7 @@ class TestConfigIntegration:
         assert config.performance_enabled is True
         assert config.ocr_enabled is True
         assert config.backend_type == "linux"
+        assert config.backend_options is not None
         assert config.backend_options["option1"] == "value1" 
 
 

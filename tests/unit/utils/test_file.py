@@ -1,9 +1,6 @@
 """
 Tests for file utilities
 """
-import pytest
-import tempfile
-import shutil
 from pathlib import Path
 
 from pyui_automation.utils.file import (
