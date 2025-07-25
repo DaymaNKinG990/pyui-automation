@@ -1,15 +1,12 @@
 """
 Tests for image utilities
 """
-import pytest
 import numpy as np
 import cv2
-from pathlib import Path
 
 from pyui_automation.utils.image import (
     load_image, save_image, resize_image, compare_images,
-    find_template, non_max_suppression, highlight_region,
-    crop_image, preprocess_image, create_mask, enhance_image
+    find_template, crop_image, preprocess_image, create_mask, enhance_image
 )
 
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import time
 
 from ..utils import (
-    compare_images, crop_image,
+    crop_image,
     validate_type
 )
 

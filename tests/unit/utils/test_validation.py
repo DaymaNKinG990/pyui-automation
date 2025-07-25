@@ -2,14 +2,7 @@
 Tests for validation utilities
 """
 import pytest
-import re
-from pathlib import Path
 
-from pyui_automation.utils.validation import (
-    validate_string, validate_number, validate_path, validate_url,
-    validate_email, validate_phone, validate_boolean, validate_list,
-    validate_dict, validate_file_exists, validate_directory_exists
-)
 
 
 class TestValidateNotNone:
