@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import statistics
 
 @dataclass
@@ -16,11 +16,11 @@ class MetricPoint:
 class MetricsCollector:
     """Сборщик метрик производительности."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._metrics: Dict[str, List[MetricPoint]] = defaultdict(list)
         self._timers: Dict[str, float] = {}
     
-    def record_value(self, name: str, value: float):
+    def record_value(self, name: str, value: float) -> None:
         """
         Записать значение метрики.
         
@@ -34,7 +34,7 @@ class MetricsCollector:
         if len(self._metrics[name]) > 1000:
             self._metrics[name] = self._metrics[name][-1000:]
     
-    def start_timer(self, name: str):
+    def start_timer(self, name: str) -> None:
         """
         Запустить таймер для метрики.
         
@@ -60,7 +60,7 @@ class MetricsCollector:
             return duration
         return None
     
-    def get_stats(self, name: str) -> dict:
+    def get_stats(self, name: str) -> Dict[str, Any]:
         """
         Получить статистику по метрике.
         
@@ -82,7 +82,7 @@ class MetricsCollector:
             'count': len(values)
         }
     
-    def clear(self):
+    def clear(self) -> None:
         """Очистить все метрики."""
         self._metrics.clear()
         self._timers.clear()

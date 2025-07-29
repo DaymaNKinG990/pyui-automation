@@ -19,7 +19,7 @@ class PerformanceReporter:
     Single Responsibility: Generate performance reports and visualizations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize performance reporter"""
         pass
 

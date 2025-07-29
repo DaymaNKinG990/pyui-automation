@@ -1,8 +1,8 @@
-from typing import Any, Callable, Optional, Type, Union, List
+from typing import Any, Callable, Optional, Type, Union, List, Tuple
 import re
 
 
-def validate_type(value: Any, expected_type: Union[Type, tuple]) -> bool:
+def validate_type(value: Any, expected_type: Union[Type[Any], Tuple[Type[Any], ...]]) -> bool:
     """
     Validate that a given value is of the expected type or types.
 

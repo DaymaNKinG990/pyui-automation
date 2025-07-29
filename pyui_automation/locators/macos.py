@@ -84,7 +84,7 @@ class MacOSLocator(BaseLocator):
     def _find_elements_by_name(self, name: str) -> List[Any]:
         """Find elements by name using Accessibility API"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "name", name, results)
             return results
         except Exception as e:
@@ -104,7 +104,7 @@ class MacOSLocator(BaseLocator):
     def _find_elements_by_ax_identifier(self, identifier: str) -> List[Any]:
         """Find elements by AXIdentifier using Accessibility API"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "ax_identifier", identifier, results)
             return results
         except Exception as e:
@@ -124,7 +124,7 @@ class MacOSLocator(BaseLocator):
     def _find_elements_by_ax_title(self, title: str) -> List[Any]:
         """Find elements by AXTitle using Accessibility API"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "ax_title", title, results)
             return results
         except Exception as e:
@@ -144,7 +144,7 @@ class MacOSLocator(BaseLocator):
     def _find_elements_by_ax_role(self, role: str) -> List[Any]:
         """Find elements by AXRole using Accessibility API"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "ax_role", role, results)
             return results
         except Exception as e:
@@ -164,7 +164,7 @@ class MacOSLocator(BaseLocator):
     def _find_elements_by_ax_description(self, description: str) -> List[Any]:
         """Find elements by AXDescription using Accessibility API"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "ax_description", description, results)
             return results
         except Exception as e:
@@ -184,7 +184,7 @@ class MacOSLocator(BaseLocator):
     def _find_elements_by_ax_value(self, value: str) -> List[Any]:
         """Find elements by AXValue using Accessibility API"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "ax_value", value, results)
             return results
         except Exception as e:

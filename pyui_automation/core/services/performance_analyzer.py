@@ -28,7 +28,7 @@ class PerformanceAnalyzer:
     Single Responsibility: Analyze performance metrics and provide statistics.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize performance analyzer"""
         pass
 
@@ -101,13 +101,13 @@ class PerformanceAnalyzer:
 
     def detect_regression(
         self,
-        action: Callable,
+        action: Callable[[], None],
         baseline_metrics: Dict[str, Dict[str, float]],
         test_runs: int = 5,
         threshold_std: float = 2.0
     ) -> Dict[str, Any]:
         """Detect performance regression against baseline metrics"""
-        current_metrics = {'response_time': [], 'memory_usage': [], 'cpu_usage': []}
+        current_metrics: Dict[str, List[float]] = {'response_time': [], 'memory_usage': [], 'cpu_usage': []}
         
         # Run the action multiple times and collect metrics
         for _ in range(test_runs):

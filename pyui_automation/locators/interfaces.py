@@ -7,7 +7,10 @@ Dependency Inversion Principle compliance.
 
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import Optional, List, Any, Protocol
+from typing import Optional, List, Any, Protocol, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .base import LocatorStrategy
 
 
 class IBackendForLocator(Protocol):
@@ -19,7 +22,7 @@ class IBackendForLocator(Protocol):
         ...
     
     @property
-    def root(self):
+    def root(self) -> Any:
         """Get root element"""
         ...
     
@@ -68,16 +71,16 @@ class ILocator(ABC):
     """Interface for element locators"""
     
     @abstractmethod
-    def find_element(self, strategy: Any) -> Optional[Any]:
+    def find_element(self, strategy: "LocatorStrategy") -> Optional[Any]:
         """Find a single element by specific strategy"""
         pass
     
     @abstractmethod
-    def find_elements(self, strategy: Any) -> List[Any]:
+    def find_elements(self, strategy: "LocatorStrategy") -> List[Any]:
         """Find multiple elements by specific strategy"""
         pass
     
-    def find_element_with_timeout(self, strategy: Any, timeout: float = 10.0) -> Optional[Any]:
+    def find_element_with_timeout(self, strategy: "LocatorStrategy", timeout: float = 10.0) -> Optional[Any]:
         """Find element with timeout"""
         import time
         start_time = time.time()
@@ -90,7 +93,7 @@ class ILocator(ABC):
         
         return None
     
-    def wait_for_element(self, strategy: Any, timeout: float = 10.0) -> Optional[Any]:
+    def wait_for_element(self, strategy: "LocatorStrategy", timeout: float = 10.0) -> Optional[Any]:
         """Wait for element to appear (alias for find_element_with_timeout)"""
         return self.find_element_with_timeout(strategy, timeout)
 

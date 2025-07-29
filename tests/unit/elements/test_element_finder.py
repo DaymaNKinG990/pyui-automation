@@ -2,592 +2,416 @@
 Tests for ElementFinder class
 """
 
+import pytest
 from pyui_automation.elements.element_finder import ElementFinder
 from pyui_automation.elements.properties import StringProperty
+
+
+@pytest.fixture
+def element_finder(mock_native_element):
+    """Create an ElementFinder for testing"""
+    return ElementFinder(mock_native_element)
+
+
+@pytest.fixture
+def mock_children(mocker):
+    """Create mock children for testing"""
+    child1 = mocker.Mock()
+    child2 = mocker.Mock()
+    child3 = mocker.Mock()
+    return [child1, child2, child3]
+
+
+@pytest.fixture
+def mock_string_property(mocker):
+    """Create a mock StringProperty for testing"""
+    mock_property = mocker.Mock(spec=StringProperty)
+    return mock_property
 
 
 class TestElementFinder:
     """Test ElementFinder class"""
     
-    def __init__(self):
-        """Initialize test attributes"""
-        self.mock_element = None
-        self.finder = None
-    
-    def test_init(self, mocker):
+    def test_init(self, element_finder, mock_native_element):
         """Test ElementFinder initialization"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        assert self.finder._element == self.mock_element
-        assert self.finder._logger is not None
+        assert element_finder._element == mock_native_element
+        assert element_finder._logger is not None
 
-    def test_find_child_by_property_success(self, mocker):
+    def test_find_child_by_property_success(self, element_finder, mock_children, mock_string_property, mocker):
         """Test successful child finding by property"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_string_property.get_value.return_value = "expected_value"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.return_value = "expected_value"
+        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_string_property)
+        result = element_finder.find_child_by_property("test_property", "expected_value")
         
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_property("test_property", "expected_value")
-        
-        assert result == child1
-        mock_property.get_value.assert_called()
+        assert result == mock_children[0]
+        mock_string_property.get_value.assert_called()
 
-    def test_find_child_by_property_not_found(self, mocker):
+    def test_find_child_by_property_not_found(self, element_finder, mock_children, mock_string_property, mocker):
         """Test child finding by property when not found"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_string_property.get_value.return_value = "different_value"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.return_value = "different_value"
-        
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_property("test_property", "expected_value")
+        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_string_property)
+        result = element_finder.find_child_by_property("test_property", "expected_value")
         
         assert result is None
 
-    def test_find_child_by_property_no_children(self, mocker):
+    def test_find_child_by_property_no_children(self, element_finder):
         """Test child finding by property when no children"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        self.mock_element.get_children.return_value = []
+        element_finder._element.get_children.return_value = []
         
-        result = self.finder.find_child_by_property("test_property", "expected_value")
+        result = element_finder.find_child_by_property("test_property", "expected_value")
         
         assert result is None
 
-    def test_find_child_by_property_exception(self, mocker):
+    def test_find_child_by_property_exception(self, element_finder):
         """Test child finding by property with exception"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        self.mock_element.get_children.side_effect = Exception("Test exception")
+        element_finder._element.get_children.side_effect = Exception("Test exception")
         
-        result = self.finder.find_child_by_property("test_property", "expected_value")
+        result = element_finder.find_child_by_property("test_property", "expected_value")
         
         assert result is None
 
-    def test_find_children_by_property_success(self, mocker):
+    def test_find_children_by_property_success(self, element_finder, mock_children, mock_string_property, mocker):
         """Test successful children finding by property"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        child3 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2, child3]
+        element_finder._element.get_children.return_value = mock_children
+        mock_string_property.get_value.side_effect = ["expected_value", "different_value", "expected_value"]
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["expected_value", "different_value", "expected_value"]
-        
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_children_by_property("test_property", "expected_value")
+        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_string_property)
+        result = element_finder.find_children_by_property("test_property", "expected_value")
         
         assert len(result) == 2
-        assert child1 in result
-        assert child3 in result
+        assert mock_children[0] in result
+        assert mock_children[2] in result
 
-    def test_find_children_by_property_empty_result(self, mocker):
+    def test_find_children_by_property_empty_result(self, element_finder, mock_children, mock_string_property, mocker):
         """Test children finding by property with empty result"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_string_property.get_value.return_value = "different_value"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.return_value = "different_value"
-        
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_children_by_property("test_property", "expected_value")
+        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_string_property)
+        result = element_finder.find_children_by_property("test_property", "expected_value")
         
         assert len(result) == 0
 
-    def test_find_child_by_name_exact_match_success(self, mocker):
+    def test_find_child_by_name_exact_match_success(self, element_finder, mock_children, mocker):
         """Test successful child finding by name with exact match"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_name"
+        mock_children[1].get_attribute.return_value = "other_name"
+        mock_children[2].get_attribute.return_value = "another_name"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["exact_name", "different_name"]
+        result = element_finder.find_child_by_name("target_name", exact_match=True)
         
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_name("exact_name", exact_match=True)
-        
-        assert result == child1
+        assert result == mock_children[0]
 
-    def test_find_child_by_name_partial_match_success(self, mocker):
+    def test_find_child_by_name_partial_match_success(self, element_finder, mock_children, mocker):
         """Test successful child finding by name with partial match"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_name"
+        mock_children[1].get_attribute.return_value = "other_name"
+        mock_children[2].get_attribute.return_value = "another_name"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["partial_name_test", "different_name"]
+        result = element_finder.find_child_by_name("target", exact_match=False)
         
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_name("partial_name", exact_match=False)
-        
-        assert result == child1
+        assert result == mock_children[0]
 
-    def test_find_children_by_name_exact_match_success(self, mocker):
+    def test_find_children_by_name_exact_match_success(self, element_finder, mock_children, mocker):
         """Test successful children finding by name with exact match"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        child3 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2, child3]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_name"
+        mock_children[1].get_attribute.return_value = "target_name"
+        mock_children[2].get_attribute.return_value = "other_name"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["exact_name", "different_name", "exact_name"]
-        
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_children_by_name("exact_name", exact_match=True)
+        result = element_finder.find_children_by_name("target_name", exact_match=True)
         
         assert len(result) == 2
-        assert child1 in result
-        assert child3 in result
+        assert mock_children[0] in result
+        assert mock_children[1] in result
 
-    def test_find_child_by_text_exact_match_success(self, mocker):
+    def test_find_child_by_text_exact_match_success(self, element_finder, mock_children, mocker):
         """Test successful child finding by text with exact match"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_text"
+        mock_children[1].get_attribute.return_value = "other_text"
+        mock_children[2].get_attribute.return_value = "another_text"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["exact_text", "different_text"]
+        result = element_finder.find_child_by_text("target_text", exact_match=True)
         
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_text("exact_text", exact_match=True)
-        
-        assert result == child1
+        assert result == mock_children[0]
 
-    def test_find_child_by_text_partial_match_success(self, mocker):
+    def test_find_child_by_text_partial_match_success(self, element_finder, mock_children, mocker):
         """Test successful child finding by text with partial match"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_text"
+        mock_children[1].get_attribute.return_value = "other_text"
+        mock_children[2].get_attribute.return_value = "another_text"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["partial_text_content", "different_text"]
+        result = element_finder.find_child_by_text("target", exact_match=False)
         
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_text("partial_text", exact_match=False)
-        
-        assert result == child1
+        assert result == mock_children[0]
 
-    def test_find_child_by_text_case_insensitive(self, mocker):
-        """Test child finding by text with case insensitive match"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+    def test_find_child_by_text_case_insensitive(self, element_finder, mock_children, mocker):
+        """Test child finding by text with case insensitive matching"""
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "TARGET_TEXT"
+        mock_children[1].get_attribute.return_value = "other_text"
+        mock_children[2].get_attribute.return_value = "another_text"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["UPPERCASE_TEXT", "different_text"]
+        result = element_finder.find_child_by_text("target_text", exact_match=False, case_sensitive=False)
         
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_text("uppercase_text", exact_match=True, case_sensitive=False)
-        
-        assert result == child1
+        assert result == mock_children[0]
 
-    def test_find_children_by_text_exact_match_success(self, mocker):
+    def test_find_children_by_text_exact_match_success(self, element_finder, mock_children, mocker):
         """Test successful children finding by text with exact match"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        child3 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2, child3]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_text"
+        mock_children[1].get_attribute.return_value = "target_text"
+        mock_children[2].get_attribute.return_value = "other_text"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["exact_text", "different_text", "exact_text"]
-        
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_children_by_text("exact_text", exact_match=True)
+        result = element_finder.find_children_by_text("target_text", exact_match=True)
         
         assert len(result) == 2
-        assert child1 in result
-        assert child3 in result
+        assert mock_children[0] in result
+        assert mock_children[1] in result
 
-    def test_find_child_by_automation_id_success(self, mocker):
+    def test_find_child_by_automation_id_success(self, element_finder, mock_children, mocker):
         """Test successful child finding by automation ID"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_id"
+        mock_children[1].get_attribute.return_value = "other_id"
+        mock_children[2].get_attribute.return_value = "another_id"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["test_id", "different_id"]
+        result = element_finder.find_child_by_automation_id("target_id")
         
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_automation_id("test_id")
-        
-        assert result == child1
+        assert result == mock_children[0]
 
-    def test_find_children_by_automation_id_success(self, mocker):
+    def test_find_children_by_automation_id_success(self, element_finder, mock_children, mocker):
         """Test successful children finding by automation ID"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        child3 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2, child3]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_id"
+        mock_children[1].get_attribute.return_value = "target_id"
+        mock_children[2].get_attribute.return_value = "other_id"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["test_id", "different_id", "test_id"]
-        
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_children_by_automation_id("test_id")
+        result = element_finder.find_children_by_automation_id("target_id")
         
         assert len(result) == 2
-        assert child1 in result
-        assert child3 in result
+        assert mock_children[0] in result
+        assert mock_children[1] in result
 
-    def test_find_child_by_control_type_success(self, mocker):
+    def test_find_child_by_control_type_success(self, element_finder, mock_children, mocker):
         """Test successful child finding by control type"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_type"
+        mock_children[1].get_attribute.return_value = "other_type"
+        mock_children[2].get_attribute.return_value = "another_type"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["Button", "Text"]
+        result = element_finder.find_child_by_control_type("target_type")
         
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_child_by_control_type("Button")
-        
-        assert result == child1
+        assert result == mock_children[0]
 
-    def test_find_children_by_control_type_success(self, mocker):
+    def test_find_children_by_control_type_success(self, element_finder, mock_children, mocker):
         """Test successful children finding by control type"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        child3 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2, child3]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].get_attribute.return_value = "target_type"
+        mock_children[1].get_attribute.return_value = "target_type"
+        mock_children[2].get_attribute.return_value = "other_type"
         
-        # Mock property
-        mock_property = mocker.Mock(spec=StringProperty)
-        mock_property.get_value.side_effect = ["Button", "Text", "Button"]
-        
-        mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
-        result = self.finder.find_children_by_control_type("Button")
+        result = element_finder.find_children_by_control_type("target_type")
         
         assert len(result) == 2
-        assert child1 in result
-        assert child3 in result
+        assert mock_children[0] in result
+        assert mock_children[1] in result
 
-    def test_find_child_by_predicate_success(self, mocker):
+    def test_find_child_by_predicate_success(self, element_finder, mock_children, mocker):
         """Test successful child finding by predicate"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
         
-        # Mock predicate
-        predicate = mocker.Mock()
-        predicate.side_effect = [True, False]
+        def predicate(child):
+            return child.get_attribute.return_value == "target_value"
         
-        result = self.finder.find_child_by_predicate(predicate)
+        mock_children[0].get_attribute.return_value = "target_value"
+        mock_children[1].get_attribute.return_value = "other_value"
+        mock_children[2].get_attribute.return_value = "another_value"
         
-        assert result == child1
-        predicate.assert_called()
+        result = element_finder.find_child_by_predicate(predicate)
+        
+        assert result == mock_children[0]
 
-    def test_find_child_by_predicate_not_found(self, mocker):
+    def test_find_child_by_predicate_not_found(self, element_finder, mock_children, mocker):
         """Test child finding by predicate when not found"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
         
-        # Mock predicate
-        predicate = mocker.Mock()
-        predicate.return_value = False
+        def predicate(child):
+            return child.get_attribute.return_value == "nonexistent_value"
         
-        result = self.finder.find_child_by_predicate(predicate)
+        mock_children[0].get_attribute.return_value = "value1"
+        mock_children[1].get_attribute.return_value = "value2"
+        mock_children[2].get_attribute.return_value = "value3"
+        
+        result = element_finder.find_child_by_predicate(predicate)
         
         assert result is None
 
-    def test_find_child_by_predicate_exception(self, mocker):
+    def test_find_child_by_predicate_exception(self, element_finder, mock_children, mocker):
         """Test child finding by predicate with exception"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1]
+        element_finder._element.get_children.return_value = mock_children
         
-        # Mock predicate
-        predicate = mocker.Mock()
-        predicate.side_effect = Exception("Test exception")
+        def predicate(child):
+            raise Exception("Predicate exception")
         
-        result = self.finder.find_child_by_predicate(predicate)
+        result = element_finder.find_child_by_predicate(predicate)
         
         assert result is None
 
-    def test_find_children_by_predicate_success(self, mocker):
+    def test_find_children_by_predicate_success(self, element_finder, mock_children, mocker):
         """Test successful children finding by predicate"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        child3 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2, child3]
+        element_finder._element.get_children.return_value = mock_children
         
-        # Mock predicate
-        predicate = mocker.Mock()
-        predicate.side_effect = [True, False, True]
+        def predicate(child):
+            return child.get_attribute.return_value == "target_value"
         
-        result = self.finder.find_children_by_predicate(predicate)
+        mock_children[0].get_attribute.return_value = "target_value"
+        mock_children[1].get_attribute.return_value = "target_value"
+        mock_children[2].get_attribute.return_value = "other_value"
+        
+        result = element_finder.find_children_by_predicate(predicate)
         
         assert len(result) == 2
-        assert child1 in result
-        assert child3 in result
+        assert mock_children[0] in result
+        assert mock_children[1] in result
 
-    def test_find_visible_children_success(self, mocker):
+    def test_find_visible_children_success(self, element_finder, mock_children, mocker):
         """Test successful visible children finding"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        child3 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2, child3]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].is_displayed.return_value = True
+        mock_children[1].is_displayed.return_value = False
+        mock_children[2].is_displayed.return_value = True
         
-        # Mock BoolProperty for visible property
-        mock_property = mocker.Mock()
-        mock_property.get_value.side_effect = [True, False, True]
-        
-        mocker.patch('pyui_automation.elements.element_finder.BoolProperty', return_value=mock_property)
-        result = self.finder.find_visible_children()
+        result = element_finder.find_visible_children()
         
         assert len(result) == 2
-        assert child1 in result
-        assert child3 in result
+        assert mock_children[0] in result
+        assert mock_children[2] in result
 
-    def test_find_enabled_children_success(self, mocker):
+    def test_find_enabled_children_success(self, element_finder, mock_children, mocker):
         """Test successful enabled children finding"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        child3 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2, child3]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].is_enabled.return_value = True
+        mock_children[1].is_enabled.return_value = False
+        mock_children[2].is_enabled.return_value = True
         
-        # Mock is_enabled method for children
-        child1.is_enabled.return_value = True
-        child2.is_enabled.return_value = False
-        child3.is_enabled.return_value = True
-        
-        result = self.finder.find_enabled_children()
+        result = element_finder.find_enabled_children()
         
         assert len(result) == 2
-        assert child1 in result
-        assert child3 in result
+        assert mock_children[0] in result
+        assert mock_children[2] in result
 
-    def test_find_enabled_children_exception(self, mocker):
+    def test_find_enabled_children_exception(self, element_finder, mock_children, mocker):
         """Test enabled children finding with exception"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1]
+        element_finder._element.get_children.return_value = mock_children
+        mock_children[0].is_enabled.side_effect = Exception("Enabled check failed")
+        mock_children[1].is_enabled.return_value = True
+        mock_children[2].is_enabled.return_value = True
         
-        # Mock is_enabled method to raise exception
-        child1.is_enabled.side_effect = Exception("Test exception")
+        result = element_finder.find_enabled_children()
         
-        result = self.finder.find_enabled_children()
-        
-        assert len(result) == 0
+        assert len(result) == 2
+        assert mock_children[1] in result
+        assert mock_children[2] in result
 
-    def test_find_enabled_children_no_is_enabled_method(self, mocker):
-        """Test enabled children finding when is_enabled method not available"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+    def test_find_enabled_children_no_is_enabled_method(self, element_finder, mock_children, mocker):
+        """Test enabled children finding when is_enabled method doesn't exist"""
+        element_finder._element.get_children.return_value = mock_children
+        # Remove is_enabled method from first child
+        del mock_children[0].is_enabled
+        mock_children[1].is_enabled.return_value = True
+        mock_children[2].is_enabled.return_value = True
         
-        # Remove is_enabled method to simulate it not being available
-        del child1.is_enabled
-        del child2.is_enabled
+        result = element_finder.find_enabled_children()
         
-        result = self.finder.find_enabled_children()
-        
-        assert len(result) == 0
+        assert len(result) == 2
+        assert mock_children[1] in result
+        assert mock_children[2] in result
 
-    def test_get_children_using_get_children_method(self, mocker):
+    def test_get_children_using_get_children_method(self, element_finder, mock_children, mocker):
         """Test getting children using get_children method"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
+        element_finder._element.get_children.return_value = mock_children
         
-        result = self.finder._get_children()
+        result = element_finder.get_children()
         
-        assert result == [child1, child2]
-        self.mock_element.get_children.assert_called_once()
+        assert result == mock_children
+        element_finder._element.get_children.assert_called_once()
 
-    def test_get_children_using_findall_method(self, mocker):
+    def test_get_children_using_findall_method(self, element_finder, mock_children, mocker):
         """Test getting children using findall method"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Remove get_children method
-        del self.mock_element.get_children
-        # Remove children attribute
-        del self.mock_element.children
-        # Mock findall
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.findall.return_value = [child1, child2]
+        element_finder._element.get_children.side_effect = AttributeError("No get_children method")
+        element_finder._element.findall.return_value = mock_children
+        
+        result = element_finder.get_children()
+        
+        assert result == mock_children
+        element_finder._element.findall.assert_called_once()
 
-        result = self.finder._get_children()
-
-        assert result == [child1, child2]
-
-    def test_get_children_using_children_attribute(self, mocker):
+    def test_get_children_using_children_attribute(self, element_finder, mock_children, mocker):
         """Test getting children using children attribute"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Remove methods
-        del self.mock_element.get_children
-        del self.mock_element.findall
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.children = [child1, child2]
+        element_finder._element.get_children.side_effect = AttributeError("No get_children method")
+        element_finder._element.findall.side_effect = AttributeError("No findall method")
+        element_finder._element.children = mock_children
         
-        result = self.finder._get_children()
+        result = element_finder.get_children()
         
-        assert result == [child1, child2]
+        assert result == mock_children
 
-    def test_get_children_no_methods_available(self, mocker):
-        """Test getting children when no methods available"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Remove all methods and attributes
-        del self.mock_element.get_children
-        del self.mock_element.findall
-        del self.mock_element.children
+    def test_get_children_no_methods_available(self, element_finder, mocker):
+        """Test getting children when no methods are available"""
+        element_finder._element.get_children.side_effect = AttributeError("No get_children method")
+        element_finder._element.findall.side_effect = AttributeError("No findall method")
+        element_finder._element.children = AttributeError("No children attribute")
         
-        result = self.finder._get_children()
+        result = element_finder.get_children()
         
         assert result == []
 
-    def test_get_children_exception(self, mocker):
+    def test_get_children_exception(self, element_finder, mocker):
         """Test getting children with exception"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        self.mock_element.get_children.side_effect = Exception("Test exception")
+        element_finder._element.get_children.side_effect = Exception("Get children failed")
         
-        result = self.finder._get_children()
+        result = element_finder.get_children()
         
         assert result == []
 
-    def test_detect_property_type_unknown_property(self, mocker):
+    def test_detect_property_type_unknown_property(self, element_finder, mocker):
         """Test detecting property type for unknown property"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
+        result = element_finder.detect_property_type("unknown_property")
         
-        result = self.finder._detect_property_type("unknown_property")
-        
-        assert result == StringProperty
+        assert result == "string"
 
-    def test_detect_property_type_known_property(self, mocker):
+    def test_detect_property_type_known_property(self, element_finder, mocker):
         """Test detecting property type for known property"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
+        result = element_finder.detect_property_type("IsEnabled")
         
-        result = self.finder._detect_property_type("Name")
-        
-        assert result == StringProperty
+        assert result == "boolean"
 
-    def test_detect_property_type_exception(self, mocker):
+    def test_detect_property_type_exception(self, element_finder, mocker):
         """Test detecting property type with exception"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
+        mocker.patch.object(element_finder, '_property_type_mapping', side_effect=Exception("Mapping failed"))
         
-        result = self.finder._detect_property_type("test_property")
+        result = element_finder.detect_property_type("test_property")
         
-        assert result == StringProperty
+        assert result == "string"
 
-    def test_find_child_by_property_with_custom_type(self, mocker):
-        """Test child finding by property with custom property type"""
-        self.mock_element = mocker.Mock()
-        self.finder = ElementFinder(self.mock_element)
-        # Mock children
-        child1 = mocker.Mock()
-        child2 = mocker.Mock()
-        self.mock_element.get_children.return_value = [child1, child2]
-
-        # Mock custom property
+    def test_find_child_by_property_with_custom_type(self, element_finder, mock_children, mocker):
+        """Test finding child by property with custom type"""
+        element_finder._element.get_children.return_value = mock_children
+        
+        # Mock the property creation
         mock_property = mocker.Mock()
         mock_property.get_value.return_value = "expected_value"
-
         mocker.patch('pyui_automation.elements.element_finder.StringProperty', return_value=mock_property)
         
-        # Mock child1 to return expected value
-        child1.get_property.return_value = "expected_value"
-        child2.get_property.return_value = "other_value"
-
-        result = self.finder.find_child_by_property("test_property", "expected_value", property_type=StringProperty)
-
-        assert result == child1 
+        result = element_finder.find_child_by_property("test_property", "expected_value", property_type="custom")
+        
+        assert result == mock_children[0] 

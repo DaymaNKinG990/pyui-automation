@@ -7,8 +7,11 @@ Responsible for:
 - Input coordination
 """
 
-from typing import Optional, Any
+from typing import Optional, Any, TYPE_CHECKING
 from logging import getLogger
+
+if TYPE_CHECKING:
+    from ..session import AutomationSession
 
 from ...input import Keyboard
 from ...input.mouse import Mouse
@@ -18,7 +21,7 @@ from ..interfaces.iinput_service import IInputService
 class InputService(IInputService):
     """Service for input operations"""
     
-    def __init__(self, session: Any):
+    def __init__(self, session: 'AutomationSession'):
         self._session = session
         self._logger = getLogger(__name__)
         self._keyboard: Optional[Keyboard] = None
@@ -32,7 +35,7 @@ class InputService(IInputService):
             backend = self._session.backend if hasattr(self._session, 'backend') else None
             if backend is None:
                 raise RuntimeError("Session backend is not available for keyboard input")
-            self._keyboard = Keyboard(backend)
+            self._keyboard = Keyboard(backend)  # type: ignore
         return self._keyboard
     
     @property
@@ -43,7 +46,7 @@ class InputService(IInputService):
             backend = self._session.backend if hasattr(self._session, 'backend') else None
             if backend is None:
                 raise RuntimeError("Session backend is not available for mouse input")
-            self._mouse = Mouse(backend)
+            self._mouse = Mouse(backend)  # type: ignore
         return self._mouse
     
     def press_key(self, key: str) -> None:
@@ -224,4 +227,43 @@ class InputService(IInputService):
             self._logger.debug("Quit")
         except Exception as e:
             self._logger.error(f"Failed to quit: {e}")
-            raise 
+            raise
+    
+    def send_input(self, input_type: str, **kwargs: Any) -> bool:
+        """Send input of specified type with parameters"""
+        try:
+            if input_type == "key":
+                key = kwargs.get("key")
+                if key:
+                    self.press_key(key)
+                    return True
+            elif input_type == "text":
+                text = kwargs.get("text")
+                interval = kwargs.get("interval")
+                if text:
+                    self.type_text(text, interval)
+                    return True
+            elif input_type == "click":
+                x = kwargs.get("x")
+                y = kwargs.get("y")
+                button = kwargs.get("button", "left")
+                if x is not None and y is not None:
+                    self.mouse_click(x, y, button)
+                    return True
+            elif input_type == "move":
+                x = kwargs.get("x")
+                y = kwargs.get("y")
+                if x is not None and y is not None:
+                    self.mouse_move(x, y)
+                    return True
+            elif input_type == "hotkey":
+                keys = kwargs.get("keys", [])
+                if keys:
+                    self.hotkey(*keys)
+                    return True
+            
+            self._logger.warning(f"Unknown input type: {input_type}")
+            return False
+        except Exception as e:
+            self._logger.error(f"Failed to send input {input_type}: {e}")
+            return False 

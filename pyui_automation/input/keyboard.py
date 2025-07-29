@@ -24,7 +24,7 @@ class Keyboard:
         Args:
             backend: Platform-specific backend to use for keyboard input
         """
-        if backend is None:
+        if not backend:
             raise ValueError("Backend cannot be None")
         self._backend = backend
 
@@ -42,8 +42,6 @@ class Keyboard:
         Raises:
             ValueError: If the text is not a string.
         """
-        if not isinstance(text, str):
-            raise ValueError("Text must be a string")
         if not text:
             return True
         return self._backend.type_text(text, interval)
@@ -61,8 +59,6 @@ class Keyboard:
         Raises:
             ValueError: If the key is not a string.
         """
-        if not isinstance(key, str):
-            raise ValueError("Key must be a string")
         if not key:
             return True
         return self._backend.press_key(key)
@@ -80,8 +76,6 @@ class Keyboard:
         Raises:
             ValueError: If the key is not a string.
         """
-        if not isinstance(key, str):
-            raise ValueError("Key must be a string")
         if not key:
             return True
         return self._backend.release_key(key)
@@ -99,8 +93,6 @@ class Keyboard:
         Raises:
             ValueError: If any of the keys are not strings.
         """
-        if not all(isinstance(key, str) for key in keys):
-            raise ValueError("All keys must be strings")
         if not keys:
             return True
         return self._backend.press_keys(*keys)
@@ -118,8 +110,6 @@ class Keyboard:
         Raises:
             ValueError: If any of the keys are not strings.
         """
-        if not all(isinstance(key, str) for key in keys):
-            raise ValueError("All keys must be strings")
         if not keys:
             return True
         return self._backend.release_keys(*keys)
@@ -139,36 +129,25 @@ class Keyboard:
             bool: True if the keys were sent successfully, False otherwise.
 
         Raises:
-            ValueError: If the keys are not a string.
+            ValueError: If the keys is not a string.
         """
-        if not isinstance(keys, str):
-            raise ValueError("Keys must be a string")
         if not keys:
             return True
         return self._backend.send_keys(keys)
     
     def hotkey(self, *keys: str) -> bool:
         """
-        Press a combination of keys simultaneously.
+        Press and release a combination of keys
 
         Args:
-            *keys: The keys to press simultaneously.
+            *keys: The keys to press and release in sequence.
 
         Returns:
-            bool: True if the hotkey was pressed successfully, False otherwise.
+            bool: True if the hotkey was executed successfully, False otherwise.
 
         Raises:
             ValueError: If any of the keys are not strings.
         """
         if not keys:
             return True
-        for key in keys:
-            if not isinstance(key, str):
-                raise ValueError("All keys must be strings")
-        # Fallback implementation using individual key presses
-        for key in keys[:-1]:
-            self.press_key(key)
-        self.press_key(keys[-1])
-        for key in reversed(keys[:-1]):
-            self.release_key(key)
-        return True
+        return self._backend.hotkey(*keys)

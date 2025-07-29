@@ -13,12 +13,13 @@ from logging import getLogger
 # Local imports
 if TYPE_CHECKING:
     from .base_element import BaseElement
+    from ..core.session import AutomationSession
 
 
 class ElementStateService:
     """Service for element state operations"""
     
-    def __init__(self, session: Any) -> None:
+    def __init__(self, session: 'AutomationSession') -> None:
         """
         Initialize the ElementStateService.
 

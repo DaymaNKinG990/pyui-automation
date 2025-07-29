@@ -27,7 +27,7 @@ class Mouse:
         Args:
             backend: Platform-specific backend to use
         """
-        if backend is None:
+        if not backend:
             raise ValueError("Backend cannot be None")
         self._backend = backend
 
@@ -45,8 +45,7 @@ class Mouse:
         Raises:
             ValueError: If coordinates are not numbers
         """
-        if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
-            raise ValueError("Coordinates must be numbers")
+
         try:
             return self._backend.move_mouse(int(x), int(y))
         except Exception:
@@ -68,12 +67,8 @@ class Mouse:
             ValueError: If coordinates are not numbers or button is invalid
         """
         if x is not None and y is not None:
-            if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
-                raise ValueError("Coordinates must be numbers")
             if not self.move(x, y):
                 return False
-        if not isinstance(button, str):
-            raise ValueError("Button must be a string")
         if button not in ["left", "right", "middle"]:
             raise ValueError("Invalid button type. Must be 'left', 'right', or 'middle'")
         return self._backend.click_mouse(button)
@@ -129,10 +124,7 @@ class Mouse:
         Raises:
             ValueError: If coordinates are not numbers or button is invalid
         """
-        if not all(isinstance(coord, (int, float)) for coord in [start_x, start_y, end_x, end_y]):
-            raise ValueError("Coordinates must be numbers")
-        if not isinstance(button, str):
-            raise ValueError("Button must be a string")
+
         if button not in ["left", "right", "middle"]:
             raise ValueError("Invalid button type. Must be 'left', 'right', or 'middle'")
 

@@ -5,7 +5,7 @@ This element implements only the interfaces needed for window operations,
 following the Interface Segregation Principle.
 """
 
-from typing import Optional, Any, Dict, TYPE_CHECKING
+from typing import Optional, Any, Dict, TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from ...core.session import AutomationSession
@@ -102,7 +102,7 @@ class WindowElement(BaseElement):
         # Log move intention (logger not available in this context)
         pass
     
-    def get_window_elements(self) -> list:
+    def get_window_elements(self) -> List[Any]:
         """Get all elements in window"""
         return self.get_children()
     

@@ -7,7 +7,7 @@ Follows SRP by managing OCR engine selection.
 """
 
 from typing import List, Union, Optional, Dict, Any, Tuple
-import numpy as np
+from numpy.typing import NDArray
 from pathlib import Path
 
 from ..core.interfaces.iocr_service import IOCRService
@@ -48,8 +48,6 @@ class UnifiedOCREngine(IOCRService):
     
     def set_implementation(self, implementation: IOCRService) -> None:
         """Set specific OCR implementation"""
-        if not isinstance(implementation, IOCRService):
-            raise ValueError("Implementation must implement IOCRService")
         self._implementation = implementation
     
     def get_implementation(self) -> Optional[IOCRService]:
@@ -64,29 +62,41 @@ class UnifiedOCREngine(IOCRService):
         if self._implementation:
             self._implementation.set_languages(languages)
     
-    def recognize_text(self, image: Union[Path, str, np.ndarray], preprocess: bool = False) -> str:
+    def recognize_text(self, image: Union[Path, str, NDArray[Any]], preprocess: bool = False) -> str:
         """Recognize text in an image"""
-        return self._implementation.recognize_text(image, preprocess) if self._implementation else ""
+        if self._implementation:
+            return self._implementation.recognize_text(image, preprocess)
+        return ""
     
     def find_text_location(self, element: BaseElement, text: str, confidence_threshold: float = 0.5) -> List[Tuple[int, int, int, int]]:
         """Find location(s) of text within element"""
-        return self._implementation.find_text_location(element, text, confidence_threshold) if self._implementation else []
+        if self._implementation:
+            return self._implementation.find_text_location(element, text, confidence_threshold)
+        return []
     
     def get_all_text(self, element: BaseElement, confidence_threshold: float = 0.5) -> List[Dict[str, Any]]:
         """Get all text from element with positions"""
-        return self._implementation.get_all_text(element, confidence_threshold) if self._implementation else []
+        if self._implementation:
+            return self._implementation.get_all_text(element, confidence_threshold)
+        return []
     
     def verify_text_presence(self, element: BaseElement, text: str, confidence_threshold: float = 0.5) -> bool:
         """Verify presence of text in element"""
-        return self._implementation.verify_text_presence(element, text, confidence_threshold) if self._implementation else False
+        if self._implementation:
+            return self._implementation.verify_text_presence(element, text, confidence_threshold)
+        return False
     
     def read_text(self, element: BaseElement, text: str, case_sensitive: bool = False, exact_match: bool = False) -> str:
         """Read text from element and search for specific pattern"""
-        return self._implementation.read_text(element, text, case_sensitive, exact_match) if self._implementation else ""
+        if self._implementation:
+            return self._implementation.read_text(element, text, case_sensitive, exact_match)
+        return ""
     
-    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
+    def preprocess_image(self, image: NDArray[Any]) -> NDArray[Any]:
         """Preprocess image for better OCR results"""
-        return self._implementation.preprocess_image(image) if self._implementation else image
+        if self._implementation:
+            return self._implementation.preprocess_image(image)
+        return image
     
     def get_implementation_info(self) -> Dict[str, Any]:
         """Get information about current implementation"""

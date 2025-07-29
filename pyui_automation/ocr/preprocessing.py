@@ -1,31 +1,26 @@
 """
-Image Preprocessing for OCR - follows SRP
-
-This module is responsible only for image preprocessing to improve OCR accuracy.
+Image preprocessing utilities for OCR.
 """
 
 import cv2
 import numpy as np
-from ..utils import validate_type
+from numpy.typing import NDArray
+from typing import Any
+from ..utils.validation import validate_type
 
 
 class ImagePreprocessor:
-    """
-    Image preprocessor for OCR optimization.
+    """Handles image preprocessing for OCR"""
     
-    Single Responsibility: Preprocess images for better OCR results.
-    """
-    
-    def __init__(self):
-        """Initialize image preprocessor"""
+    def __init__(self) -> None:
         pass
     
-    def preprocess(self, image: np.ndarray) -> np.ndarray:
+    def preprocess(self, image: NDArray[Any]) -> NDArray[Any]:
         """
-        Preprocess image for better OCR results
+        Preprocess image for OCR
         
         Args:
-            image: Input image as numpy array
+            image: Input image
             
         Returns:
             Preprocessed image as numpy array (always 3-channel RGB)
@@ -58,7 +53,7 @@ class ImagePreprocessor:
         
         return dilated
     
-    def enhance_contrast(self, image: np.ndarray) -> np.ndarray:
+    def enhance_contrast(self, image: NDArray[Any]) -> NDArray[Any]:
         """
         Enhance image contrast
         
@@ -83,7 +78,7 @@ class ImagePreprocessor:
         
         return enhanced
     
-    def remove_noise(self, image: np.ndarray) -> np.ndarray:
+    def remove_noise(self, image: NDArray[Any]) -> NDArray[Any]:
         """
         Remove noise from image
         
@@ -107,7 +102,7 @@ class ImagePreprocessor:
         
         return denoised
     
-    def resize_for_ocr(self, image: np.ndarray, min_width: int = 800) -> np.ndarray:
+    def resize_for_ocr(self, image: NDArray[Any], min_width: int = 800) -> NDArray[Any]:
         """
         Resize image for optimal OCR performance
         
@@ -118,13 +113,15 @@ class ImagePreprocessor:
         Returns:
             Resized image
         """
+        height: int
+        width: int
         height, width = image.shape[:2]
         
         if width < min_width:
-            scale = min_width / width
-            new_width = int(width * scale)
-            new_height = int(height * scale)
-            resized = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+            scale: float = min_width / width
+            new_width: int = int(width * scale)
+            new_height: int = int(height * scale)
+            resized: NDArray[Any] = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
             return resized
         
         return image 

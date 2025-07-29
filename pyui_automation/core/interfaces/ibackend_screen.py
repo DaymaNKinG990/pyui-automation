@@ -10,6 +10,7 @@ Responsible for:
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 import numpy as np
+from numpy.typing import NDArray
 
 
 class IBackendScreen(ABC):
@@ -21,11 +22,11 @@ class IBackendScreen(ABC):
         pass
     
     @abstractmethod
-    def capture_screenshot(self) -> Optional[np.ndarray]:
+    def capture_screenshot(self) -> Optional[NDArray[np.uint8]]:
         """Capture screenshot of entire screen"""
         pass
     
     @abstractmethod
-    def capture_screen_region(self, x: int, y: int, width: int, height: int) -> Optional[np.ndarray]:
+    def capture_screen_region(self, x: int, y: int, width: int, height: int) -> Optional[NDArray[np.uint8]]:
         """Capture screenshot of specific screen region"""
         pass 

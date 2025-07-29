@@ -7,8 +7,13 @@ Responsible for:
 - Element search with timeouts
 """
 
-from typing import Optional, List, Any
+from typing import Optional, List, TYPE_CHECKING
 from logging import getLogger
+
+if TYPE_CHECKING:
+    from ..session import AutomationSession
+    from ...backends.base_backend import BaseBackend
+    from ...locators.base import BaseLocator
 
 # Local imports
 from ...elements.base_element import BaseElement
@@ -19,7 +24,7 @@ from ..interfaces.ielement_discovery_service import IElementDiscoveryService
 class ElementDiscoveryService(IElementDiscoveryService):
     """Service for element discovery operations"""
     
-    def __init__(self, backend: Any, locator: Any, session: Any):
+    def __init__(self, backend: 'BaseBackend', locator: 'BaseLocator', session: 'AutomationSession'):
         self._backend = backend
         self._locator = locator
         self._session = session

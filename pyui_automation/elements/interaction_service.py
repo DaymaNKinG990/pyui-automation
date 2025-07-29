@@ -14,13 +14,14 @@ from logging import getLogger
 
 # Local imports
 if TYPE_CHECKING:
-    from .base_element import BaseElement
+    from ..core.session import AutomationSession
+    from ..core.interfaces.ielement import IElement
 
 
 class ElementInteractionService:
     """Service for element interactions"""
     
-    def __init__(self, session: Any) -> None:
+    def __init__(self, session: 'AutomationSession') -> None:
         """
         Initialize the ElementInteractionService.
 
@@ -30,7 +31,7 @@ class ElementInteractionService:
         self._session = session
         self._logger = getLogger(__name__)
     
-    def click(self, element: "BaseElement") -> None:
+    def click(self, element: "IElement") -> None:
         """
         Click on element.
 
@@ -45,7 +46,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to click element: {e}")
             raise
     
-    def double_click(self, element: "BaseElement") -> None:
+    def double_click(self, element: "IElement") -> None:
         """
         Double click on element.
 
@@ -60,7 +61,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to double click element: {e}")
             raise
     
-    def right_click(self, element: "BaseElement") -> None:
+    def right_click(self, element: "IElement") -> None:
         """
         Right click on element.
 
@@ -75,7 +76,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to right click element: {e}")
             raise
     
-    def hover(self, element: "BaseElement") -> None:
+    def hover(self, element: "IElement") -> None:
         """
         Hover over element.
 
@@ -90,7 +91,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to hover over element: {e}")
             raise
     
-    def send_keys(self, element: "BaseElement", *keys: str, interval: Optional[float] = None) -> None:
+    def send_keys(self, element: "IElement", *keys: str, interval: Optional[float] = None) -> None:
         """
         Send keys to element.
 
@@ -103,16 +104,16 @@ class ElementInteractionService:
             element.focus()
             if interval:
                 for key in keys:
-                    self._session.keyboard.press(key)
+                    self._session.keyboard.press_key(key)
                     time.sleep(interval)
             else:
-                self._session.keyboard.press(*keys)
+                self._session.keyboard.press_keys(*keys)
             self._logger.debug(f"Sent keys {keys} to element")
         except Exception as e:
             self._logger.error(f"Failed to send keys to element: {e}")
             raise
     
-    def clear(self, element: "BaseElement") -> None:
+    def clear(self, element: "IElement") -> None:
         """
         Clear element text.
 
@@ -122,13 +123,13 @@ class ElementInteractionService:
         try:
             element.focus()
             element.select_all()
-            self._session.keyboard.press('delete')
+            self._session.keyboard.press_key('delete')
             self._logger.debug("Cleared element text")
         except Exception as e:
             self._logger.error(f"Failed to clear element: {e}")
             raise
     
-    def append(self, element: "BaseElement", text: str) -> None:
+    def append(self, element: "IElement", text: str) -> None:
         """
         Append text to element.
 
@@ -138,13 +139,14 @@ class ElementInteractionService:
         """
         try:
             element.focus()
-            self._session.keyboard.press(text)
+            for char in text:
+                self._session.keyboard.press_key(char)
             self._logger.debug(f"Appended text '{text}' to element")
         except Exception as e:
             self._logger.error(f"Failed to append text to element: {e}")
             raise
     
-    def drag_and_drop(self, source: "BaseElement", target: "BaseElement") -> None:
+    def drag_and_drop(self, source: "IElement", target: "IElement") -> None:
         """
         Drag and drop from source to target.
 
@@ -155,8 +157,7 @@ class ElementInteractionService:
         try:
             source_point = self._get_click_point(source)
             target_point = self._get_click_point(target)
-            
-            self._session.mouse.drag_and_drop(
+            self._session.mouse.drag(
                 source_point[0], source_point[1],
                 target_point[0], target_point[1]
             )
@@ -165,7 +166,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to drag and drop: {e}")
             raise
     
-    def focus(self, element: "BaseElement") -> None:
+    def focus(self, element: "IElement") -> None:
         """
         Focus on element.
 
@@ -179,7 +180,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to focus element: {e}")
             raise
     
-    def select_all(self, element: "BaseElement") -> None:
+    def select_all(self, element: "IElement") -> None:
         """
         Select all text in element.
 
@@ -188,13 +189,13 @@ class ElementInteractionService:
         """
         try:
             element.focus()
-            self._session.keyboard.press('ctrl+a')
+            self._session.keyboard.press_keys('ctrl', 'a')
             self._logger.debug("Selected all text in element")
         except Exception as e:
             self._logger.error(f"Failed to select all text: {e}")
             raise
     
-    def copy(self, element: "BaseElement") -> None:
+    def copy(self, element: "IElement") -> None:
         """
         Copy element text.
 
@@ -203,13 +204,13 @@ class ElementInteractionService:
         """
         try:
             element.select_all()
-            self._session.keyboard.press('ctrl+c')
+            self._session.keyboard.press_keys('ctrl', 'c')
             self._logger.debug("Copied element text")
         except Exception as e:
             self._logger.error(f"Failed to copy text: {e}")
             raise
     
-    def paste(self, element: "BaseElement") -> None:
+    def paste(self, element: "IElement") -> None:
         """
         Paste text to element.
 
@@ -218,13 +219,13 @@ class ElementInteractionService:
         """
         try:
             element.focus()
-            self._session.keyboard.press('ctrl+v')
+            self._session.keyboard.press_keys('ctrl', 'v')
             self._logger.debug("Pasted text to element")
         except Exception as e:
             self._logger.error(f"Failed to paste text: {e}")
             raise
     
-    def _get_click_point(self, element: "BaseElement") -> tuple[int, int]:
+    def _get_click_point(self, element: "IElement") -> tuple[int, int]:
         """
         Get click point for element.
 
@@ -241,7 +242,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to get click point: {e}")
             raise
     
-    def check(self, element: "BaseElement") -> None:
+    def check(self, element: "IElement") -> None:
         """
         Check a checkbox element.
 
@@ -256,7 +257,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to check element: {e}")
             raise
     
-    def uncheck(self, element: "BaseElement") -> None:
+    def uncheck(self, element: "IElement") -> None:
         """
         Uncheck a checkbox element.
 
@@ -271,7 +272,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to uncheck element: {e}")
             raise
     
-    def toggle(self, element: "BaseElement") -> None:
+    def toggle(self, element: "IElement") -> None:
         """
         Toggle a checkbox element.
 
@@ -285,7 +286,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to toggle element: {e}")
             raise
     
-    def expand(self, element: "BaseElement") -> None:
+    def expand(self, element: "IElement") -> None:
         """
         Expand a collapsible element.
 
@@ -300,7 +301,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to expand element: {e}")
             raise
     
-    def collapse(self, element: "BaseElement") -> None:
+    def collapse(self, element: "IElement") -> None:
         """
         Collapse an expandable element.
 
@@ -315,7 +316,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to collapse element: {e}")
             raise
     
-    def select_item(self, element: "BaseElement", item: str) -> None:
+    def select_item(self, element: "IElement", item: str) -> None:
         """
         Select an item from a dropdown or list.
 
@@ -331,7 +332,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to select item '{item}' from element: {e}")
             raise
     
-    def take_screenshot(self, element: "BaseElement") -> Any:
+    def take_screenshot(self, element: "IElement") -> Optional[Any]:
         """
         Take a screenshot of the element.
 
@@ -347,7 +348,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to take screenshot: {e}")
             raise
     
-    def capture_screenshot(self, element: "BaseElement") -> Any:
+    def capture_screenshot(self, element: "IElement") -> Optional[Any]:
         """
         Capture a screenshot of the element.
 
@@ -365,7 +366,7 @@ class ElementInteractionService:
             self._logger.error(f"Failed to capture screenshot: {e}")
             raise
     
-    def scroll_into_view(self, element: "BaseElement") -> None:
+    def scroll_into_view(self, element: "IElement") -> None:
         """
         Scroll element into view.
 

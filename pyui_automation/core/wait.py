@@ -84,7 +84,7 @@ class ElementWaits:
         if not isinstance(object_name, str) or not object_name:
             raise ValueError("object_name must be a non-empty string")
         found_element = [None]
-        def condition():
+        def condition() -> bool:
             element = self.automation.backend.find_element_by_object_name(object_name)
             if element is not None:
                 found_element[0] = element
@@ -98,7 +98,7 @@ class ElementWaits:
         if not isinstance(widget_type, str) or not widget_type:
             raise ValueError("widget_type must be a non-empty string")
         found_element = [None]
-        def condition():
+        def condition() -> bool:
             element = self.automation.backend.find_element_by_widget_type(widget_type)
             if element is not None:
                 found_element[0] = element
@@ -112,7 +112,7 @@ class ElementWaits:
         if not isinstance(text, str) or not text:
             raise ValueError("text must be a non-empty string")
         found_element = [None]
-        def condition():
+        def condition() -> bool:
             element = self.automation.backend.find_element_by_text(text)
             if element is not None:
                 found_element[0] = element
@@ -128,7 +128,7 @@ class ElementWaits:
         if not isinstance(value, str) or not value:
             raise ValueError("value must be a non-empty string")
         found_element = [None]
-        def condition():
+        def condition() -> bool:
             element = self.automation.backend.find_element_by_property(property_name, value)
             if element is not None:
                 found_element[0] = element

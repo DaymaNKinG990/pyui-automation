@@ -2,7 +2,7 @@
 
 # Python libraries
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
 
 
@@ -44,13 +44,11 @@ class AutomationConfig:
     ocr_languages: Optional[List[str]] = None
     ocr_confidence: float = 0.7
 
-
-
     # Backend settings
     backend_type: str = "windows"
     backend_options: Optional[Dict[str, Any]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize default values for collections and types"""
         if self.performance_metrics is None:
             self.performance_metrics = ["cpu", "memory", "response_time"]
@@ -61,10 +59,14 @@ class AutomationConfig:
         # Приведение screenshot_dir к Path
         if self._screenshot_dir is not None and not isinstance(self._screenshot_dir, Path):
             self._screenshot_dir = Path(self._screenshot_dir)
-        if self.visual_baseline_dir is not None and not isinstance(self.visual_baseline_dir, Path):
-            self.visual_baseline_dir = Path(self.visual_baseline_dir)
-        if self.performance_output_dir is not None and not isinstance(self.performance_output_dir, Path):
-            self.performance_output_dir = Path(self.performance_output_dir)
+        # Приведение visual_baseline_dir к Path
+        if self.visual_baseline_dir is not None:
+            if not isinstance(self.visual_baseline_dir, Path):
+                self.visual_baseline_dir = Path(self.visual_baseline_dir)
+        # Приведение performance_output_dir к Path
+        if self.performance_output_dir is not None:
+            if not isinstance(self.performance_output_dir, Path):
+                self.performance_output_dir = Path(self.performance_output_dir)
 
     def set(self, key: str, value: Any) -> None:
         """
@@ -90,7 +92,7 @@ class AutomationConfig:
         return self._screenshot_dir
 
     @screenshot_dir.setter
-    def screenshot_dir(self, value):
+    def screenshot_dir(self, value: Optional[Union[str, Path]]) -> None:
         if value is not None and not isinstance(value, Path):
             value = Path(value)
         self._screenshot_dir = value
@@ -138,8 +140,6 @@ class AutomationConfig:
                 if lang not in valid_ocr_languages:
                     raise ValueError(f"Invalid OCR language. Must be one of: {valid_ocr_languages}")
 
-
-
         valid_backend_types = ["windows", "linux", "macos", "web"]
         if self.backend_type not in valid_backend_types:
             raise ValueError(f"Invalid backend type. Must be one of: {valid_backend_types}")
@@ -154,9 +154,6 @@ class AutomationConfig:
             
         Returns:
             Configuration value
-            
-        Raises:
-            AttributeError: If key doesn't exist and no default provided
         """
         if hasattr(self, key):
             return getattr(self, key)

@@ -1,47 +1,24 @@
-# Windows API - условные импорты для совместимости с pyrefly
-import sys
-from typing import TYPE_CHECKING, Any, Optional, Union, List, Tuple, Dict
+# Windows API
+from typing import Any, Optional, Union, List, Tuple, Dict
 
-if sys.platform == 'win32' or TYPE_CHECKING:
+from numpy.typing import NDArray
+try:
+    import win32gui
+    import win32con
+    import win32api
+    import win32ui
+    import win32process
+    import win32event
+    import win32security
+    import ctypes
+    import comtypes.client
     try:
-        import win32gui
-        import win32con
-        import win32api
-        import win32ui
-        import win32process
-        import win32event
-        import win32security
-        import ctypes
-        import comtypes.client
-        try:
-            import comtypes.gen.UIAutomationClient as UIAClient
-        except ImportError:
-            comtypes.client.GetModule('UIAutomationCore.dll')
-            import comtypes.gen.UIAutomationClient as UIAClient
+        import comtypes.gen.UIAutomationClient as UIAClient
     except ImportError:
-        # Заглушки для случаев, когда модули недоступны
-        win32gui = None
-        win32con = None
-        win32api = None
-        win32ui = None
-        win32process = None
-        win32event = None
-        win32security = None
-        ctypes = None
-        comtypes = None
-        UIAClient = None
-else:
-    # Заглушки для не-Windows платформ
-    win32gui = None
-    win32con = None
-    win32api = None
-    win32ui = None
-    win32process = None
-    win32event = None
-    win32security = None
-    ctypes = None
-    comtypes = None
-    UIAClient = None
+        comtypes.client.GetModule('UIAutomationCore.dll')
+        import comtypes.gen.UIAutomationClient as UIAClient
+except ImportError:
+    raise ImportError("win32 libraries are not installed")
 
 # Python libraries
 import time
@@ -177,8 +154,8 @@ class WindowsBackend(BaseBackend):
             List[int]: A list of window handles. If an exception is encountered, an empty list is returned.
         """
         try:
-            handles = []
-            def enum_windows(hwnd, _):
+            handles: List[int] = []
+            def enum_windows(hwnd: int, _: Any) -> bool:
                 if win32gui.IsWindowVisible(hwnd):
                     handles.append(hwnd)
                 return True
@@ -201,7 +178,7 @@ class WindowsBackend(BaseBackend):
         self.__logger.debug(f"Screen size: {width}x{height}")
         return (width, height)
 
-    def capture_screenshot(self) -> Optional[np.ndarray]:
+    def capture_screenshot(self) -> Optional[NDArray[np.uint8]]:
         """
         Capture screenshot as numpy array
 
@@ -210,8 +187,8 @@ class WindowsBackend(BaseBackend):
         """
         try:
             width, height = self.get_screen_size()
-            hdesktop = win32gui.GetDesktopWindow()
-            desktop_dc = win32gui.GetWindowDC(hdesktop)
+            hdesktop = win32gui.GetDesktopWindow()  # type: ignore[unknown-return-value]
+            desktop_dc = win32gui.GetWindowDC(hdesktop)  # type: ignore[arg-type]
             img_dc = win32ui.CreateDCFromHandle(desktop_dc)
             mem_dc = img_dc.CreateCompatibleDC()
             screenshot = win32ui.CreateBitmap()
@@ -268,7 +245,7 @@ class WindowsBackend(BaseBackend):
         """
         title = window.CurrentName
         self.__logger.debug(f"Getting window title: {title}")
-        return title
+        return str(title)
 
     def wait_for_window(self, title: str, timeout: int = 30) -> Optional[Any]:
         """
@@ -307,7 +284,7 @@ class WindowsBackend(BaseBackend):
         try:
             active_window = win32gui.GetForegroundWindow()
             self.__logger.debug(f"Active window: {active_window}")
-            return active_window
+            return int(active_window)
         except Exception as e:
             self.__logger.error(f"Error getting active window: {str(e)}")
             return None
@@ -345,7 +322,7 @@ class WindowsBackend(BaseBackend):
 
             # Allocate memory in remote process
             dll_path = os.path.join(os.environ['SystemRoot'], 'System32', 'UIAutomationCore.dll')
-            path_address = win32process.VirtualAllocEx(
+            path_address = win32process.VirtualAllocEx(  # type: ignore[unknown-return-value]
                 handle,
                 0,
                 len(dll_path) * 2 + 2,
@@ -358,7 +335,7 @@ class WindowsBackend(BaseBackend):
                 return False
 
             # Write DLL path to remote process memory
-            if not win32process.WriteProcessMemory(handle, path_address, dll_path.encode('utf-16le') + b'\x00\x00', 0):
+            if not win32process.WriteProcessMemory(handle, path_address, dll_path.encode('utf-16le') + b'\x00\x00', 0):  # type: ignore[unknown-return-value]
                 self.__logger.debug('WriteProcessMemory failed')
                 return False
 
@@ -613,8 +590,7 @@ class WindowsBackend(BaseBackend):
                 self.__logger.debug('Invalid region dimensions')
                 return None
 
-            if win32gui is None or win32ui is None or win32con is None:
-                return None
+
                 
             # Get window handle
             hwnd = win32gui.GetDesktopWindow()
@@ -639,9 +615,8 @@ class WindowsBackend(BaseBackend):
             img = img[:, :, :3]  # Convert to RGB
 
             # Clean up
-            if win32gui is not None:
-                win32gui.DeleteObject(saveBitMap.GetHandle())
-                win32gui.ReleaseDC(hwnd, hwndDC)
+            win32gui.DeleteObject(saveBitMap.GetHandle())
+            win32gui.ReleaseDC(hwnd, hwndDC)
             saveDC.DeleteDC()
             mfcDC.DeleteDC()
 
@@ -708,14 +683,14 @@ class WindowsBackend(BaseBackend):
                 return None
                 
             # Find window handle by process ID
-            def enum_windows_callback(hwnd, windows):
+            def enum_windows_callback(hwnd: int, windows: List[int]) -> bool:
                 if win32gui.IsWindowVisible(hwnd):
                     _, pid = win32process.GetWindowThreadProcessId(hwnd)
                     if pid == process_id:
                         windows.append(hwnd)
                 return True
             
-            windows = []
+            windows: List[int] = []
             win32gui.EnumWindows(enum_windows_callback, windows)
             
             if not windows:
@@ -724,8 +699,6 @@ class WindowsBackend(BaseBackend):
             
             # Use the first found window
             hwnd = windows[0]
-            if win32gui is None:
-                return None
             window_title = win32gui.GetWindowText(hwnd)
             self.__logger.debug(f"Found window: {window_title} (handle: {hwnd})")
             
@@ -741,7 +714,7 @@ class WindowsBackend(BaseBackend):
                 
             self.__logger.debug(f"Successfully attached to application: {window_title}")
             return element
-            
+        
         except Exception as e:
             self.__logger.error(f"Error attaching to application: {str(e)}")
             return None
@@ -755,8 +728,6 @@ class WindowsBackend(BaseBackend):
         """
         try:
             if isinstance(window, int):
-                if win32gui is None or win32con is None:
-                    return
                 win32gui.PostMessage(window, win32con.WM_CLOSE, 0, 0)
                 self.__logger.debug(f"Sent close message to window: {window}")
             else:
@@ -779,7 +750,7 @@ class WindowsBackend(BaseBackend):
         self.__logger.debug(f"Stub: find_elements_by_widget_type called with {widget_type}")
         return []
     
-    def get_element_rect(self, element) -> Tuple[int, int, int, int]:
+    def get_element_rect(self, element: Any) -> Tuple[int, int, int, int]:
         """
         Get element rectangle (stub implementation).
         
@@ -805,7 +776,7 @@ class WindowsBackend(BaseBackend):
         self.__logger.debug(f"Stub: find_element_by_object_name called with {name}")
         return None
     
-    def get_element_pattern(self, element, pattern_name: str) -> Optional[Any]:
+    def get_element_pattern(self, element: Any, pattern_name: str) -> Optional[Any]:
         """
         Get element pattern (stub implementation).
         
@@ -819,7 +790,7 @@ class WindowsBackend(BaseBackend):
         self.__logger.debug(f"Stub: get_element_pattern called with {pattern_name}")
         return None
     
-    def get_element_state(self, element) -> Dict[str, Any]:
+    def get_element_state(self, element: Any) -> Dict[str, Any]:
         """
         Get element state (stub implementation).
         
@@ -832,7 +803,7 @@ class WindowsBackend(BaseBackend):
         self.__logger.debug("Stub: get_element_state called")
         return {}
     
-    def invoke_element_pattern_method(self, element, method_name: str) -> Optional[Any]:
+    def invoke_element_pattern_method(self, element: Any, method_name: str) -> Optional[Any]:
         """
         Invoke element pattern method (stub implementation).
         
@@ -854,8 +825,6 @@ class WindowsBackend(BaseBackend):
             True (stub)
         """
         try:
-            if win32api is None:
-                return False
             pos = win32api.GetCursorPos()
             return self.double_click(pos[0], pos[1])
         except Exception as e:
@@ -865,8 +834,6 @@ class WindowsBackend(BaseBackend):
     def double_click(self, x: int, y: int) -> bool:
         """Double click at coordinates"""
         try:
-            if win32api is None or win32con is None:
-                return False
             win32api.SetCursorPos((x, y))
             win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
             win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
@@ -877,7 +844,7 @@ class WindowsBackend(BaseBackend):
             self.__logger.error(f"Error in double_click: {str(e)}")
             return False
     
-    def scroll_element(self, element, direction: str, amount: float) -> None:
+    def scroll_element(self, element: Any, direction: str, amount: float) -> None:
         """
         Scroll element (stub implementation).
         
@@ -896,8 +863,6 @@ class WindowsBackend(BaseBackend):
             True (stub)
         """
         try:
-            if win32api is None:
-                return False
             pos = win32api.GetCursorPos()
             return self.right_click(pos[0], pos[1])
         except Exception as e:
@@ -907,8 +872,6 @@ class WindowsBackend(BaseBackend):
     def right_click(self, x: int, y: int) -> bool:
         """Right click at coordinates"""
         try:
-            if win32api is None or win32con is None:
-                return False
             win32api.SetCursorPos((x, y))
             win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
             win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
@@ -940,11 +903,6 @@ class WindowsBackend(BaseBackend):
             True (stub)
         """
         try:
-            if win32api is None:
-                return False
-            if win32con is None:
-                return False
-            
             pos = win32api.GetCursorPos()
             x, y = pos
             
@@ -975,11 +933,6 @@ class WindowsBackend(BaseBackend):
             True (stub)
         """
         try:
-            if win32api is None:
-                return False
-            if win32con is None:
-                return False
-            
             pos = win32api.GetCursorPos()
             x, y = pos
             
@@ -1019,15 +972,13 @@ class WindowsBackend(BaseBackend):
             Mouse position as (x, y)
         """
         try:
-            if win32api is None:
-                return (0, 0)
             pos = win32api.GetCursorPos()
-            return pos
+            return (int(pos[0]), int(pos[1])) if pos is not None else (0, 0)
         except Exception as e:
             self.__logger.error(f"Error getting mouse position: {str(e)}")
             return (0, 0)
     
-    def type_text_into_element(self, element, text: str) -> bool:
+    def type_text_into_element(self, element: Any, text: str) -> bool:
         """
         Type text into element (alias for type_text).
         

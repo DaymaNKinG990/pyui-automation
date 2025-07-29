@@ -3,6 +3,7 @@ Tests for validation utilities
 """
 import pytest
 import numpy as np
+from typing import Any, List, Callable
 
 from pyui_automation.utils.validation import (
     validate_not_none,
@@ -23,7 +24,7 @@ class TestValidateNotNone:
     @pytest.mark.parametrize("value", [
         "test", 0, False, [], {}, np.array([1, 2, 3])
     ])
-    def test_validate_not_none_with_valid_values(self, value):
+    def test_validate_not_none_with_valid_values(self, value: Any):
         """Test validate_not_none with valid non-None values"""
         assert validate_not_none(value) is True
     
@@ -38,14 +39,14 @@ class TestValidateStringNotEmpty:
     @pytest.mark.parametrize("value", [
         "test", "hello world", "123", "a"
     ])
-    def test_validate_string_not_empty_with_valid_strings(self, value):
+    def test_validate_string_not_empty_with_valid_strings(self, value: Any):
         """Test validate_string_not_empty with valid non-empty strings"""
         assert validate_string_not_empty(value) is True
     
     @pytest.mark.parametrize("value", [
         "", "   ", "\t\n", None
     ])
-    def test_validate_string_not_empty_with_invalid_strings(self, value):
+    def test_validate_string_not_empty_with_invalid_strings(self, value: Any):
         """Test validate_string_not_empty with invalid strings"""
         assert validate_string_not_empty(value) is False
 
@@ -89,7 +90,7 @@ class TestValidateNumberRange:
         (5.5, 0.0, 10.0),
         (-5, -10, 0)
     ])
-    def test_validate_number_range_with_valid_values(self, value, min_val, max_val):
+    def test_validate_number_range_with_valid_values(self, value: Any, min_val: Any, max_val: Any):
         """Test validate_number_range with valid values"""
         assert validate_number_range(value, min_val, max_val) is True
     
@@ -194,7 +195,7 @@ class TestValidateAll:
     
     def test_validate_all_with_all_passing(self):
         """Test validate_all with all validators passing"""
-        validators = [
+        validators: List[Callable[[Any], bool]] = [
             lambda x: isinstance(x, str),
             lambda x: len(x) > 0,
             lambda x: x.isalpha()
@@ -203,7 +204,7 @@ class TestValidateAll:
     
     def test_validate_all_with_some_failing(self):
         """Test validate_all with some validators failing"""
-        validators = [
+        validators: List[Callable[[Any], bool]] = [
             lambda x: isinstance(x, str),
             lambda x: len(x) > 10,  # This will fail
             lambda x: x.isalpha()
@@ -216,7 +217,7 @@ class TestValidateAll:
     
     def test_validate_all_with_all_failing(self):
         """Test validate_all with all validators failing"""
-        validators = [
+        validators: List[Callable[[Any], bool]] = [
             lambda x: isinstance(x, int),
             lambda x: x > 100
         ]
@@ -228,7 +229,7 @@ class TestValidateAny:
     
     def test_validate_any_with_some_passing(self):
         """Test validate_any with some validators passing"""
-        validators = [
+        validators: List[Callable[[Any], bool]] = [
             lambda x: isinstance(x, str),
             lambda x: len(x) > 10,  # This will fail
             lambda x: x.isalpha()
@@ -237,7 +238,7 @@ class TestValidateAny:
     
     def test_validate_any_with_all_failing(self):
         """Test validate_any with all validators failing"""
-        validators = [
+        validators: List[Callable[[Any], bool]] = [
             lambda x: isinstance(x, str),
             lambda x: len(x) > 10,
             lambda x: x.isalpha()
@@ -246,7 +247,7 @@ class TestValidateAny:
     
     def test_validate_any_with_empty_list(self):
         """Test validate_any with empty validators list"""
-        validators = [
+        validators: List[Callable[[Any], bool]] = [
             lambda x: isinstance(x, str),
             lambda x: len(x) > 0,
             lambda x: x.isalpha()

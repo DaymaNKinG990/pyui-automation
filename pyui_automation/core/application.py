@@ -32,11 +32,17 @@ class Application:
             from ..backends.windows import WindowsBackend
             self._backend = WindowsBackend()
         elif self.platform == 'linux':
-            from ..backends.linux import LinuxBackend
-            self._backend = LinuxBackend()
+            try:
+                from ..backends.linux import LinuxBackend
+                self._backend = LinuxBackend()
+            except ImportError:
+                raise RuntimeError("Linux backend not available")
         elif self.platform == 'darwin':
-            from ..backends.macos import MacOSBackend
-            self._backend = MacOSBackend()
+            try:
+                from ..backends.macos import MacOSBackend
+                self._backend = MacOSBackend()
+            except ImportError:
+                raise RuntimeError("macOS backend not available")
 
     @property
     def pid(self) -> Optional[int]:
@@ -126,7 +132,9 @@ class Application:
             if process.poll() is not None:
                 # Читаем вывод процесса для диагностики
                 stdout, stderr = process.communicate()
-                raise RuntimeError(f"Process failed to start (exit code: {process.poll()})\nSTDOUT: {stdout}\nSTDERR: {stderr}")
+                stdout_str = stdout.decode(errors='ignore') if stdout else ''
+                stderr_str = stderr.decode(errors='ignore') if stderr else ''
+                raise RuntimeError(f"Process failed to start (exit code: {process.poll()})\nSTDOUT: {stdout_str}\nSTDERR: {stderr_str}")
             
             try:
                 proc = psutil.Process(process.pid)
@@ -264,7 +272,8 @@ class Application:
     def is_running(self) -> bool:
         """Check if the application is running"""
         if self._process:
-            return self._process.is_running()
+            result = self._process.is_running()
+            return bool(result)
         return False
 
     def get_memory_usage(self) -> float:
@@ -283,23 +292,25 @@ class Application:
     def get_cpu_usage(self) -> float:
         """Get application CPU usage percentage"""
         if self._process:
-            return self._process.cpu_percent(interval=0.1)
+            result = self._process.cpu_percent(interval=0.1)
+            return float(result) if result is not None else 0.0
         return 0.0
 
-    def get_child_processes(self) -> List[psutil.Process]:
+    def get_child_processes(self) -> List[Any]:
         """
         Get list of child processes
 
         Recursively retrieve all child processes of the application process.
 
         Returns:
-            List[psutil.Process]: List of child processes
+            List[Any]: List of child processes
         """
         if self._process:
-            return self._process.children(recursive=True)
+            result = self._process.children(recursive=True)
+            return list(result) if result is not None else []
         return []
 
-    def wait_for_window(self, title: str, timeout: float = 10.0) -> Optional[object]:
+    def wait_for_window(self, title: str, timeout: float = 10.0) -> Optional[Any]:
         """
         Wait for a window with a specified title to appear within a given timeout.
 
@@ -328,7 +339,7 @@ class Application:
             time.sleep(0.1)
         return None
 
-    def get_window(self, title: str) -> Optional[object]:
+    def get_window(self, title: str) -> Optional[Any]:
         """
         Retrieve a window by its title.
 
@@ -349,7 +360,7 @@ class Application:
                 self._window_handle = window
         return window
 
-    def get_main_window(self) -> Optional[object]:
+    def get_main_window(self) -> Optional[Any]:
         """
         Get main window of application
 
@@ -380,9 +391,12 @@ class Application:
         """
         if not self._backend:
             return []
-        return self._backend.get_window_handles()
+        result = self._backend.get_window_handles()
+        if isinstance(result, list):
+            return result
+        return []
 
-    def get_active_window(self) -> Optional[object]:
+    def get_active_window(self) -> Optional[Any]:
         """
         Get currently active window
 

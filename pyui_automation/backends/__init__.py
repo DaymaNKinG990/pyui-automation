@@ -1,21 +1,36 @@
 import platform
-from typing import Optional
 
 from .base_backend import BaseBackend
 from .windows import WindowsBackend
-from .linux import LinuxBackend
-from .macos import MacOSBackend
+try:
+    from .linux import LinuxBackend
+except ImportError:
+    LinuxBackend = None
+
+try:
+    from .macos import MacOSBackend
+except ImportError:
+    MacOSBackend = None
 
 
-def get_backend() -> Optional[BaseBackend]:
+def get_backend() -> BaseBackend:
     """Get the appropriate backend for the current platform"""
     system = platform.system().lower()
     
     if system == 'windows':
-        return WindowsBackend()
+        backend = WindowsBackend()
+        return backend  # type: ignore[return-value]
     elif system == 'linux':
-        return LinuxBackend()
+        if LinuxBackend is not None:
+            backend = LinuxBackend()
+            return backend  # type: ignore[no-any-return]
+        else:
+            raise NotImplementedError("Linux backend not available")
     elif system == 'darwin':
-        return MacOSBackend()
+        if MacOSBackend is not None:
+            backend = MacOSBackend()
+            return backend  # type: ignore[no-any-return]
+        else:
+            raise NotImplementedError("macOS backend not available")
     else:
         raise NotImplementedError(f"Platform {system} is not supported")

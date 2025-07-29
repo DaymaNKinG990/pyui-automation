@@ -5,6 +5,8 @@ This module provides a unified interface for OCR functionality,
 supporting both real implementations and test stubs.
 """
 
+from typing import Any, Dict, List
+
 # Import models
 from .models import OCRResult, TextLocation
 
@@ -21,17 +23,17 @@ default_engine = UnifiedOCREngine()
 
 
 # Convenience functions
-def recognize_text(image, preprocess: bool = False) -> str:
+def recognize_text(image: Any, preprocess: bool = False) -> str:
     """Recognize text using default engine"""
     return default_engine.recognize_text(image, preprocess)
 
 
-def set_languages(languages: list) -> None:
+def set_languages(languages: List[str]) -> None:
     """Set languages for default engine"""
     default_engine.set_languages(languages)
 
 
-def get_implementation_info() -> dict:
+def get_implementation_info() -> Dict[str, Any]:
     """Get information about current OCR implementation"""
     return default_engine.get_implementation_info()
 

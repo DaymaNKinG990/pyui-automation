@@ -1,11 +1,15 @@
 import time
-from typing import Callable, Any
+from typing import Callable, TypeVar, Any
+from typing_extensions import ParamSpec
 from pathlib import Path
 import tempfile
 import uuid
 
+T = TypeVar('T')
+P = ParamSpec('P')
 
-def retry(attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)) -> Callable:
+
+def retry(attempts: int = 3, delay: float = 1.0, exceptions: tuple[type[Exception], ...] = (Exception,)) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Retry decorator for functions that may fail.
 
@@ -19,8 +23,8 @@ def retry(attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,
     """
     if attempts <= 0:
         raise ValueError("attempts must be > 0")
-    def decorator(func: Callable) -> Callable:
-        def wrapper(*args, **kwargs) -> Any:
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        def wrapper(*args: Any, **kwargs: Any) -> T:
             for attempt in range(attempts):
                 try:
                     return func(*args, **kwargs)
@@ -28,7 +32,7 @@ def retry(attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,
                     if attempt == attempts - 1:
                         raise
                     time.sleep(delay)
-            return None
+            return None  # type: ignore
         return wrapper
     return decorator
 
@@ -42,8 +46,7 @@ def get_temp_path(suffix: str = '') -> Path:
     Returns:
         Path: A Path object representing the temporary file path, with a unique name.
     """
-    if not isinstance(suffix, str):
-        raise TypeError("suffix must be a string")
+
     temp_dir = Path(tempfile.gettempdir())
     unique = uuid.uuid4().hex
     return temp_dir / f"pyui_automation_{time.time()}_{unique}{suffix}" 

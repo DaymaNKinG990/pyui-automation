@@ -5,7 +5,7 @@ This module provides a singleton automation manager that uses dependency injecti
 to manage all services and their dependencies.
 """
 
-from typing import Any, Optional, List, Dict, cast
+from typing import Any, Optional, List, Dict
 from logging import getLogger
 
 from .services.di_container import get_container, register_service, get_service, set_config
@@ -33,7 +33,7 @@ class DIAutomationManager:
         """Singleton pattern implementation"""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-        return cls._instance  # type: ignore
+        return cls._instance
     
     def __init__(self) -> None:
         """Initialize DI Automation Manager"""
@@ -124,32 +124,32 @@ class DIAutomationManager:
     @property
     def backend_factory(self) -> IBackendFactory:
         """Get backend factory service"""
-        return get_service('backend_factory')
+        return get_service('backend_factory')  # type: ignore
     
     @property
     def locator_factory(self) -> ILocatorFactory:
         """Get locator factory service"""
-        return get_service('locator_factory')
+        return get_service('locator_factory')  # type: ignore
     
     @property
     def session_manager(self) -> ISessionManager:
         """Get session manager service"""
-        return get_service('session_manager')
+        return get_service('session_manager')  # type: ignore
     
     @property
     def configuration_manager(self) -> IConfigurationManager:
         """Get configuration manager service"""
-        return get_service('configuration_manager')
+        return get_service('configuration_manager')  # type: ignore
     
     @property
     def element_discovery_service(self) -> IElementDiscoveryService:
         """Get element discovery service"""
-        return get_service('element_discovery_service')
+        return get_service('element_discovery_service')  # type: ignore
     
     @property
     def screenshot_service(self) -> IScreenshotService:
         """Get screenshot service"""
-        return get_service('screenshot_service')
+        return get_service('screenshot_service')  # type: ignore
     
     @property
     def performance_monitor(self) -> Any:
@@ -174,12 +174,12 @@ class DIAutomationManager:
     @property
     def visual_testing_service(self) -> IVisualTestingService:
         """Get visual testing service"""
-        return get_service('visual_testing_service')
+        return get_service('visual_testing_service')  # type: ignore
     
     @property
     def input_service(self) -> IInputService:
         """Get input service"""
-        return get_service('input_service')
+        return get_service('input_service')  # type: ignore
     
     @property
     def element_factory(self) -> Any:
@@ -251,7 +251,7 @@ class DIAutomationManager:
             self._logger.error(f"Failed to create backend: {e}")
             raise
     
-    def create_element(self, element_type: str, native_element: Any, session: AutomationSession) -> IElement:
+    def create_element(self, element_type: str, native_element: Any, session: AutomationSession) -> Any:
         """
         Create a specialized element.
         
@@ -271,7 +271,7 @@ class DIAutomationManager:
             self._logger.error(f"Failed to create element: {e}")
             raise
     
-    def find_element(self, session: AutomationSession, **kwargs) -> Optional[IElement]:
+    def find_element(self, session: AutomationSession, **kwargs: Any) -> Optional[IElement]:
         """
         Find element using discovery service.
         
@@ -293,7 +293,7 @@ class DIAutomationManager:
             self._logger.error(f"Failed to find element: {e}")
             raise
     
-    def find_elements(self, session: AutomationSession, **kwargs) -> List[IElement]:
+    def find_elements(self, session: AutomationSession, **kwargs: Any) -> List[IElement]:
         """
         Find multiple elements using discovery service.
         
@@ -334,7 +334,7 @@ class DIAutomationManager:
             self._logger.error(f"Failed to take screenshot: {e}")
             raise
     
-    def get_performance_metrics(self, session: AutomationSession) -> Dict[str, Any]:
+    def get_performance_metrics(self, session: AutomationSession) -> Any:
         """
         Get performance metrics using performance monitor.
         
@@ -375,7 +375,7 @@ class DIAutomationManager:
             self._logger.error(f"Failed to perform visual test: {e}")
             raise
     
-    def send_input(self, session: AutomationSession, input_type: str, **kwargs) -> bool:
+    def send_input(self, session: AutomationSession, input_type: str, **kwargs: Any) -> bool:
         """
         Send input using input service.
         
@@ -433,11 +433,11 @@ class DIAutomationManager:
             self._logger.error(f"Failed to cleanup: {e}")
             raise
     
-    def __enter__(self):
+    def __enter__(self) -> 'DIAutomationManager':
         """Context manager entry"""
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit"""
         self.cleanup()
 
@@ -451,7 +451,7 @@ def get_automation_manager() -> DIAutomationManager:
     global _global_manager
     if _global_manager is None:
         _global_manager = DIAutomationManager()
-    return cast(DIAutomationManager, _global_manager)
+    return _global_manager
 
 
 def create_session(config: Optional[AutomationConfig] = None) -> AutomationSession:

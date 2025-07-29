@@ -16,7 +16,6 @@ dependencies = [
     "pyobjc-framework-Quartz>=11.1; sys_platform == 'darwin'",
     "markdown>=3.8.2",
     "matplotlib>=3.10.3",
-    "mypy>=1.17.0",
     "numpy>=2.0.0,<2.3.0",
     "opencv-contrib-python>=4.12.0.88",
     "pillow>=11.3.0",
@@ -31,10 +30,10 @@ dependencies = [
     "ty>=0.0.1a15",
     "pyrefly>=0.25.0",
     "pre-commit>=4.2.0",
-    "pyright>=1.1.403",
     "paddleocr>=2.10.0",
     "paddlepaddle>=3.1.0",
     "ruff>=0.12.5",
+    "imagehash>=4.3.2",
 ]
 keywords = [
     "ui automation",
@@ -78,39 +77,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-ra -q --cov=pyui_automation --cov-report=term-missing"
 
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-
-[tool.pyright]
-include = ["pyui_automation"]
-exclude = ["tests", "docs", "**/__pycache__", "**/*.pyc"]
-typeCheckingMode = "strict"
-useLibraryCodeForTypes = true
-reportMissingImports = true
-reportMissingTypeStubs = false
-reportUnusedImport = true
-reportUnusedClass = true
-reportUnusedFunction = true
-reportUnusedVariable = true
-reportDuplicateImport = true
-reportOptionalSubscript = true
-reportOptionalMemberAccess = true
-reportOptionalCall = true
-reportOptionalIterable = true
-reportOptionalContextManager = true
-reportOptionalOperand = true
-
 [tool.setuptools]
 packages = ["pyui_automation"]
 
@@ -122,3 +88,12 @@ possibly-unbound-attribute = "ignore"
 
 # Игнорировать ошибки с override
 unresolved-reference = "ignore"
+
+[dependency-groups]
+dev = [
+    "types-pillow>=10.2.0.20240822",
+    "types-psutil>=7.0.0.20250601",
+    "types-pywin32>=311.0.0.20250723",
+    "types-pyyaml>=6.0.12.20250516",
+    "types-requests>=2.32.4.20250611",
+]

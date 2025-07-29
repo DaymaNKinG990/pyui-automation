@@ -7,19 +7,20 @@ Responsible for:
 - Waiting for element state changes
 """
 # Python imports
-from typing import Optional, TYPE_CHECKING, Callable, Any
+from typing import Optional, TYPE_CHECKING, Callable
 import time
 from logging import getLogger
 
 # Local imports
 if TYPE_CHECKING:
     from .base_element import BaseElement
+    from ..core.session import AutomationSession
 
 
 class ElementWaitService:
     """Service for element waiting operations"""
     
-    def __init__(self, session: Any) -> None:
+    def __init__(self, session: 'AutomationSession') -> None:
         """
         Initialize the ElementWaitService.
 
@@ -37,9 +38,8 @@ class ElementWaitService:
             element (BaseElement): The element to wait for.
             timeout (Optional[float]): The timeout in seconds.
         """
-        timeout = timeout or self._session.config.default_timeout
         if timeout is None:
-            timeout = 10.0
+            timeout = self._session.config.default_timeout or 10.0
         start_time = time.time()
         
         while time.time() - start_time < timeout:
@@ -59,9 +59,8 @@ class ElementWaitService:
             element (BaseElement): The element to wait for.
             timeout (Optional[float]): The timeout in seconds.
         """
-        timeout = timeout or self._session.config.default_timeout
         if timeout is None:
-            timeout = 10.0
+            timeout = self._session.config.default_timeout or 10.0
         start_time = time.time()
         
         while time.time() - start_time < timeout:
@@ -158,9 +157,8 @@ class ElementWaitService:
             expected_value (str): The expected value.
             timeout (Optional[float]): The timeout in seconds.
         """
-        timeout = timeout or self._session.config.default_timeout
         if timeout is None:
-            timeout = 10.0
+            timeout = self._session.config.default_timeout or 10.0
         start_time = time.time()
         
         while time.time() - start_time < timeout:

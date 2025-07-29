@@ -52,7 +52,7 @@ class BaseElement(IElement):
         self._state_service = ElementStateService(session)
         
         # Initialize properties for compatibility with tests
-        self._properties = {}
+        self._properties: Dict[str, Any] = {}
 
     @property
     def native_element(self) -> Any:
@@ -85,7 +85,7 @@ class BaseElement(IElement):
         return self.get_property("ControlType") or self.get_attribute("controlType") or "unknown"
 
     # Basic property access methods
-    def get_attribute(self, name: str):
+    def get_attribute(self, name: str) -> Any:
         """Get attribute value by name"""
         try:
             if hasattr(self._element, 'get_attribute'):
@@ -212,9 +212,11 @@ class BaseElement(IElement):
         """
         try:
             if hasattr(self._element, 'CurrentIsOffscreen'):
-                return not self._element.CurrentIsOffscreen
+                result = self._element.CurrentIsOffscreen
+                return not bool(result)
             elif hasattr(self._element, 'isVisible'):
-                return self._element.isVisible()
+                result = self._element.isVisible()
+                return bool(result)
             return True
         except Exception:
             return False
@@ -228,9 +230,11 @@ class BaseElement(IElement):
         """
         try:
             if hasattr(self._element, 'CurrentIsEnabled'):
-                return self._element.CurrentIsEnabled
+                result = self._element.CurrentIsEnabled
+                return bool(result)
             elif hasattr(self._element, 'isEnabled'):
-                return self._element.isEnabled()
+                result = self._element.isEnabled()
+                return bool(result)
             return True
         except Exception:
             return False
@@ -294,7 +298,8 @@ class BaseElement(IElement):
         Returns:
             Optional[str]: The value of the element, or None if the value is not found.
         """
-        return self.get_attribute("value")
+        value = self.get_attribute("value")
+        return str(value) if value is not None else None
 
     @value.setter
     def value(self, new_value: str) -> None:
@@ -316,9 +321,11 @@ class BaseElement(IElement):
         """
         try:
             if hasattr(self._element, 'CurrentToggleState'):
-                return self._element.CurrentToggleState == 1
+                result = self._element.CurrentToggleState
+                return bool(result == 1)
             elif hasattr(self._element, 'isChecked'):
-                return self._element.isChecked()
+                result = self._element.isChecked()
+                return bool(result)
             return False
         except Exception:
             return False
@@ -346,9 +353,11 @@ class BaseElement(IElement):
         """
         try:
             if hasattr(self._element, 'CurrentExpandCollapseState'):
-                return self._element.CurrentExpandCollapseState == 1
+                result = self._element.CurrentExpandCollapseState
+                return bool(result == 1)
             elif hasattr(self._element, 'isExpanded'):
-                return self._element.isExpanded()
+                result = self._element.isExpanded()
+                return bool(result)
             return False
         except Exception:
             return False
@@ -376,7 +385,8 @@ class BaseElement(IElement):
         """
         try:
             if hasattr(self._element, 'CurrentSelection'):
-                return self._element.CurrentSelection[0].CurrentName
+                result = self._element.CurrentSelection[0].CurrentName
+                return str(result) if result is not None else None
             return None
         except Exception:
             return None
@@ -449,16 +459,12 @@ class BaseElement(IElement):
 
     def drag_and_drop(self, target: 'IElement') -> None:
         """
-        Drag and drop - delegated to interaction service.
+        Drag and drop to target element - delegated to interaction service.
 
         Args:
-            target (IElement): The target element to drag and drop to.
+            target (BaseElement): The target element to drop on.
         """
-        # Cast target to BaseElement for the service call
-        if isinstance(target, BaseElement):
-            self._interaction_service.drag_and_drop(self, target)
-        else:
-            raise TypeError("Target must be a BaseElement instance")
+        self._interaction_service.drag_and_drop(self, target)
 
     # Wait operations - delegated to wait service
     def wait_until_enabled(self, timeout: Optional[float] = None) -> bool:
@@ -567,7 +573,7 @@ class BaseElement(IElement):
         children = self._search_service.get_children(self)
         return [BaseElement(child.native_element, self._session) for child in children]
 
-    def find_child_by_property(self, property_name: str, expected_value: Any) -> Optional['IElement']:
+    def find_child_by_property(self, property_name: str, expected_value: str) -> Optional['IElement']:
         """
         Find child by property - delegated to search service.
 
@@ -581,7 +587,7 @@ class BaseElement(IElement):
         child = self._search_service.find_child_by_property(self, property_name, expected_value)
         return BaseElement(child.native_element, self._session) if child else None
 
-    def find_children_by_property(self, property_name: str, expected_value: Any) -> List['IElement']:
+    def find_children_by_property(self, property_name: str, expected_value: str) -> List['IElement']:
         """
         Find children by property - delegated to search service.
 
@@ -723,7 +729,7 @@ class BaseElement(IElement):
         children = self._search_service.find_enabled_children(self)
         return [BaseElement(child.native_element, self._session) for child in children]
 
-    def find_child_by_predicate(self, predicate: Callable) -> Optional['IElement']:
+    def find_child_by_predicate(self, predicate: Callable[['IElement'], bool]) -> Optional['IElement']:
         """
         Find child by predicate - delegated to search service.
 
@@ -736,7 +742,7 @@ class BaseElement(IElement):
         child = self._search_service.find_child_by_predicate(self, predicate)
         return BaseElement(child.native_element, self._session) if child else None
 
-    def find_children_by_predicate(self, predicate: Callable) -> List['IElement']:
+    def find_children_by_predicate(self, predicate: Callable[['IElement'], bool]) -> List['IElement']:
         """
         Find children by predicate - delegated to search service.
 
@@ -850,7 +856,7 @@ class BaseElement(IElement):
         except Exception:
             return False
 
-    def wait_for_condition(self, condition: Callable, timeout: Optional[float] = None) -> bool:
+    def wait_for_condition(self, condition: Callable[[], bool], timeout: Optional[float] = None) -> bool:
         """
         Wait for custom condition.
 

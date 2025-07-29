@@ -8,7 +8,7 @@ Responsible for:
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Any
 
 
 class IInputService(ABC):
@@ -115,6 +115,6 @@ class IInputService(ABC):
         pass
     
     @abstractmethod
-    def send_input(self, input_type: str, **kwargs) -> bool:
+    def send_input(self, input_type: str, **kwargs: Any) -> bool:
         """Send input of specified type with parameters"""
         pass 

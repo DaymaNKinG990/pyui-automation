@@ -8,14 +8,14 @@ Responsible for:
 - Configuration injection
 """
 
-from typing import Dict, Any, cast, Type, Callable
+from typing import Dict, Any, Type, Callable, List
 from logging import getLogger
 
 
 class DIContainer:
     """Simple dependency injection container"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._logger = getLogger(__name__)
         self._services: Dict[str, Any] = {}
         self._factories: Dict[str, Callable] = {}
@@ -61,7 +61,7 @@ class DIContainer:
             
             # Check if factory exists
             if service_name in self._factories:
-                instance = self._factories[service_name](self)
+                instance: Any = self._factories[service_name](self)
                 if service_name in self._singletons:
                     self._singletons[service_name] = instance
                 return instance
@@ -139,12 +139,12 @@ class DIContainer:
             self._logger.error(f"Failed to update config: {e}")
             raise
     
-    def get_registered_services(self) -> list[str]:
+    def get_registered_services(self) -> List[str]:
         """Get list of registered service names"""
         services = set(self._services.keys()) | set(self._factories.keys())
         return list(services)
     
-    def get_singleton_services(self) -> list[str]:
+    def get_singleton_services(self) -> List[str]:
         """Get list of singleton service names"""
         return list(self._singletons.keys())
     
@@ -185,7 +185,7 @@ def get_container() -> DIContainer:
     global _container
     if _container is None:
         _container = DIContainer()
-    return cast(DIContainer, _container)
+    return _container
 
 
 def register_service(service_name: str, service_class: Type, singleton: bool = True) -> None:

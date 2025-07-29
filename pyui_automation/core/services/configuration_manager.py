@@ -8,7 +8,7 @@ Responsible for:
 - Configuration persistence
 """
 
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, List
 from pathlib import Path
 import json
 import yaml
@@ -171,7 +171,7 @@ class ConfigurationManager(IConfigurationManager):
             self._logger.error(f"Failed to save config to {file_path}: {e}")
             return False
     
-    def validate_config(self) -> Dict[str, list[str]]:
+    def validate_config(self) -> Dict[str, List[str]]:
         """Validate configuration values"""
         try:
             errors = []

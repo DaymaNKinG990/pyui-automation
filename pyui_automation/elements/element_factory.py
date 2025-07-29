@@ -5,7 +5,7 @@ This factory creates appropriate specialized element classes based on
 the control type, following the Interface Segregation Principle.
 """
 # Python imports
-from typing import Any, cast, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from logging import getLogger
 
 # Local imports
@@ -81,15 +81,15 @@ class ElementFactory:
             
         try:
             if hasattr(native_element, 'CurrentControlType') and native_element.CurrentControlType and native_element.CurrentControlType.ProgrammaticName:
-                return native_element.CurrentControlType.ProgrammaticName
+                return str(native_element.CurrentControlType.ProgrammaticName)
             elif hasattr(native_element, 'get_property'):
                 control_type = native_element.get_property("ControlType")
                 if control_type:
-                    return control_type
+                    return str(control_type)
             elif hasattr(native_element, 'control_type'):
-                return native_element.control_type
+                return str(native_element.control_type)
             elif hasattr(native_element, 'ControlType') and native_element.ControlType:
-                return native_element.ControlType.ProgrammaticName
+                return str(native_element.ControlType.ProgrammaticName)
             elif hasattr(native_element, 'CurrentClassName'):
                 # Fallback based on class name
                 class_name = native_element.CurrentClassName
@@ -112,6 +112,9 @@ class ElementFactory:
         except Exception as e:
             self._logger.warning(f"Failed to get control type: {e}")
             return "Unknown"
+        
+        # Fallback return to satisfy type checker
+        return "Unknown"
     
     def register_element_type(self, control_type: str, element_class: type) -> None:
         """
@@ -122,7 +125,7 @@ class ElementFactory:
             element_class (type): The element class to register.
         """
         try:
-            self._element_mapping[control_type] = element_class
+            self._element_mapping[control_type] = element_class  # type: ignore
             self._logger.info(f"Registered element type: {control_type} -> {element_class.__name__}")
         except Exception as e:
             self._logger.error(f"Failed to register element type: {e}")
@@ -182,7 +185,7 @@ def get_element_factory() -> ElementFactory:
     global _element_factory
     if _element_factory is None:
         _element_factory = ElementFactory()
-    return cast(ElementFactory, _element_factory)
+    return _element_factory
 
 
 def create_element(native_element: Any, session: 'AutomationSession') -> BaseElement:

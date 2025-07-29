@@ -12,16 +12,16 @@ class TestWaitUntil:
     
     def test_wait_until_success(self):
         """Test wait_until with successful condition"""
-        condition_called = False
+        call_count = 0
         
         def condition():
-            nonlocal condition_called
-            condition_called = True
+            nonlocal call_count
+            call_count += 1
             return True
         
         result = wait_until(condition, timeout=1.0)
         assert result is True
-        assert condition_called is True
+        assert call_count == 1
     
     def test_wait_until_timeout(self):
         """Test wait_until with timeout"""
@@ -43,7 +43,7 @@ class TestWaitUntil:
     def test_wait_until_invalid_condition(self):
         """Test wait_until with invalid condition"""
         with pytest.raises(TypeError):
-            wait_until("not callable", timeout=1.0)
+            wait_until("not callable", timeout=1.0)  # type: ignore
     
     def test_wait_until_negative_timeout(self):
         """Test wait_until with negative timeout"""
@@ -60,6 +60,19 @@ class TestWaitUntil:
         
         with pytest.raises(ValueError):
             wait_until(condition, timeout=1.0, poll_frequency=-0.1)
+    
+    def test_wait_until_poll_frequency(self):
+        """Test wait_until with custom poll frequency"""
+        call_count = 0
+        
+        def condition():
+            nonlocal call_count
+            call_count += 1
+            return call_count >= 3  # Return True after 3 calls
+        
+        result = wait_until(condition, timeout=1.0, poll_frequency=0.01)
+        assert result is True
+        assert call_count >= 3
 
 
 class TestElementWaits:

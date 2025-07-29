@@ -9,26 +9,35 @@ Responsible for:
 """
 
 import platform
-from typing import Dict, Type, Any, Optional
+from typing import Dict, Type, Any, Optional, List
 from logging import getLogger
 
 from ...backends.base_backend import BaseBackend
 from ...backends.windows import WindowsBackend
-from ...backends.linux import LinuxBackend
-from ...backends.macos import MacOSBackend
+try:
+    from ...backends.linux import LinuxBackend
+except ImportError:
+    LinuxBackend = None
+
+try:
+    from ...backends.macos import MacOSBackend
+except ImportError:
+    MacOSBackend = None
 from ..interfaces.ibackend_factory import IBackendFactory
 
 
 class BackendFactory(IBackendFactory):
     """Factory for creating platform-specific backends"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._logger = getLogger(__name__)
         self._backends: Dict[str, Type[BaseBackend]] = {
             'windows': WindowsBackend,
-            'linux': LinuxBackend,
-            'darwin': MacOSBackend,  # macOS
         }
+        if LinuxBackend is not None:
+            self._backends['linux'] = LinuxBackend
+        if MacOSBackend is not None:
+            self._backends['darwin'] = MacOSBackend
         self._custom_backends: Dict[str, Type[BaseBackend]] = {}
     
     def detect_platform(self) -> str:
@@ -89,7 +98,7 @@ class BackendFactory(IBackendFactory):
             self._logger.error(f"Failed to unregister backend for {platform_name}: {e}")
             return False
     
-    def get_supported_platforms(self) -> list[str]:
+    def get_supported_platforms(self) -> List[str]:
         """Get list of supported platforms"""
         all_platforms = set(self._backends.keys()) | set(self._custom_backends.keys())
         return list(all_platforms)

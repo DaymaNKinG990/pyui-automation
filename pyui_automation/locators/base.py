@@ -151,7 +151,7 @@ class BaseLocator(ILocator):
 
     def __init__(self, backend: IBackendForLocator) -> None:
         """Initialize base locator with LSP compliance"""
-        if backend is None:
+        if not backend:
             raise ValueError("Backend cannot be None")
         
         self._backend = backend
@@ -181,17 +181,14 @@ class BaseLocator(ILocator):
         return self._backend
     
     @property
-    def logger(self):
+    def logger(self) -> Optional[Any]:
         """Get logger instance"""
         return self._logger
     
     def find_element(self, strategy: LocatorStrategy) -> Optional[Any]:
         """Find element with validation"""
-        if strategy is None:
+        if not strategy:
             raise ValueError("Strategy cannot be None")
-        
-        if not isinstance(strategy, LocatorStrategy):
-            raise ValueError("Strategy must be a LocatorStrategy instance")
         
         if not strategy.value:
             raise ValueError("Strategy value cannot be empty")
@@ -205,19 +202,13 @@ class BaseLocator(ILocator):
     
     def find_elements(self, strategy: LocatorStrategy) -> List[Any]:
         """Find elements with validation"""
-        if strategy is None:
+        if not strategy:
             raise ValueError("Strategy cannot be None")
-        
-        if not isinstance(strategy, LocatorStrategy):
-            raise ValueError("Strategy must be a LocatorStrategy instance")
         
         if not strategy.value:
             raise ValueError("Strategy value cannot be empty")
         
         elements = self._find_elements_impl(strategy)
-        
-        if not isinstance(elements, list):
-            raise ValueError("find_elements must return a list")
         
         return elements
     

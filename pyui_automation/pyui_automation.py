@@ -8,7 +8,7 @@ framework and provides easy-to-use methods for common automation tasks.
 import os
 import time
 import sys
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, Tuple
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -44,15 +44,18 @@ class PyUIAutomation:
         from pyui_automation.locators.linux import LinuxLocator
         from pyui_automation.locators.macos import MacOSLocator
         
+        # Initialize locator as Any to avoid type conflicts
+        self.locator: Any
+        
         if platform == 'windows' or (platform == 'auto' and sys.platform == 'win32'):
-            self.locator: Any = WindowsLocator(self.backend)
+            self.locator = WindowsLocator(self.backend)
         elif platform == 'linux' or (platform == 'auto' and sys.platform == 'linux'):
-            self.locator: Any = LinuxLocator(self.backend)
+            self.locator = LinuxLocator(self.backend)
         elif platform == 'macos' or (platform == 'auto' and sys.platform == 'darwin'):
-            self.locator: Any = MacOSLocator(self.backend)
+            self.locator = MacOSLocator(self.backend)
         else:
             # Default to Windows locator
-            self.locator: Any = WindowsLocator(self.backend)
+            self.locator = WindowsLocator(self.backend)
         
         self.session = AutomationSession(self.backend, self.locator)
         
@@ -68,7 +71,7 @@ class PyUIAutomation:
         if app_path:
             self.launch(app_path, window_title)
     
-    def _init_visual_testing(self):
+    def _init_visual_testing(self) -> None:
         """Initialize visual testing if baseline directory exists."""
         baseline_dir = "visual_baseline"
         if os.path.exists(baseline_dir):
@@ -160,7 +163,7 @@ class PyUIAutomation:
         except (ElementNotFoundError, TimeoutError):
             return False
     
-    def wait_for_element(self, element_name: str, timeout: float = 10.0):
+    def wait_for_element(self, element_name: str, timeout: float = 10.0) -> Any:
         """Wait for an element to appear."""
         return self._find_element(element_name, timeout)
     
@@ -182,7 +185,7 @@ class PyUIAutomation:
         """Find all elements by class name."""
         return self.session.find_elements(ByClassName(class_name))
     
-    def find_element_by_text(self, text: str, timeout: float = 10.0):
+    def find_element_by_text(self, text: str, timeout: float = 10.0) -> Any:
         """Find an element by its text content."""
         return self._find_element(text, timeout)
     
@@ -209,11 +212,14 @@ class PyUIAutomation:
         """Assert that current screen matches baseline."""
         try:
             result = self.session.compare_visual(baseline_name)
-            if isinstance(result, tuple):
+            if isinstance(result, (tuple, list)) and len(result) >= 2:
                 match, similarity = result
-            else:
+            elif hasattr(result, 'get'):
                 match = result.get("match", False)
                 similarity = result.get("similarity", 0.0)
+            else:
+                match = False
+                similarity = 0.0
             
             if not match or similarity < threshold:
                 # Capture current screenshot for comparison
@@ -223,7 +229,8 @@ class PyUIAutomation:
                     f"Similarity: {similarity:.3f}, "
                     f"Threshold: {threshold}"
                 )
-            print(f"Visual test passed: {baseline_name}")
+            else:
+                print(f"Visual test passed: {baseline_name}")
         except Exception as e:
             if "baseline not found" in str(e).lower():
                 print(f"Creating new baseline: {baseline_name}")
@@ -238,23 +245,24 @@ class PyUIAutomation:
         element = self._find_element(element_name, timeout)
         if element is None or self.session.ocr is None:
             return ""
-        if self.session.ocr is not None and hasattr(self.session.ocr, 'read_text'):
-            return self.session.ocr.read_text(element, "")
+        if hasattr(self.session.ocr, 'read_text'):
+            result = self.session.ocr.read_text(element, "")
+            return str(result)
         return ""
     
     def ocr_recognize_text(self, image_path: str) -> str:
         """Recognize text from image file."""
         if self.session.ocr is None:
             return ""
-        if self.session.ocr is not None and hasattr(self.session.ocr, 'recognize_text'):
-            return self.session.ocr.recognize_text(image_path)
+        if hasattr(self.session.ocr, 'recognize_text'):
+            result = self.session.ocr.recognize_text(image_path)
+            return str(result)
         return ""
     
     def ocr_set_languages(self, languages: List[str]) -> 'PyUIAutomation':
         """Set languages for OCR recognition."""
         if self.session.ocr is not None and hasattr(self.session.ocr, 'set_languages'):
-            if self.session.ocr is not None and hasattr(self.session.ocr, 'set_languages'):
-                self.session.ocr.set_languages(languages)
+            self.session.ocr.set_languages(languages)
         return self
     
     # Performance monitoring methods
@@ -271,15 +279,15 @@ class PyUIAutomation:
         """Get current performance metrics."""
         return self.session.get_performance_metrics()
     
-    def measure_action_performance(self, action, runs: int = 3) -> Dict[str, float]:
+    def measure_action_performance(self, action: Any, runs: int = 3) -> Dict[str, Any]:
         """Measure performance of an action."""
         return self.session.measure_action_performance(action, runs)
     
-    def run_stress_test(self, action, duration: float) -> Dict[str, Any]:
+    def run_stress_test(self, action: Any, duration: float) -> Dict[str, Any]:
         """Run stress test for specified duration."""
         return self.session.run_stress_test(action, duration)
     
-    def check_memory_leaks(self, action=None, iterations: int = 100) -> Dict[str, Any]:
+    def check_memory_leaks(self, action: Optional[Any] = None, iterations: int = 100) -> Dict[str, Any]:
         """Check for memory leaks."""
         return self.session.check_memory_leaks(action, iterations)
     
@@ -340,12 +348,15 @@ class PyUIAutomation:
         self.session.mouse.drag(start_x, start_y, end_x, end_y, button)
         return self
     
-    def get_mouse_position(self) -> tuple[int, int]:
+    def get_mouse_position(self) -> Tuple[int, int]:
         """Get current mouse position."""
-        return self.session.mouse.get_position()
+        position = self.session.mouse.get_position()
+        if isinstance(position, tuple) and len(position) == 2:
+            return (int(position[0]), int(position[1]))
+        return (0, 0)
     
     # Utility methods
-    def get_screen_size(self) -> tuple[int, int]:
+    def get_screen_size(self) -> Tuple[int, int]:
         """Get screen dimensions."""
         return self.session.get_screen_size()
     
@@ -375,7 +386,7 @@ class PyUIAutomation:
         return self
     
     # Internal methods
-    def _find_element(self, element_name: str, timeout: float = 10.0):
+    def _find_element(self, element_name: str, timeout: float = 10.0) -> Any:
         """Internal method to find element with fallback strategies."""
         try:
             return self.session.find_element_by_object_name(element_name)
@@ -389,15 +400,15 @@ class PyUIAutomation:
                 except ElementNotFoundError:
                     raise ElementNotFoundError(f"Element '{element_name}' not found with any strategy")
     
-    def close(self):
+    def close(self) -> None:
         """Close the application."""
         if self.app:
             self.app.terminate()
     
-    def __enter__(self):
+    def __enter__(self) -> 'PyUIAutomation':
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Optional[type], exc_val: Optional[BaseException], exc_tb: Optional[Any]) -> None:
         self.close()
 
 
@@ -453,7 +464,7 @@ def launch_app(app_path: str, window_title: Optional[str] = None, platform: str 
 
 
 @contextmanager
-def app_session(app_path: str, window_title: Optional[str] = None, platform: str = 'auto'):
+def app_session(app_path: str, window_title: Optional[str] = None, platform: str = 'auto') -> Any:
     """
     Context manager for application sessions.
     

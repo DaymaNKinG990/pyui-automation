@@ -5,6 +5,8 @@ import numpy as np
 from pathlib import Path
 from logging import getLogger
 
+from numpy.typing import NDArray
+
 from ..core.interfaces import IBackend
 from ..locators.interfaces import IBackendForLocator
 
@@ -31,7 +33,7 @@ class BaseBackend(IBackend, IBackendForLocator):
         self._initialized = False
 
     @property
-    def logger(self):
+    def logger(self) -> Any:
         """Get logger instance"""
         return self._logger
 
@@ -136,12 +138,12 @@ class BaseBackend(IBackend, IBackendForLocator):
 
     # Element operations (basic platform-specific)
     @abstractmethod
-    def capture_screen_region(self, x: int, y: int, width: int, height: int) -> Optional[np.ndarray]:
+    def capture_screen_region(self, x: int, y: int, width: int, height: int) -> Optional[NDArray[np.uint8]]:
         """Capture screenshot of specific screen region"""
         pass
 
     @abstractmethod
-    def capture_screenshot(self) -> Optional[np.ndarray]:
+    def capture_screenshot(self) -> Optional[NDArray[np.uint8]]:
         """Capture full screenshot as numpy array"""
         pass
 
@@ -153,7 +155,7 @@ class BaseBackend(IBackend, IBackendForLocator):
 
     # Methods for IBackendForLocator compatibility
     @property
-    def root(self):
+    def root(self) -> Any:
         """Get root element - to be implemented by subclasses"""
         raise NotImplementedError("root property must be implemented by subclasses")
 
@@ -209,7 +211,7 @@ class BaseBackend(IBackend, IBackendForLocator):
         """Type text into element (default implementation)"""
         return False
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Destructor to ensure cleanup"""
         try:
             self.cleanup()

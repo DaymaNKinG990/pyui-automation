@@ -1,16 +1,18 @@
-"""Visual testing functionality for UI automation"""
+"""
+Visual testing utilities for UI automation.
+"""
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
+from typing import Any, Dict, List, Optional, Tuple, Union
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass
 import time
+from ..utils.image import crop_image
 
-from ..utils import (
-    crop_image,
-    validate_type
-)
+# Type aliases
+ImageArray = NDArray[Any]
 
 
 @dataclass
@@ -36,7 +38,7 @@ class VisualMatcher:
         self.element = element
         self.similarity_threshold = similarity_threshold
 
-    def find_element_in_image(self, screen_image: np.ndarray) -> Optional[Tuple[int, int]]:
+    def find_element_in_image(self, screen_image: ImageArray) -> Optional[Tuple[int, int]]:
         """
         Find element in screen image using template matching.
 
@@ -57,7 +59,7 @@ class VisualMatcher:
             return (int(max_loc[0]), int(max_loc[1]))
         return None
 
-    def find_all_elements_in_image(self, screen_image: np.ndarray) -> List[Dict[str, Any]]:
+    def find_all_elements_in_image(self, screen_image: ImageArray) -> List[Dict[str, Any]]:
         """
         Find all occurrences of element in screen image.
 
@@ -83,7 +85,7 @@ class VisualMatcher:
         
         return matches
 
-    def compare_images(self, img1: np.ndarray, img2: np.ndarray, resize: bool = False, roi: Optional[Tuple[int, int, int, int]] = None) -> float:
+    def compare_images(self, img1: Any, img2: Any, resize: bool = False, roi: Optional[Tuple[int, int, int, int]] = None) -> float:
         """
         Compare two images and calculate similarity.
 
@@ -97,7 +99,7 @@ class VisualMatcher:
             Similarity score between 0 and 1
         """
         # Validate inputs
-        if not validate_type(img1, np.ndarray) or not validate_type(img2, np.ndarray):
+        if not isinstance(img1, np.ndarray) or not isinstance(img2, np.ndarray):
             return 0.0
             
         if resize and img1.shape != img2.shape:
@@ -117,7 +119,7 @@ class VisualMatcher:
         
         return float(similarity)
 
-    def find_element(self, template: np.ndarray) -> Optional[Tuple[int, int]]:
+    def find_element(self, template: ImageArray) -> Optional[Tuple[int, int]]:
         """
         Find element in screen using template matching.
 
@@ -135,7 +137,7 @@ class VisualMatcher:
             return (int(max_loc[0]), int(max_loc[1]))
         return None
 
-    def find_all_elements(self, template: np.ndarray, threshold: float = 0.8) -> List[Dict[str, Any]]:
+    def find_all_elements(self, template: ImageArray, threshold: float = 0.8) -> List[Dict[str, Any]]:
         """
         Find all occurrences of a template in the screen.
 
@@ -159,7 +161,7 @@ class VisualMatcher:
         
         return matches
 
-    def wait_for_image(self, template: np.ndarray, timeout: float = 10) -> bool:
+    def wait_for_image(self, template: ImageArray, timeout: float = 10) -> bool:
         """
         Wait for image to appear on screen.
 
@@ -177,7 +179,7 @@ class VisualMatcher:
             time.sleep(0.1)
         return False
 
-    def verify_visual_state(self, baseline: np.ndarray) -> Dict[str, Any]:
+    def verify_visual_state(self, baseline: ImageArray) -> float:
         """
         Verify current visual state against baseline.
 
@@ -190,7 +192,7 @@ class VisualMatcher:
         current = self.element.capture_screenshot()
         return self.compare_images(current, baseline)
 
-    def highlight_differences(self, img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
+    def highlight_differences(self, img1: ImageArray, img2: ImageArray) -> ImageArray:
         """
         Create image highlighting differences between two images.
 
@@ -212,7 +214,7 @@ class VisualMatcher:
         cv2.drawContours(result, contours, -1, (0, 0, 255), 2)
         return result
 
-    def generate_diff_report(self, img1: np.ndarray, img2: np.ndarray, output_path: str) -> None:
+    def generate_diff_report(self, img1: ImageArray, img2: ImageArray, output_path: str) -> None:
         """
         Generate a visual difference report between two images.
 
@@ -260,11 +262,11 @@ class VisualTester:
         """
         self.baseline_dir = Path(baseline_dir)
         self.baseline_dir.mkdir(parents=True, exist_ok=True)
-        self._baseline_cache: Dict[str, np.ndarray] = {}
+        self._baseline_cache: Dict[str, ImageArray] = {}
         self.similarity_threshold = threshold
         self.threshold = threshold  # Alias for compatibility
 
-    def capture_baseline(self, name: str, image: np.ndarray) -> bool:
+    def capture_baseline(self, name: str, image: Any) -> bool:
         """
         Capture a baseline image for comparison.
 
@@ -290,7 +292,7 @@ class VisualTester:
         self._baseline_cache[name] = image
         return True
 
-    def read_baseline(self, name: str) -> np.ndarray:
+    def read_baseline(self, name: str) -> ImageArray:
         """
         Read baseline image from the baseline directory.
 
@@ -321,7 +323,7 @@ class VisualTester:
         self._baseline_cache[name] = baseline
         return baseline
 
-    def _calculate_similarity(self, img1: np.ndarray, img2: np.ndarray) -> float:
+    def _calculate_similarity(self, img1: ImageArray, img2: ImageArray) -> float:
         """
         Calculate similarity score between two images.
 
@@ -384,7 +386,7 @@ class VisualTester:
         else:
             return similarity >= threshold
 
-    def compare_with_baseline(self, name: str, current: np.ndarray) -> Tuple[bool, float]:
+    def compare_with_baseline(self, name: str, current: Any) -> Tuple[bool, float]:
         """
         Compare current image with baseline.
 
@@ -402,7 +404,7 @@ class VisualTester:
         except (FileNotFoundError, ValueError):
             return False, 1.0
 
-    def compare(self, current: np.ndarray, baseline: np.ndarray, resize: bool = False, roi: Optional[tuple] = None) -> Dict[str, Any]:
+    def compare(self, current: Any, baseline: Any, resize: bool = False, roi: Optional[tuple] = None) -> Dict[str, Any]:
         """
         Compare two images and return similarity score and match status.
 
@@ -429,6 +431,10 @@ class VisualTester:
 
         # Apply ROI if provided
         if roi is not None:
+            x: int
+            y: int
+            w: int
+            h: int
             x, y, w, h = roi
             current = current[y:y+h, x:x+w]
             baseline = baseline[y:y+h, x:x+w]
@@ -490,7 +496,7 @@ class VisualTester:
         except Exception as e:
             raise RuntimeError(f"Failed to compare images: {str(e)}")
 
-    def verify_hash(self, name: str, current: np.ndarray) -> bool:
+    def verify_hash(self, name: str, current: Any) -> bool:
         """
         Verify perceptual hash of current image against baseline.
 
@@ -512,7 +518,7 @@ class VisualTester:
         baseline_hash = self._calculate_phash(baseline)
         return np.array_equal(current_hash, baseline_hash)
 
-    def _calculate_phash(self, image: np.ndarray, hash_size: int = 8) -> np.ndarray:
+    def _calculate_phash(self, image: Any, hash_size: int = 8) -> Any:
         """
         Calculate perceptual hash for an image.
 
@@ -541,7 +547,7 @@ class VisualTester:
         except Exception as e:
             raise RuntimeError(f"Failed to calculate image hash: {str(e)}")
 
-    def calculate_phash(self, image: np.ndarray, hash_size: int = 8) -> np.ndarray:
+    def calculate_phash(self, image: Any, hash_size: int = 8) -> Any:
         """
         Calculate perceptual hash for an image.
 
@@ -599,7 +605,7 @@ class VisualTester:
         
         report_path.write_text("\n".join(html_content))
 
-    def find_element(self, template: np.ndarray) -> Optional[Tuple[int, int]]:
+    def find_element(self, template: ImageArray) -> Optional[Tuple[int, int]]:
         """Find element in baseline_dir images using template matching"""
         import glob
         import cv2
@@ -618,7 +624,7 @@ class VisualTester:
             return (int(max_loc[0]), int(max_loc[1]))
         return None
 
-    def find_all_elements(self, template: np.ndarray, threshold: float = 0.8):
+    def find_all_elements(self, template: ImageArray, threshold: float = 0.8) -> List[Dict[str, Any]]:
         """Find all elements in baseline_dir images using template matching"""
         import glob
         import cv2
@@ -636,25 +642,13 @@ class VisualTester:
         loc = np.where(res >= threshold)
         return [{'location': (int(x), int(y)), 'confidence': float(res[y, x])} for y, x in zip(*loc)]
 
-    def generate_diff_report(self, img1, img2, output_path):
+    def generate_diff_report(self, img1: Any, img2: Any, output_path: str) -> None:
         """Сохраняет diff-изображение между img1 и img2 по пути output_path"""
         import cv2
         diff = cv2.absdiff(img1, img2)
         cv2.imwrite(output_path, diff)
 
-
-
-    def wait_for_image(self, template: np.ndarray, timeout: float = 10) -> bool:
-        """Wait for image to appear in baseline_dir images using template matching"""
-        import time
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            if self.find_element(template) is not None:
-                return True
-            time.sleep(0.1)
-        return False
-
-    def highlight_differences(self, img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
+    def highlight_differences(self, img1: ImageArray, img2: ImageArray) -> ImageArray:
         """Highlight differences between two images (контуры отличий)"""
         if img1.shape != img2.shape:
             raise ValueError("Images must have the same dimensions")
@@ -703,7 +697,7 @@ class VisualTester:
                 
             baseline = self.read_baseline(name)
             result = self.compare(current_image, baseline)
-            return result['match']
+            return bool(result['match'])
         except Exception:
             return False
 

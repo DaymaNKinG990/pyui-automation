@@ -7,7 +7,7 @@ Responsible for:
 - Locator registration
 """
 
-from typing import Dict, Type, Any
+from typing import Dict, Type, Any, List
 from logging import getLogger
 
 from ...locators.windows import WindowsLocator
@@ -20,7 +20,7 @@ from ..interfaces.ilocator_factory import ILocatorFactory
 class LocatorFactory(ILocatorFactory):
     """Factory for creating platform-specific locators"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._logger = getLogger(__name__)
         self._locators: Dict[str, Type] = {
             'windows': WindowsLocator,
@@ -71,7 +71,7 @@ class LocatorFactory(ILocatorFactory):
             self._logger.error(f"Failed to unregister locator for {platform_name}: {e}")
             return False
     
-    def get_supported_platforms(self) -> list[str]:
+    def get_supported_platforms(self) -> List[str]:
         """Get list of supported platforms"""
         all_platforms = set(self._locators.keys()) | set(self._custom_locators.keys())
         return list(all_platforms)

@@ -8,11 +8,14 @@ Responsible for:
 - Visual testing reports
 """
 
-from typing import Optional, Union, Tuple, Any
+from typing import Optional, Union, Tuple, Any, TYPE_CHECKING
 from pathlib import Path
 import numpy as np
 from logging import getLogger
 import time
+
+if TYPE_CHECKING:
+    from ..session import AutomationSession
 
 from ...elements.base_element import BaseElement
 from ...utils.image import load_image, save_image, compare_images
@@ -23,7 +26,7 @@ from ..interfaces.ivisual_testing_service import IVisualTestingService
 class VisualTestingService(IVisualTestingService):
     """Service for visual testing operations"""
     
-    def __init__(self, session: Any):
+    def __init__(self, session: 'AutomationSession'):
         """Initialize Visual Testing Service"""
         self._session = session
         self._logger = getLogger(__name__)
@@ -51,7 +54,8 @@ class VisualTestingService(IVisualTestingService):
         """Capture visual baseline"""
         try:
             if self._visual_tester:
-                return self._visual_tester.capture_baseline(name, element)
+                result = self._visual_tester.capture_baseline(name, element)
+                return bool(result)
             
             # Fallback implementation
             if element:
@@ -75,7 +79,11 @@ class VisualTestingService(IVisualTestingService):
         """Verify visual state against baseline"""
         try:
             if self._visual_tester:
-                return self._visual_tester.verify_visual(name, element)
+                result = self._visual_tester.verify_visual(name, element)
+                if isinstance(result, tuple) and len(result) == 2:
+                    return result
+                else:
+                    return False, 0.0
             
             # Fallback implementation
             if self._baseline_dir is None:
@@ -96,7 +104,10 @@ class VisualTestingService(IVisualTestingService):
             if current_image is None:
                 return False, 0.0
             
-            similarity = compare_images(baseline_image, current_image) if baseline_image is not None and current_image is not None else 0.0
+            if baseline_image is not None and current_image is not None:
+                similarity = compare_images(baseline_image, current_image)
+            else:
+                similarity = 0.0
             is_match = similarity >= self._threshold
             
             self._logger.info(f"Visual verification {name}: similarity={similarity:.3f}, match={is_match}")
@@ -109,7 +120,7 @@ class VisualTestingService(IVisualTestingService):
         """Compare visual state (alias for verify_visual)"""
         return self.verify_visual(name, element)
     
-    def verify_visual_state(self, name: str, element: Optional[BaseElement] = None, threshold: Optional[float] = None) -> bool:
+    def verify_visual_state(self, name: str, element: Optional[BaseElement] = None, threshold: Optional[float] = None) -> Any:
         """Verify visual state and return boolean result"""
         try:
             is_match, similarity = self.verify_visual(name, element)
@@ -206,4 +217,32 @@ class VisualTestingService(IVisualTestingService):
             return highlighted
         except Exception as e:
             self._logger.error(f"Failed to highlight differences: {e}")
-            return img1 
+            return img1
+    
+    def compare_images(self, baseline_path: Union[str, Path], current_image: Union[np.ndarray, str, Path]) -> dict:
+        """Compare two images and return comparison results"""
+        try:
+            if isinstance(baseline_path, (str, Path)):
+                baseline_img = load_image(Path(baseline_path))
+            else:
+                baseline_img = baseline_path
+                
+            if isinstance(current_image, (str, Path)):
+                current_img = load_image(Path(current_image))
+            else:
+                current_img = current_image
+                
+            if baseline_img is None or current_img is None:
+                return {"match": False, "similarity": 0.0, "differences": []}
+            
+            similarity = compare_images(baseline_img, current_img)
+            is_match = similarity >= self._threshold
+            
+            return {
+                "match": is_match,
+                "similarity": similarity,
+                "differences": []
+            }
+        except Exception as e:
+            self._logger.error(f"Failed to compare images: {e}")
+            return {"match": False, "similarity": 0.0, "differences": []} 

@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
-from typing import Tuple, Optional, List
+from numpy.typing import NDArray
+from typing import Tuple, Optional, List, Any
 from pathlib import Path
 
 # Type alias for template matching results: (x, y, confidence_score)
 Match = Tuple[int, int, float]
 
 
-def load_image(path: Path) -> Optional[np.ndarray]:
+def load_image(path: Path) -> Optional[NDArray[Any]]:
     """
     Load image from file.
 
@@ -22,12 +23,12 @@ def load_image(path: Path) -> Optional[np.ndarray]:
     except Exception:
         return None
 
-def save_image(image: np.ndarray, path: Path) -> bool:
+def save_image(image: Any, path: Path) -> bool:
     """
     Save image to file.
 
     Args:
-        image (np.ndarray): The image data to save.
+        image (NDArray[Any]): The image data to save.
         path (Path): The file path to save the image to.
 
     Returns:
@@ -38,17 +39,17 @@ def save_image(image: np.ndarray, path: Path) -> bool:
     except Exception:
         return False
 
-def resize_image(image: np.ndarray, width: Optional[int] = None, height: Optional[int] = None) -> np.ndarray:
+def resize_image(image: Any, width: Optional[int] = None, height: Optional[int] = None) -> Any:
     """
     Resize an image while maintaining its aspect ratio.
 
     Args:
-        image (np.ndarray): The image to be resized.
+        image (NDArray[Any]): The image to be resized.
         width (Optional[int]): The desired width of the resized image. If None, height must be provided.
         height (Optional[int]): The desired height of the resized image. If None, width must be provided.
 
     Returns:
-        np.ndarray: The resized image with maintained aspect ratio.
+        NDArray[Any]: The resized image with maintained aspect ratio.
 
     Raises:
         ValueError: If both width and height are None, or if after calculation, either width or height remains None.
@@ -67,15 +68,16 @@ def resize_image(image: np.ndarray, width: Optional[int] = None, height: Optiona
     if width is None or height is None:
         raise ValueError("Either width or height must be provided")
 
-    return cv2.resize(image, (width, height))
+    resized = cv2.resize(image, (width, height))
+    return resized
 
-def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) -> float:
+def compare_images(img1: Any, img2: Any, threshold: float = 0.95) -> float:
     """
     Compare two images for similarity.
 
     Args:
-        img1 (np.ndarray): The first image to compare.
-        img2 (np.ndarray): The second image to compare.
+        img1 (NDArray[Any]): The first image to compare.
+        img2 (NDArray[Any]): The second image to compare.
         threshold (float, optional): The minimum similarity score required for the comparison to return True. Defaults to 0.95.
 
     Returns:
@@ -99,7 +101,7 @@ def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) 
     
     # Ensure same shape
     if img1_float.shape != img2_float.shape:
-        return False
+        return 0.0
     
     # Ensure both arrays have the same dtype and shape for subtraction
     if img1_float.dtype != img2_float.dtype:
@@ -128,13 +130,13 @@ def compare_images(img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95) 
     similarity = 1.0 - (mse / 255.0)  # Normalize by max pixel value
     return float(similarity)
 
-def find_template(image: np.ndarray, template: np.ndarray, threshold: float = 0.8) -> List[Match]:
+def find_template(image: Any, template: Any, threshold: float = 0.8) -> List[Match]:
     """
     Find template in image using template matching.
 
     Args:
-        image (np.ndarray): The image to search for the template in.
-        template (np.ndarray): The template image to search for.
+        image (NDArray[Any]): The image to search for the template in.
+        template (NDArray[Any]): The template image to search for.
         threshold (float, optional): The minimum similarity score required for a match. Defaults to 0.8.
 
     Returns:
@@ -235,19 +237,19 @@ def non_max_suppression(
     return result
 
 def highlight_region(
-    image: np.ndarray,
+    image: NDArray[Any],
     x: int,
     y: int,
     width: int,
     height: int,
     color: Tuple[int, int, int] = (0, 255, 0),
     thickness: int = 2
-) -> np.ndarray:
+) -> NDArray[Any]:
     """
     Draw a rectangle around a specified region of interest in an image.
 
     Args:
-        image (np.ndarray): The image on which to draw the rectangle.
+        image (NDArray[Any]): The image on which to draw the rectangle.
         x (int): The x-coordinate of the top-left corner of the rectangle.
         y (int): The y-coordinate of the top-left corner of the rectangle.
         width (int): The width of the rectangle.
@@ -256,37 +258,38 @@ def highlight_region(
         thickness (int, optional): The thickness of the rectangle's border. Defaults to 2.
 
     Returns:
-        np.ndarray: The image with the rectangle drawn on it.
+        NDArray[Any]: The image with the rectangle drawn on it.
     """
     img_copy = image.copy()
     cv2.rectangle(img_copy, (x, y), (x + width, y + height), color, thickness)
     return img_copy
 
-def crop_image(image: np.ndarray, x: int, y: int, width: int, height: int) -> np.ndarray:
+def crop_image(image: Any, x: int, y: int, width: int, height: int) -> Any:
     """
     Crop image to specified region.
 
     Args:
-        image (np.ndarray): The image to be cropped.
+        image (NDArray[Any]): The image to be cropped.
         x (int): The x-coordinate of the top-left corner of the cropped region.
         y (int): The y-coordinate of the top-left corner of the cropped region.
         width (int): The width of the cropped region.
         height (int): The height of the cropped region.
 
     Returns:
-        np.ndarray: The cropped image.
+        NDArray[Any]: The cropped image.
     """
-    return image[y:y+height, x:x+width]
+    cropped = image[y:y+height, x:x+width]
+    return cropped
 
-def preprocess_image(image: np.ndarray) -> np.ndarray:
+def preprocess_image(image: Any) -> Any:
     """
     Preprocess image for better analysis.
     
     Args:
-        image (np.ndarray): Input image
+        image (NDArray[Any]): Input image
         
     Returns:
-        np.ndarray: Preprocessed image
+        NDArray[Any]: Preprocessed image
     """
     # Convert to grayscale if needed
     if len(image.shape) == 3:
@@ -306,17 +309,17 @@ def preprocess_image(image: np.ndarray) -> np.ndarray:
     
     return equalized
 
-def create_mask(image: np.ndarray, lower: Tuple[int, int, int], upper: Tuple[int, int, int]) -> np.ndarray:
+def create_mask(image: Any, lower: Tuple[int, int, int], upper: Tuple[int, int, int]) -> Any:
     """
     Create color mask for image.
     
     Args:
-        image (np.ndarray): Input image
+        image (NDArray[Any]): Input image
         lower (Tuple[int, int, int]): Lower HSV color bounds
         upper (Tuple[int, int, int]): Upper HSV color bounds
         
     Returns:
-        np.ndarray: Binary mask
+        NDArray[Any]: Binary mask
     """
     # Convert to HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -326,16 +329,16 @@ def create_mask(image: np.ndarray, lower: Tuple[int, int, int], upper: Tuple[int
     
     return mask
 
-def enhance_image(image: np.ndarray, method: str = "contrast") -> np.ndarray:
+def enhance_image(image: Any, method: str = "contrast") -> Any:
     """
     Enhance image using specified method.
     
     Args:
-        image (np.ndarray): Input image
+        image (NDArray[Any]): Input image
         method (str): Enhancement method ("contrast", "brightness", "sharpness")
         
     Returns:
-        np.ndarray: Enhanced image
+        NDArray[Any]: Enhanced image
     """
     if method == "contrast":
         # Apply CLAHE for contrast enhancement

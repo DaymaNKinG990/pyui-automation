@@ -7,7 +7,7 @@ Provides controlled logging that can be disabled for library users.
 # Python libraries
 import os
 import logging
-from typing import Optional, Dict, Any, cast
+from typing import Optional, Dict, Any
 from pathlib import Path
 
 
@@ -24,13 +24,13 @@ class LogManager:
     
     _instance = None
     
-    def __new__(cls):
+    def __new__(cls) -> "LogManager":
         """Singleton pattern implementation"""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize LogManager"""
         if hasattr(self, '_initialized'):
             return
@@ -208,7 +208,7 @@ def get_log_manager() -> LogManager:
     global _log_manager
     if _log_manager is None:
         _log_manager = LogManager()
-    return cast(LogManager, _log_manager)
+    return _log_manager
 
 
 def get_logger(name: str) -> logging.Logger:

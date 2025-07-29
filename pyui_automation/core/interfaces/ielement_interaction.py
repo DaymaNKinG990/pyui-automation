@@ -75,7 +75,12 @@ class IElementInteraction(ABC):
     
     @abstractmethod
     def drag_and_drop(self, target: 'IElement') -> None:
-        """Drag and drop element to target"""
+        """
+        Drag and drop to target element.
+
+        Args:
+            target (IElement): The target element to drop on.
+        """
         pass
     
     @abstractmethod

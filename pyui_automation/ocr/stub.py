@@ -5,7 +5,7 @@ This module provides a stub OCR engine for testing purposes.
 Follows SRP by providing test data without real OCR processing.
 """
 
-import numpy as np
+from numpy.typing import NDArray
 from typing import List, Union, Dict, Any, Tuple
 from pathlib import Path
 
@@ -21,7 +21,7 @@ class StubOCREngine(IOCRService):
     Single Responsibility: Provide test data for OCR functionality.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize stub OCR engine"""
         self._languages = ["en"]
         self._test_data = {
@@ -38,7 +38,7 @@ class StubOCREngine(IOCRService):
             raise ValueError("Languages list cannot be empty")
         self._languages = languages
     
-    def recognize_text(self, image: Union[Path, str, np.ndarray], preprocess: bool = False) -> str:
+    def recognize_text(self, image: Union[Path, str, NDArray[Any]], preprocess: bool = False) -> str:
         """Recognize text in image (stub)"""
         # Return sample text for any input
         return "sample text"
@@ -76,7 +76,7 @@ class StubOCREngine(IOCRService):
             return self._test_data[text].text
         return "sample text"
     
-    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
+    def preprocess_image(self, image: NDArray[Any]) -> NDArray[Any]:
         """Preprocess image for better OCR results (stub)"""
         # Return the same image
         return image

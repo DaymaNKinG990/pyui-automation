@@ -11,7 +11,7 @@ from ..interfaces.iapplication import IApplication
 class AutomationSession:
     """Represents an automation session with application and configuration."""
     
-    def __init__(self, session_id: str, application: IApplication, config: Dict[str, Any]):
+    def __init__(self, session_id: str, application: IApplication, config: Dict[str, Any]) -> None:
         self.session_id = session_id
         self.application = application
         self.config = config
@@ -37,6 +37,6 @@ class AutomationSession:
         self.logger.info(f"Cleaning up session: {self.session_id}")
         # Add cleanup logic here if needed 
         
-    def close(self):
+    def close(self) -> None:
         """Close session"""
         self.is_closed = True 

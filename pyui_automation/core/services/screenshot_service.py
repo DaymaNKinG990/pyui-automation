@@ -7,10 +7,14 @@ Responsible for:
 - Screenshot utilities
 """
 
-from typing import Optional, Union, Any
+from typing import Optional, Union, TYPE_CHECKING
 from pathlib import Path
 import numpy as np
 from logging import getLogger
+
+if TYPE_CHECKING:
+    from ..session import AutomationSession
+    from ...backends.base_backend import BaseBackend
 
 # Local imports
 from ...elements.base_element import BaseElement
@@ -21,7 +25,7 @@ from ..interfaces.iscreenshot_service import IScreenshotService
 class ScreenshotService(IScreenshotService):
     """Service for screenshot operations"""
     
-    def __init__(self, backend: Any, session: Any):
+    def __init__(self, backend: 'BaseBackend', session: 'AutomationSession'):
         self._backend = backend
         self._session = session
         self._logger = getLogger(__name__)

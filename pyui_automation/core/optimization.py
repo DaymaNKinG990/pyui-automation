@@ -21,9 +21,9 @@ class OptimizationManager:
         """
         self.platform = platform.system().lower()
         self.cache_dir = self._get_cache_dir()
-        self.element_cache = {}
+        self.element_cache: Dict[str, Any] = {}
         self.cache_lock = threading.Lock()
-        self._optimizations = {}
+        self._optimizations: Dict[str, Any] = {}
         self._load_cached_data()
         self._configure_platform_optimizations()
 
@@ -56,7 +56,7 @@ class OptimizationManager:
             cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir
 
-    def _configure_platform_optimizations(self):
+    def _configure_platform_optimizations(self) -> None:
         """
         Configure platform-specific optimizations.
 
@@ -89,7 +89,7 @@ class OptimizationManager:
         else:  # Linux
             self._configure_linux_optimizations()
 
-    def _configure_windows_optimizations(self):
+    def _configure_windows_optimizations(self) -> None:
         """Configure Windows-specific optimizations"""
         self._optimizations.update({
             'process_priority': True,
@@ -97,13 +97,13 @@ class OptimizationManager:
             'use_win32_hooks': True
         })
 
-    def _configure_macos_optimizations(self):
+    def _configure_macos_optimizations(self) -> None:
         """Configure macOS-specific optimizations"""
         self._optimizations.update({
             'process_priority': True
         })
 
-    def _configure_linux_optimizations(self):
+    def _configure_linux_optimizations(self) -> None:
         """Configure Linux-specific optimizations"""
         self._optimizations.update({
             'process_priority': True,
@@ -135,7 +135,7 @@ class OptimizationManager:
         with self.cache_lock:
             return self.element_cache.get(element_id)
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """
         Clear all cached data
 
@@ -184,7 +184,7 @@ class OptimizationManager:
         """
         return self._optimizations.get(key)
 
-    def set_optimization(self, key: str, value: Any):
+    def set_optimization(self, key: str, value: Any) -> None:
         """
         Set optimization setting value
 
@@ -223,11 +223,11 @@ class OptimizationManager:
                 import os
                 # Note: os.nice is not available on Windows
                 if hasattr(os, 'nice'):
-                    os.nice(-10)  # type: ignore # Set higher priority on Unix-like systems
+                    os.nice(-10)
             except (OSError, AttributeError):
                 pass
 
-    def configure_platform_optimizations(self, **kwargs) -> None:
+    def configure_platform_optimizations(self, **kwargs: Any) -> None:
         """
         Configure platform-specific optimization settings.
 

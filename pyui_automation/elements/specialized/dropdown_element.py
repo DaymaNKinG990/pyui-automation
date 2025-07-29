@@ -5,7 +5,7 @@ This element implements only the interfaces needed for dropdown operations,
 following the Interface Segregation Principle.
 """
 
-from typing import Optional, Any, Dict, TYPE_CHECKING
+from typing import Optional, Any, Dict, TYPE_CHECKING, List
 import time
 
 if TYPE_CHECKING:
@@ -66,15 +66,15 @@ class DropdownElement(BaseElement):
             return True
         return False
 
-    def get_selected_item(self):
+    def get_selected_item(self) -> Any:
         """Get selected item (mocked for test)"""
         # Обычно возвращает элемент, а не строку
         return self.get_property("SelectedItem")
 
-    def get_all_items(self):
+    def get_all_items(self) -> List[Any]:
         """Get all available items (mocked for test)"""
         self.expand()
-        return [child.text for child in self.get_children()]
+        return self.get_children()
     
     def get_item_count(self) -> int:
         """Get number of items in dropdown"""
@@ -82,7 +82,10 @@ class DropdownElement(BaseElement):
     
     def is_item_selected(self, item_text: str) -> bool:
         """Check if specific item is selected"""
-        return self.get_selected_item() == item_text
+        selected_item = self.get_selected_item()
+        if isinstance(selected_item, str):
+            return selected_item == item_text
+        return False
     
     def wait_for_item_selection(self, item_text: str, timeout: Optional[float] = None) -> bool:
         """Wait for specific item to be selected"""

@@ -81,7 +81,7 @@ class LinuxLocator(BaseLocator):
     def _find_elements_by_name(self, name: str) -> List[Any]:
         """Find elements by name using AT-SPI2"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "name", name, results)
             return results
         except Exception as e:
@@ -101,7 +101,7 @@ class LinuxLocator(BaseLocator):
     def _find_elements_by_role(self, role: str) -> List[Any]:
         """Find elements by role using AT-SPI2"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "role", role, results)
             return results
         except Exception as e:
@@ -121,7 +121,7 @@ class LinuxLocator(BaseLocator):
     def _find_elements_by_description(self, description: str) -> List[Any]:
         """Find elements by description using AT-SPI2"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "description", description, results)
             return results
         except Exception as e:
@@ -139,13 +139,13 @@ class LinuxLocator(BaseLocator):
             for part in path_parts:
                 try:
                     index = int(part)
-                    children = []
+                    children: List[Any] = []
                     if hasattr(current_element, 'getChildren'):
                         get_children_method = getattr(current_element, 'getChildren')
                         if callable(get_children_method):
                             children_result = get_children_method()
                             if isinstance(children_result, (list, tuple)):
-                                children = children_result
+                                children = list(children_result)
                     if 0 <= index < len(children):
                         current_element = children[index]
                     else:
@@ -185,7 +185,7 @@ class LinuxLocator(BaseLocator):
     def _find_elements_by_state(self, state: str) -> List[Any]:
         """Find elements by state using AT-SPI2"""
         try:
-            results = []
+            results: List[Any] = []
             self.backend._find_elements_recursive(self.backend.root, "state", state, results)
             return results
         except Exception as e:

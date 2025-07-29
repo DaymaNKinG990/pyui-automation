@@ -60,7 +60,7 @@ class PerformanceMonitor:
         self.is_monitoring = True
         
         if interval > 0:
-            def collect_metrics():
+            def collect_metrics() -> None:
                 while self.is_monitoring:
                     time.sleep(interval)
                     self.record_metric()
@@ -100,7 +100,7 @@ class PerformanceMonitor:
         
         return self.get_metrics()
 
-    def stop_performance_monitoring(self) -> Dict[str, Any]:
+    def stop_performance_monitoring(self) -> Dict[str, float]:
         """Stop performance monitoring and return metrics as dictionary (for interface compatibility)"""
         metrics = self.stop_monitoring()
         
@@ -192,9 +192,11 @@ class PerformanceMonitor:
             if self.application is None:
                 return 0.0
             if hasattr(self.application, 'cpu_percent'):
-                return self.application.cpu_percent()
+                cpu_percent = self.application.cpu_percent()
+                return float(cpu_percent) if cpu_percent is not None else 0.0
             elif hasattr(self.application, 'process') and self.application.process is not None:
-                return self.application.process.cpu_percent()
+                cpu_percent = self.application.process.cpu_percent()
+                return float(cpu_percent) if cpu_percent is not None else 0.0
             else:
                 return 0.0
         except Exception:

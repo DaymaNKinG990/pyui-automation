@@ -43,6 +43,11 @@ class IInputBackend(ABC):
         """Send a sequence of keys with special key support"""
         pass
     
+    @abstractmethod
+    def hotkey(self, *keys: str) -> bool:
+        """Press and release a combination of keys in sequence"""
+        pass
+    
     # Mouse methods
     @abstractmethod
     def move_mouse(self, x: int, y: int) -> bool:

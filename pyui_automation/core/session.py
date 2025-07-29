@@ -51,7 +51,7 @@ class AutomationSession:
     - Delegating input operations to InputService
     """
     
-    def __init__(self, backend: BaseBackend, locator, session_id: Optional[str] = None, config: Optional[AutomationConfig] = None) -> None:
+    def __init__(self, backend: BaseBackend, locator: Any, session_id: Optional[str] = None, config: Optional[AutomationConfig] = None) -> None:
         """
         Initialize refactored automation session.
 
@@ -89,12 +89,12 @@ class AutomationSession:
         return self._config
     
     @property
-    def logger(self):
+    def logger(self) -> Any:
         """Get logger"""
         return logger
     
     @property
-    def utils(self):
+    def utils(self) -> Any:
         """Get utils for common operations"""
         return self._utils
     
@@ -227,7 +227,7 @@ class AutomationSession:
         """Compare visual state"""
         return self._visual_testing_service.compare_visual(name, element)
     
-    def verify_visual_state(self, name: str, element: Optional[BaseElement] = None, threshold: Optional[float] = None) -> bool:
+    def verify_visual_state(self, name: str, element: Optional[BaseElement] = None, threshold: Optional[float] = None) -> Any:
         """Verify visual state and return boolean result"""
         return self._visual_testing_service.verify_visual_state(name, element, threshold)
     
@@ -235,7 +235,7 @@ class AutomationSession:
         """Capture visual baseline"""
         return self._visual_testing_service.capture_visual_baseline(name, element)
     
-    def generate_visual_report(self, differences: list, name: str, output_dir: Optional[Union[str, Path]] = None) -> None:
+    def generate_visual_report(self, differences: List[Any], name: str, output_dir: Optional[Union[str, Path]] = None) -> None:
         """Generate visual testing report"""
         self._visual_testing_service.generate_visual_report(differences, name, output_dir)
     
@@ -243,7 +243,7 @@ class AutomationSession:
         """Generate difference report between two images"""
         self._visual_testing_service.generate_diff_report(img1, img2, output_path)
     
-    def find_all_elements(self, template: np.ndarray, threshold: float = 0.8) -> list:
+    def find_all_elements(self, template: np.ndarray, threshold: float = 0.8) -> List[Any]:
         """Find all elements matching template"""
         return self._visual_testing_service.find_all_elements(template, threshold)
     
@@ -257,12 +257,12 @@ class AutomationSession:
     
     # Input operations - delegated to InputService
     @property
-    def keyboard(self):
+    def keyboard(self) -> Any:
         """Get keyboard instance"""
         return self._input_service.keyboard
     
     @property
-    def mouse(self):
+    def mouse(self) -> Any:
         """Get mouse instance"""
         return self._input_service.mouse
     
@@ -380,7 +380,7 @@ class AutomationSession:
         self.set_ocr_languages([language])
     
     @property
-    def ocr(self):
+    def ocr(self) -> Any:
         """Get OCR engine"""
         try:
             from ..ocr.engine import OCREngine
@@ -392,7 +392,7 @@ class AutomationSession:
             return None
     
     # Application management
-    def get_current_application(self) -> Optional[Any]:
+    def get_current_application(self) -> Any:
         """Get current application"""
         return self._current_application
     
@@ -409,7 +409,7 @@ class AutomationSession:
         self.attach_to_process(pid)
         return self._current_application
     
-    def launch_application(self, path: str, *args, **kwargs) -> Any:
+    def launch_application(self, path: str, *args: Any, **kwargs: Any) -> Any:
         """Launch application"""
         try:
             self._current_application = self.backend.launch_application(path, list(args))
@@ -469,16 +469,14 @@ class AutomationSession:
         except Exception as e:
             logger.error(f"Failed to cleanup session: {e}")
     
-    def __del__(self):
+    def __del__(self) -> None:
         """Destructor"""
         try:
             self.cleanup()
         except Exception:
             pass 
 
-    def close(self):
-        """Close session"""
-        self.is_closed = True
+
 
 
 class SessionUtils:
@@ -488,7 +486,7 @@ class SessionUtils:
     Provides convenient access to common utility functions.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize session utils"""
         pass
     
@@ -501,7 +499,7 @@ class SessionUtils:
         """Save image to file"""
         return save_image(image, Path(path) if isinstance(path, str) else path)
     
-    def resize_image(self, image: np.ndarray, width: Optional[int] = None, height: Optional[int] = None) -> np.ndarray:
+    def resize_image(self, image: np.ndarray, width: Optional[int] = None, height: Optional[int] = None) -> Any:
         """Resize image while maintaining aspect ratio"""
         return resize_image(image, width, height)
     
@@ -519,19 +517,19 @@ class SessionUtils:
         """Draw a rectangle around a specified region"""
         return highlight_region(image, x, y, width, height, color, thickness)
     
-    def crop_image(self, image: np.ndarray, x: int, y: int, width: int, height: int) -> np.ndarray:
+    def crop_image(self, image: np.ndarray, x: int, y: int, width: int, height: int) -> Any:
         """Crop image to specified region"""
         return crop_image(image, x, y, width, height)
     
-    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
+    def preprocess_image(self, image: np.ndarray) -> Any:
         """Preprocess image for better analysis"""
         return preprocess_image(image)
     
-    def create_mask(self, image: np.ndarray, lower: Tuple[int, int, int], upper: Tuple[int, int, int]) -> np.ndarray:
+    def create_mask(self, image: np.ndarray, lower: Tuple[int, int, int], upper: Tuple[int, int, int]) -> Any:
         """Create color mask for image"""
         return create_mask(image, lower, upper)
     
-    def enhance_image(self, image: np.ndarray, method: str = "contrast") -> np.ndarray:
+    def enhance_image(self, image: np.ndarray, method: str = "contrast") -> Any:
         """Enhance image using specified method"""
         return enhance_image(image, method)
     

@@ -7,18 +7,19 @@ Responsible for:
 - Finding elements by text
 """
 # Python imports
-from typing import Optional, List, Any, TYPE_CHECKING, Callable
+from typing import Optional, List, TYPE_CHECKING, Callable
 from logging import getLogger
 
 # Local imports
 if TYPE_CHECKING:
     from .base_element import BaseElement
+    from ..core.session import AutomationSession
 
 
 class ElementSearchService:
     """Service for element search operations"""
     
-    def __init__(self, session: Any) -> None:
+    def __init__(self, session: 'AutomationSession') -> None:
         """
         Initialize the ElementSearchService.
 
@@ -58,7 +59,7 @@ class ElementSearchService:
             self._logger.error(f"Failed to get child elements: {e}")
             return []
     
-    def find_child_by_property(self, element: "BaseElement", property_name: str, expected_value: Any) -> Optional["BaseElement"]:
+    def find_child_by_property(self, element: "BaseElement", property_name: str, expected_value: str) -> Optional["BaseElement"]:
         """
         Find child element by property.
 
@@ -77,7 +78,7 @@ class ElementSearchService:
             self._logger.error(f"Failed to find child by property: {e}")
             return None
     
-    def find_children_by_property(self, element: "BaseElement", property_name: str, expected_value: Any) -> List["BaseElement"]:
+    def find_children_by_property(self, element: "BaseElement", property_name: str, expected_value: str) -> List["BaseElement"]:
         """
         Find child elements by property.
 

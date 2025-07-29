@@ -180,7 +180,7 @@ def list_files(directory: Union[str, Path], pattern: str = "*") -> List[Path]:
         if not dir_path.exists() or not dir_path.is_dir():
             return []
             
-        files = []
+        files: List[Path] = []
         for file_path in dir_path.glob(pattern):
             if file_path.is_file():
                 files.append(file_path)

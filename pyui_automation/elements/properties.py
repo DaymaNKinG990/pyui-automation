@@ -6,7 +6,7 @@ and provide type-safe access to element attributes.
 """
 # Python imports
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from dataclasses import dataclass
 
 
@@ -134,20 +134,20 @@ class BoolProperty(Property):
 class DictProperty(Property):
     """Dictionary property for complex element attributes like location, size."""
     
-    def get_value(self) -> Dict[str, Any]:
+    def get_value(self) -> Dict[str, Union[int, float, str, bool]]:
         """
         Get dictionary value from element.
 
         Returns:
-            Dict[str, Any]: The dictionary value of the element.
+            Dict[str, Union[int, float, str, bool]]: The dictionary value of the element.
         """
         try:
             if self.name == 'location' and hasattr(self._element, 'location'):
-                return self._element.location
+                return self._element.location  # type: ignore[no-any-return]
             elif self.name == 'size' and hasattr(self._element, 'size'):
-                return self._element.size
+                return self._element.size  # type: ignore[no-any-return]
             elif self.name == 'rect' and hasattr(self._element, 'rect'):
-                return self._element.rect
+                return self._element.rect  # type: ignore[no-any-return]
             elif self.name == 'center':
                 # Calculate center from location and size
                 location = self._element.location if hasattr(self._element, 'location') else {'x': 0, 'y': 0}
@@ -181,9 +181,11 @@ class OptionalStringProperty(Property):
                 return str(value) if value is not None else None
             
             if self.name == 'value' and hasattr(self._element, 'value'):
-                return self._element.value
+                value = self._element.value
+                return str(value) if value is not None else None
             elif self.name == 'selected_item' and hasattr(self._element, 'get_property'):
-                return self._element.get_property("selected") or self._element.get_property("selected_item")
+                selected = self._element.get_property("selected") or self._element.get_property("selected_item")
+                return str(selected) if selected is not None else None
             elif hasattr(self._element, self.name):
                 value = getattr(self._element, self.name)
                 return str(value) if value is not None else None

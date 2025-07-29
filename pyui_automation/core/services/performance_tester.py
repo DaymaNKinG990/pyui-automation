@@ -16,13 +16,13 @@ class PerformanceTester:
     Single Responsibility: Run performance tests and collect results.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize performance tester"""
         pass
 
     def measure_action(
         self,
-        action: Callable,
+        action: Callable[[], None],
         name: Optional[str] = None,
         warmup_runs: int = 1,
         test_runs: int = 5
@@ -59,7 +59,7 @@ class PerformanceTester:
             times.append(end_time - start_time)
 
         return {
-            'name': name or getattr(action, '__name__', 'unknown'),
+            'name': name or str(getattr(action, '__name__', 'unknown')),
             'min_time': min(times),
             'max_time': max(times),
             'avg_time': sum(times) / len(times),
@@ -70,7 +70,7 @@ class PerformanceTester:
 
     def stress_test(
         self,
-        action: Callable,
+        action: Callable[[], None],
         duration: int = 60,
         interval: float = 0.1
     ) -> Dict[str, Union[float, bool]]:
@@ -121,7 +121,7 @@ class PerformanceTester:
 
     def run_stress_test(
         self,
-        action: Callable,
+        action: Callable[[], None],
         duration: float
     ) -> Dict[str, Any]:
         """
@@ -138,7 +138,7 @@ class PerformanceTester:
 
     def benchmark_actions(
         self,
-        actions: Dict[str, Callable],
+        actions: Dict[str, Callable[[], None]],
         test_runs: int = 5
     ) -> Dict[str, Dict[str, Union[str, float]]]:
         """
@@ -164,7 +164,7 @@ class PerformanceTester:
 
     def compare_actions(
         self,
-        actions: Dict[str, Callable],
+        actions: Dict[str, Callable[[], None]],
         test_runs: int = 5
     ) -> Dict[str, Any]:
         """

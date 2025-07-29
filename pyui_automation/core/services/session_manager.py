@@ -9,19 +9,21 @@ Responsible for:
 """
 
 import uuid
-from typing import Dict, Optional, List, Any, override
+from typing import Dict, Optional, List, Any
+from typing_extensions import override
 from logging import getLogger
 
-from .session import AutomationSession
+from .session import AutomationSession as ServicesAutomationSession
 from ..interfaces.isession_manager import ISessionManager
+from ..session import AutomationSession
 
 
 class SessionManager(ISessionManager):
     """Manager for automation sessions"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._logger = getLogger(__name__)
-        self._sessions: Dict[str, AutomationSession] = {}
+        self._sessions: Dict[str, ServicesAutomationSession] = {}
     
     @override
     def create_session(self, backend: Any, locator: Any, session_id: Optional[str] = None) -> "AutomationSession":
@@ -34,11 +36,11 @@ class SessionManager(ISessionManager):
                 self._logger.warning(f"Session {session_id} already exists, returning existing session")
                 return self._sessions[session_id]
             
-            session = AutomationSession(session_id, backend, {"locator": locator})
+            session = ServicesAutomationSession(session_id, backend, {"locator": locator})
             self._sessions[session_id] = session
             self._logger.info(f"Created automation session: {session_id}")
             
-            return session
+            return session  # type: ignore[return-value,no-any-return]
         except Exception as e:
             self._logger.error(f"Failed to create session {session_id}: {e}")
             raise
@@ -52,7 +54,7 @@ class SessionManager(ISessionManager):
                 self._logger.debug(f"Retrieved session: {session_id}")
             else:
                 self._logger.warning(f"Session not found: {session_id}")
-            return session
+            return session  # type: ignore[return-value,no-any-return]
         except Exception as e:
             self._logger.error(f"Failed to get session {session_id}: {e}")
             return None
@@ -137,7 +139,7 @@ class SessionManager(ISessionManager):
         except Exception as e:
             self._logger.error(f"Error during SessionManager cleanup: {e}")
     
-    def __del__(self):
+    def __del__(self) -> None:
         """Destructor to ensure cleanup"""
         try:
             self.cleanup()

@@ -23,7 +23,7 @@ class MemoryLeakDetector:
 
     def check_memory_leaks(
         self, 
-        action: Callable, 
+        action: Callable[[], None], 
         num_iterations: int = 100,
         threshold_mb: float = 10.0
     ) -> Tuple[bool, float]:
@@ -60,7 +60,7 @@ class MemoryLeakDetector:
 
     def memory_leak_test(
         self,
-        action: Callable,
+        action: Callable[[], None],
         num_iterations: int = 100,
         threshold_mb: float = 10.0
     ) -> Dict[str, Any]:
@@ -109,8 +109,8 @@ class MemoryLeakDetector:
                 'memory_usage_history': []
             }
             
-        memory_usage = np.array(memory_usage)
-        memory_growth = memory_usage[-1] - initial_memory
+        memory_usage_array = np.array(memory_usage)
+        memory_growth = memory_usage_array[-1] - initial_memory
         
         # Calculate growth rate using simple linear calculation
         if len(memory_usage) > 1:
@@ -130,14 +130,14 @@ class MemoryLeakDetector:
             'growth_rate_mb_per_iteration': slope / (1024 * 1024),
             'initial_memory_mb': initial_memory / (1024 * 1024),
             'final_memory_mb': memory_usage[-1] / (1024 * 1024),
-            'memory_usage_history': memory_usage.tolist(),
+            'memory_usage_history': memory_usage_array.tolist(),
             'threshold_mb': threshold_mb,
             'iterations': num_iterations
         }
 
     def monitor_memory_growth(
         self,
-        action: Callable,
+        action: Callable[[], None],
         duration: int = 60,
         interval: float = 1.0
     ) -> Dict[str, Any]:
@@ -184,17 +184,17 @@ class MemoryLeakDetector:
                 'timestamps': []
             }
             
-        memory_readings = np.array(memory_readings)
-        timestamps = np.array(timestamps)
+        memory_readings_array = np.array(memory_readings)
+        timestamps_array = np.array(timestamps)
         
         # Calculate growth
-        initial_memory = memory_readings[0]
-        final_memory = memory_readings[-1]
+        initial_memory = memory_readings_array[0]
+        final_memory = memory_readings_array[-1]
         total_growth = final_memory - initial_memory
         
         # Calculate growth rate
-        if len(timestamps) > 1:
-            duration_seconds = timestamps[-1] - timestamps[0]
+        if len(timestamps_array) > 1:
+            duration_seconds = timestamps_array[-1] - timestamps_array[0]
             growth_rate = total_growth / duration_seconds if duration_seconds > 0 else 0.0
         else:
             growth_rate = 0.0
@@ -205,8 +205,8 @@ class MemoryLeakDetector:
             'growth_rate_mb_per_second': growth_rate / (1024 * 1024),
             'initial_memory_mb': initial_memory / (1024 * 1024),
             'final_memory_mb': final_memory / (1024 * 1024),
-            'memory_readings': memory_readings.tolist(),
-            'timestamps': timestamps.tolist(),
+            'memory_readings': memory_readings_array.tolist(),
+            'timestamps': timestamps_array.tolist(),
             'duration_seconds': timestamps[-1] - timestamps[0] if len(timestamps) > 1 else 0.0
         }
 

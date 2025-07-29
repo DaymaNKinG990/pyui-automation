@@ -5,11 +5,14 @@ This module provides functionality to find elements and their children
 based on various properties and attributes.
 """
 # Python imports
-from typing import Any, List, Optional, Callable
+from typing import Any, List, Optional, Callable, TYPE_CHECKING
 from logging import getLogger
 
 # Local imports
 from .properties import Property, ELEMENT_PROPERTIES, StringProperty, BoolProperty
+
+if TYPE_CHECKING:
+    from .base_element import BaseElement
 
 
 class ElementFinder:
@@ -25,7 +28,7 @@ class ElementFinder:
         self._element = element
         self._logger = getLogger(__name__)
     
-    def find_child_by_property(self, property_name: str, value: Any, property_type=None):
+    def find_child_by_property(self, property_name: str, value: Any, property_type: Optional[type[Property]] = None) -> Optional[Any]:
         """Find first child by property value"""
         children = self._get_children()
         for child in children:
@@ -33,7 +36,7 @@ class ElementFinder:
                 if child.get_property(property_name) == value:
                     return child
             else:
-                prop = StringProperty(child, property_name)
+                prop = StringProperty(property_name, child)
                 if prop.get_value() == value:
                     return child
         return None
@@ -43,7 +46,7 @@ class ElementFinder:
         property_name: str,
         expected_value: Any,
         property_type: Optional[type[Property]] = None
-    ) -> List[Any]:
+    ) -> List["BaseElement"]:
         """
         Find all child elements by property value.
         
@@ -81,7 +84,7 @@ class ElementFinder:
             self._logger.error(f"Failed to find children by property: {property_name}")
             return []
     
-    def find_child_by_predicate(self, predicate: Callable[[Any], bool]) -> Optional[Any]:
+    def find_child_by_predicate(self, predicate: Callable[["BaseElement"], bool]) -> Optional[Any]:
         """
         Find child element using custom predicate function.
         
@@ -108,7 +111,7 @@ class ElementFinder:
             self._logger.error("Failed to find child by predicate")
             return None
     
-    def find_children_by_predicate(self, predicate: Callable[[Any], bool]) -> List[Any]:
+    def find_children_by_predicate(self, predicate: Callable[["BaseElement"], bool]) -> List["BaseElement"]:
         """
         Find all child elements using custom predicate function.
         
@@ -149,7 +152,7 @@ class ElementFinder:
         Returns:
             Found child element or None
         """
-        def text_predicate(child: Any) -> bool:
+        def text_predicate(child: "BaseElement") -> bool:
             try:
                 child_text = StringProperty('text', child).get_value()
                 if not case_sensitive:
@@ -171,7 +174,7 @@ class ElementFinder:
         self._logger.debug(f"Finding child by text: {text}")
         return self.find_child_by_predicate(text_predicate)
     
-    def find_children_by_text(self, text: str, exact_match: bool = True, case_sensitive: bool = True) -> List[Any]:
+    def find_children_by_text(self, text: str, exact_match: bool = True, case_sensitive: bool = True) -> List["BaseElement"]:
         """
         Find all child elements by text content.
         
@@ -183,7 +186,7 @@ class ElementFinder:
         Returns:
             List of found child elements
         """
-        def text_predicate(child: Any) -> bool:
+        def text_predicate(child: "BaseElement") -> bool:
             try:
                 child_text = StringProperty('text', child).get_value()
                 if not case_sensitive:
@@ -216,7 +219,7 @@ class ElementFinder:
         Returns:
             Found child element or None
         """
-        def name_predicate(child: Any) -> bool:
+        def name_predicate(child: "BaseElement") -> bool:
             try:
                 child_name = StringProperty('name', child).get_value()
                 if exact_match:
@@ -232,7 +235,7 @@ class ElementFinder:
         self._logger.debug(f"Finding child by name: {name}")
         return self.find_child_by_predicate(name_predicate)
     
-    def find_children_by_name(self, name: str, exact_match: bool = True) -> List[Any]:
+    def find_children_by_name(self, name: str, exact_match: bool = True) -> List["BaseElement"]:
         """
         Find all child elements by name.
         
@@ -243,7 +246,7 @@ class ElementFinder:
         Returns:
             List of found child elements
         """
-        def name_predicate(child: Any) -> bool:
+        def name_predicate(child: "BaseElement") -> bool:
             try:
                 child_name = StringProperty('name', child).get_value()
                 if exact_match:
@@ -259,27 +262,27 @@ class ElementFinder:
         self._logger.debug(f"Finding children by name: {name}")
         return self.find_children_by_predicate(name_predicate)
     
-    def find_child_by_automation_id(self, automation_id: str):
+    def find_child_by_automation_id(self, automation_id: str) -> Optional[Any]:
         """Find child by automation ID using StringProperty"""
         self._logger.debug(f"Finding child by automation ID: {automation_id}")
         children = self._get_children()
         for child in children:
-            prop = StringProperty(child, 'automation_id')
+            prop = StringProperty('automation_id', child)
             if prop.get_value() == automation_id:
                 return child
         return None
 
-    def find_child_by_control_type(self, control_type: str):
+    def find_child_by_control_type(self, control_type: str) -> Optional[Any]:
         """Find child by control type using StringProperty"""
         self._logger.debug(f"Finding child by control type: {control_type}")
         children = self._get_children()
         for child in children:
-            prop = StringProperty(child, 'control_type')
+            prop = StringProperty('control_type', child)
             if prop.get_value() == control_type:
                 return child
         return None
     
-    def find_children_by_control_type(self, control_type: str) -> List[Any]:
+    def find_children_by_control_type(self, control_type: str) -> List["BaseElement"]:
         """
         Find all child elements by control type.
         
@@ -292,7 +295,7 @@ class ElementFinder:
         self._logger.debug(f"Finding children by control type: {control_type}")
         return self.find_children_by_property('control_type', control_type, StringProperty)
     
-    def find_children_by_automation_id(self, automation_id: str) -> List[Any]:
+    def find_children_by_automation_id(self, automation_id: str) -> List["BaseElement"]:
         """
         Find all child elements by automation ID.
         
@@ -305,7 +308,7 @@ class ElementFinder:
         self._logger.debug(f"Finding children by automation ID: {automation_id}")
         return self.find_children_by_property('automation_id', automation_id, StringProperty)
     
-    def find_visible_children(self) -> List[Any]:
+    def find_visible_children(self) -> List["BaseElement"]:
         """
         Find all visible child elements.
         
@@ -315,23 +318,15 @@ class ElementFinder:
         self._logger.debug("Finding visible children")
         return self.find_children_by_property('visible', True, BoolProperty)
     
-    def find_enabled_children(self) -> List[Any]:
+    def find_enabled_children(self) -> List["BaseElement"]:
         """
         Find all enabled child elements.
         
         Returns:
             List of enabled child elements
         """
-        def enabled_predicate(child: Any) -> bool:
-            try:
-                self._logger.debug(f"Checking if child is enabled: {child}")
-                return hasattr(child, 'is_enabled') and child.is_enabled()
-            except Exception:
-                self._logger.error("Failed to find enabled children")
-                return False
-        
         self._logger.debug("Finding enabled children")
-        return self.find_children_by_predicate(enabled_predicate)
+        return self.find_children_by_property('enabled', True, BoolProperty)
     
     def _get_children(self) -> List[Any]:
         """
@@ -343,10 +338,12 @@ class ElementFinder:
         try:
             if hasattr(self._element, 'get_children'):
                 self._logger.debug("Using get_children method")
-                return self._element.get_children()
+                children = self._element.get_children()
+                return children if children is not None else []
             elif hasattr(self._element, 'children'):
                 self._logger.debug("Using children attribute")
-                return self._element.children
+                children = self._element.children
+                return children if children is not None else []
             elif hasattr(self._element, 'findall'):
                 # Generic findall method
                 self._logger.debug("Using findall method")
@@ -355,7 +352,8 @@ class ElementFinder:
             elif hasattr(self._element, 'FindAll'):
                 # Windows UIA
                 self._logger.debug("Using FindAll method")
-                return list(self._element.FindAll())
+                result = self._element.FindAll()
+                return list(result) if result is not None else []
             else:
                 self._logger.debug("No children found")
                 return []
