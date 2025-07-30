@@ -14,7 +14,7 @@ from .interfaces import (
     IElementDiscoveryService, IScreenshotService, IVisualTestingService, IInputService, IElement
 )
 from ..locators.interfaces import IBackendForLocator
-from .session import AutomationSession
+from .services.session import AutomationSession
 from .config import AutomationConfig
 
 

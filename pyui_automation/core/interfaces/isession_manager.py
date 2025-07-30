@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..session import AutomationSession
+    from ..services.session import AutomationSession
 
 
 class ISessionManager(ABC):

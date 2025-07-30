@@ -223,7 +223,7 @@ class OptimizationManager:
                 import os
                 # Note: os.nice is not available on Windows
                 if hasattr(os, 'nice'):
-                    os.nice(-10)
+                    os.nice(-10)  # type: ignore[attr-defined]
             except (OSError, AttributeError):
                 pass
 

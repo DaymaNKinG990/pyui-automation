@@ -240,8 +240,8 @@ class TestValidateAny:
         """Test validate_any with all validators failing"""
         validators: List[Callable[[Any], bool]] = [
             lambda x: isinstance(x, str),
-            lambda x: len(x) > 10,
-            lambda x: x.isalpha()
+            lambda x: x > 50,  # This will fail for int 25
+            lambda x: isinstance(x, list)
         ]
         assert validate_any(validators, 25) is False
     

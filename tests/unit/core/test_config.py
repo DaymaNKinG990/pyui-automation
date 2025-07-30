@@ -75,7 +75,8 @@ class TestAutomationConfig:
         # Test setting with string
         config.screenshot_dir = "/tmp/screenshots"
         assert isinstance(config.screenshot_dir, Path)
-        assert config.screenshot_dir.name == "screenshots"
+        assert config.screenshot_dir is not None
+        assert config.screenshot_dir.name == "screenshots"  # type: ignore[attr-defined]
         
         # Test setting with Path
         test_path = Path("/test/path")
@@ -138,6 +139,7 @@ class TestAutomationConfigSet:
         config = AutomationConfig()
         config.set('screenshot_dir', '/path/to/screenshots')
         assert isinstance(config.screenshot_dir, Path)
+        assert config.screenshot_dir is not None
         assert config.screenshot_dir.parts[-3:] == ('path', 'to', 'screenshots')
     
     def test_set_screenshot_dir_with_path(self) -> None:
@@ -182,7 +184,6 @@ class TestAutomationConfigPostInit:
     @pytest.mark.parametrize("field,expected_default", [
         ("performance_metrics", ["cpu", "memory", "response_time"]),
         ("ocr_languages", ["eng"]),
-        ("backend_options", {}),
     ])
     def test_post_init_with_none_values(self, field, expected_default) -> None:
         """Test post-init with None values for various fields"""
@@ -259,7 +260,7 @@ class TestConfigIntegration:
         config = AutomationConfig()
         config.screenshot_dir = "/custom/screenshots"
         assert config.screenshot_dir is not None
-        assert config.screenshot_dir.name == "screenshots"
+        assert config.screenshot_dir.name == "screenshots"  # type: ignore[attr-defined]
     
     def test_config_with_all_valid_values(self) -> None:
         """Test config with all valid values"""

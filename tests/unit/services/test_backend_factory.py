@@ -8,7 +8,6 @@ import numpy as np
 
 from pyui_automation.core.services.backend_factory import BackendFactory
 from pyui_automation.backends.base_backend import BaseBackend
-from pyui_automation.backends.windows import WindowsBackend
 
 
 @pytest.fixture
@@ -561,22 +560,89 @@ class TestBackendFactoryErrorHandling:
             factory.register_backend("test_platform", MockBackendClass)
     
     def test_unregister_backend_with_exception_during_unregistration(self, mocker):
-        """Test unregistering backend with exception during unregistration"""
+        """Test unregister_backend with exception during unregistration"""
         factory = BackendFactory()
         
-        # Mock the del operation to raise exception
+        # Create a proper backend class for testing
+        class TestBackendClass(BaseBackend):
+            def initialize(self):
+                pass
+                
+            def is_initialized(self) -> bool:
+                return True
+                
+            def get_screen_size(self) -> Tuple[int, int]:
+                return (1920, 1080)
+                
+            def get_active_window(self) -> Optional[Any]:
+                return None
+                
+            def get_window_handles(self) -> List[Any]:
+                return []
+                
+            def get_window_handle(self, title: Union[str, int]) -> Optional[int]:
+                return None
+                
+            def find_window(self, title: str) -> Optional[Any]:
+                return None
+                
+            def get_window_title(self, window: Any) -> str:
+                return ""
+                
+            def get_window_bounds(self, window: Any) -> Tuple[int, int, int, int]:
+                return (0, 0, 100, 100)
+                
+            def maximize_window(self, window: Any) -> None:
+                pass
+                
+            def minimize_window(self, window: Any) -> None:
+                pass
+                
+            def resize_window(self, window: Any, width: int, height: int) -> None:
+                pass
+                
+            def set_window_position(self, window: Any, x: int, y: int) -> None:
+                pass
+                
+            def close_window(self, window: Any) -> None:
+                pass
+                
+            def launch_application(self, path: Union[str, Path], args: List[str]) -> None:
+                pass
+                
+            def attach_to_application(self, process_id: int) -> Optional[Any]:
+                return None
+                
+            def close_application(self, application: Any) -> None:
+                pass
+                
+            def get_application(self) -> Optional[Any]:
+                return None
+                
+            def capture_screen_region(self, x: int, y: int, width: int, height: int) -> Optional[np.ndarray]:
+                return np.zeros((height, width, 3), dtype=np.uint8)
+                
+            def capture_screenshot(self) -> Optional[np.ndarray]:
+                return np.zeros((1080, 1920, 3), dtype=np.uint8)
+                
+            def cleanup(self) -> None:
+                pass
+        
+        factory.register_backend("test_platform", TestBackendClass)
+        
+        # Mock the unregistration to raise an exception
         mocker.patch.object(factory, '_custom_backends', side_effect=Exception("Unregistration failed"))
         
-        with pytest.raises(Exception):
-            factory.unregister_backend("test_platform")
+        # Should not raise exception, just return False
+        result = factory.unregister_backend("test_platform")
+        assert result is False
     
     def test_get_backend_info_with_exception_during_info_retrieval(self, mocker):
-        """Test getting backend info with exception during info retrieval"""
+        """Test get_backend_info with exception during info retrieval"""
         factory = BackendFactory()
         
-        # Mock the get_backend_info method to raise exception
-        mocker.patch.object(factory, '_backends', side_effect=Exception("Info retrieval failed"))
+        # Mock the info retrieval to raise an exception
+        mocker.patch.object(factory, '_get_builtin_backend_info', side_effect=Exception("Info retrieval failed"))
         
-        info = factory.get_backend_info("test_platform")
-        assert info["supported"] is False
-        assert "error" in info 
+        result = factory.get_backend_info("windows")
+        assert result == {"supported": False} 

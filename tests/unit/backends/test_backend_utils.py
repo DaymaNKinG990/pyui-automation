@@ -26,7 +26,7 @@ class TestValidOcrLanguages:
         languages = ValidOcrLanguages()
         # Проверяем что tuple действительно неизменяемый
         with pytest.raises(TypeError):
-            languages.languages[0] = "invalid"
+            languages.languages[0] = "invalid"  # type: ignore
     
     def test_frozen_dataclass(self, mocker):
         """Test that dataclass is frozen and cannot be modified"""
@@ -34,7 +34,7 @@ class TestValidOcrLanguages:
         
         # Проверяем что нельзя изменять атрибуты frozen dataclass
         with pytest.raises(dataclasses.FrozenInstanceError):
-            languages.languages = ("new", "langs")
+            languages.languages = ("new", "langs")  # type: ignore
     
     def test_empty_languages(self):
         """Test with empty languages tuple"""
@@ -56,7 +56,7 @@ class TestValidOcrLanguages:
         # Проверяем что tuple действительно неизменяемый
         # Попытка изменить элемент tuple должна вызвать ошибку
         with pytest.raises(TypeError):
-            languages.languages[0] = "deu"
+            languages.languages[0] = "deu"  # type: ignore
     
     def test_dataclass_repr(self):
         """Test dataclass string representation"""

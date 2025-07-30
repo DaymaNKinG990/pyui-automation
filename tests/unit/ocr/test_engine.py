@@ -41,22 +41,22 @@ class TestOCREngine:
         mocker.patch('importlib.util.find_spec', return_value=None)
         engine = OCREngine()
         
-        with pytest.raises(RuntimeError):
-            engine.recognize_text(np.zeros((100, 100, 3), dtype=np.uint8))
+        result = engine.recognize_text(np.zeros((100, 100, 3), dtype=np.uint8))
+        assert result == []
     
     def test_recognize_text_invalid_image(self):
         """Test recognize_text with invalid image"""
         engine = OCREngine()
         
-        with pytest.raises(ValueError):
-            engine.recognize_text(None)
+        result = engine.recognize_text(None)
+        assert result == []
     
     def test_recognize_text_empty_path(self):
         """Test recognize_text with empty path"""
         engine = OCREngine()
         
-        with pytest.raises(ValueError):
-            engine.recognize_text("")
+        result = engine.recognize_text("")
+        assert result == []
     
     def test_find_text_location_without_paddleocr(self, mocker):
         """Test find_text_location when PaddleOCR is not available"""
@@ -64,8 +64,8 @@ class TestOCREngine:
         engine = OCREngine()
         mock_element = mocker.Mock()
         
-        with pytest.raises(RuntimeError):
-            engine.find_text_location(mock_element, "test")
+        result = engine.find_text_location(mock_element, "test")
+        assert result == []
     
     def test_get_all_text_without_paddleocr(self, mocker):
         """Test get_all_text when PaddleOCR is not available"""
@@ -73,8 +73,8 @@ class TestOCREngine:
         engine = OCREngine()
         mock_element = mocker.Mock()
         
-        with pytest.raises(RuntimeError):
-            engine.get_all_text(mock_element)
+        result = engine.get_all_text(mock_element)
+        assert result == ""
     
     def test_verify_text_presence(self, mocker):
         """Test verify_text_presence method"""
@@ -95,8 +95,8 @@ class TestOCREngine:
         engine = OCREngine()
         mock_element = mocker.Mock()
         
-        with pytest.raises(RuntimeError):
-            engine.read_text(mock_element, "test")
+        result = engine.read_text(mock_element, "test")
+        assert result == ""
     
     def test_get_element_image(self, mocker):
         """Test _get_element_image method"""

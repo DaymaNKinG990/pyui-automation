@@ -411,16 +411,16 @@ def performance_benchmark() -> Generator[dict, None, None]:
     }
     
     def start_benchmark():
-        benchmark_data["start_time"] = time.time()
+        benchmark_data["start_time"] = time.time()  # type: ignore
         # Could add memory monitoring here
     
     def end_benchmark():
-        benchmark_data["end_time"] = time.time()
-        benchmark_data["duration"] = benchmark_data["end_time"] - benchmark_data["start_time"]
+        benchmark_data["end_time"] = time.time()  # type: ignore
+        benchmark_data["duration"] = benchmark_data["end_time"] - benchmark_data["start_time"]  # type: ignore
         # Could add memory monitoring here
     
-    benchmark_data["start"] = start_benchmark
-    benchmark_data["end"] = end_benchmark
+    benchmark_data["start"] = start_benchmark  # type: ignore
+    benchmark_data["end"] = end_benchmark  # type: ignore
     
     yield benchmark_data
 

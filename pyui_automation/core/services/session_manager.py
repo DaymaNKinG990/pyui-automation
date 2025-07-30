@@ -15,7 +15,6 @@ from logging import getLogger
 
 from .session import AutomationSession as ServicesAutomationSession
 from ..interfaces.isession_manager import ISessionManager
-from ..session import AutomationSession
 
 
 class SessionManager(ISessionManager):
@@ -26,7 +25,7 @@ class SessionManager(ISessionManager):
         self._sessions: Dict[str, ServicesAutomationSession] = {}
     
     @override
-    def create_session(self, backend: Any, locator: Any, session_id: Optional[str] = None) -> "AutomationSession":
+    def create_session(self, backend: Any, locator: Any, session_id: Optional[str] = None) -> ServicesAutomationSession:
         """Create a new automation session"""
         try:
             if session_id is None:
@@ -46,7 +45,7 @@ class SessionManager(ISessionManager):
             raise
     
     @override
-    def get_session(self, session_id: str) -> Optional["AutomationSession"]:
+    def get_session(self, session_id: str) -> Optional[ServicesAutomationSession]:
         """Get existing session by ID"""
         try:
             session = self._sessions.get(session_id)

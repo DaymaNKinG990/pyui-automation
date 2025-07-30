@@ -14,6 +14,7 @@ from logging import getLogger
 
 from ...backends.base_backend import BaseBackend
 from ...backends.windows import WindowsBackend
+from ...backends.backend_utils import OcrLanguage
 try:
     from ...backends.linux import LinuxBackend
 except ImportError:
@@ -127,4 +128,19 @@ class BackendFactory(IBackendFactory):
             }
         except Exception as e:
             self._logger.error(f"Failed to get backend info for {platform_name}: {e}")
-            return {"supported": False, "error": str(e)} 
+            return {"supported": False, "error": str(e)}
+    
+    def get_supported_ocr_languages(self) -> List[str]:
+        """Get list of supported OCR languages"""
+        return [lang.value for lang in OcrLanguage.__members__.values()]
+    
+    def is_ocr_language_supported(self, language_code: str) -> bool:
+        """Check if OCR language is supported"""
+        return language_code in self.get_supported_ocr_languages()
+    
+    def get_ocr_language_name(self, language_code: str) -> str:
+        """Get display name for OCR language code"""
+        for lang in OcrLanguage.__members__.values():
+            if lang.value == language_code:
+                return lang.name.replace("_", " ").title()
+        return language_code 

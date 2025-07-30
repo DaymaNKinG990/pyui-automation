@@ -1,12 +1,12 @@
-# Python libraries
+# Python imports
 from abc import abstractmethod
 from typing import Optional, List, Any, Tuple, Union
 import numpy as np
 from pathlib import Path
 from logging import getLogger
-
 from numpy.typing import NDArray
 
+# Local imports
 from ..core.interfaces import IBackend
 from ..locators.interfaces import IBackendForLocator
 
@@ -42,7 +42,6 @@ class BaseBackend(IBackend, IBackendForLocator):
         """Get current application instance"""
         return self._current_app
 
-    # Lifecycle methods
     @abstractmethod
     def initialize(self) -> None:
         """Initialize backend"""
@@ -53,13 +52,11 @@ class BaseBackend(IBackend, IBackendForLocator):
         """Check if backend is initialized"""
         pass
 
-    # Core platform operations
     @abstractmethod
     def get_screen_size(self) -> Tuple[int, int]:
         """Get screen dimensions"""
         pass
 
-    # Window management
     @abstractmethod
     def get_active_window(self) -> Optional[Any]:
         """Get currently active window"""
@@ -115,7 +112,6 @@ class BaseBackend(IBackend, IBackendForLocator):
         """Close window"""
         pass
 
-    # Application management
     @abstractmethod
     def launch_application(self, path: Union[str, Path], args: List[str]) -> None:
         """Launch application"""
@@ -136,7 +132,6 @@ class BaseBackend(IBackend, IBackendForLocator):
         """Get current application"""
         pass
 
-    # Element operations (basic platform-specific)
     @abstractmethod
     def capture_screen_region(self, x: int, y: int, width: int, height: int) -> Optional[NDArray[np.uint8]]:
         """Capture screenshot of specific screen region"""
@@ -147,13 +142,11 @@ class BaseBackend(IBackend, IBackendForLocator):
         """Capture full screenshot as numpy array"""
         pass
 
-    # Utility methods
     @abstractmethod
     def cleanup(self) -> None:
         """Cleanup backend resources"""
         pass
 
-    # Methods for IBackendForLocator compatibility
     @property
     def root(self) -> Any:
         """Get root element - to be implemented by subclasses"""
